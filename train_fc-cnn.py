@@ -1,6 +1,6 @@
 import argparse
 import tensorflow as tf
-from fc_cnn import model, input
+from doc_seg import model, input
 import os
 import better_exceptions
 from tqdm import trange
