@@ -7,7 +7,7 @@ from . import utils
 
 
 def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_folder=None, classes_file=None,
-             data_augmentation=False, resized_size=(688, 1024), batch_size=1, num_epochs=None, num_threads=4,
+             data_augmentation=False, resized_size=(300, 300), batch_size=5, num_epochs=None, num_threads=4,
              image_summaries=False):
     # Finding the list of images to be used
     input_images = glob(os.path.join(input_folder, '**', '*.jpg'), recursive=True) + \
@@ -16,7 +16,8 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
 
     # Finding the list of labelled images if available
     if label_images_folder:
-        assert classes_file is not None, "Needs a classes_file if training"
+        if prediction_type == utils.PredictionType.CLASSIFICATION:
+            assert classes_file is not None, "Needs a classes_file if training"
         label_images = []
         for input_image_filename in input_images:
             label_image_filename = os.path.join(label_images_folder, os.path.basename(input_image_filename))
@@ -27,7 +28,12 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
     # Helper loading function
     def load_image(filename):
         with tf.name_scope('load_resize_img'):
-            decoded_image = tf.image.decode_jpeg(tf.read_file(filename), channels=3)
+            if prediction_type == utils.PredictionType.CLASSIFICATION:
+                decoded_image = tf.image.decode_jpeg(tf.read_file(filename), channels=3)
+            elif prediction_type == utils.PredictionType.REGRESSION:
+                decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=1))
+            else:
+                raise NotImplementedError
             return decoded_image
 
     # Tensorflow input_fn
@@ -47,21 +53,30 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
             if data_augmentation:
                 input_image, label_image = data_augmentation_fn(input_image, label_image)
 
-            # TODO resize here? extract patches from the images? tf.extract_image_patches
-            #  see https://stackoverflow.com/questions/40731433/understanding-tf-extract-image-patches-for-extracting-patches-from-an-image
-            input_image = tf.image.resize_images(input_image, resized_size)
-            label_image = tf.image.resize_images(label_image, resized_size,
-                                                 method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+            patch_shape = resized_size
+            if data_augmentation:
+                offsets = (tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32),
+                           tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32))
+            else:
+                offsets = (0, 0)
+
+            patches_image = extract_patches_fn(input_image, patch_shape, offsets)
+            patches_label = extract_patches_fn(label_image, patch_shape, offsets)
+
+            # #  see https://stackoverflow.com/questions/40731433/understanding-tf-extract-image-patches-for-extracting-patches-from-an-image
+            # input_image = tf.image.resize_images(input_image, resized_size)
+            # label_image = tf.image.resize_images(label_image, resized_size,
+            #                                      method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
             if prediction_type == utils.PredictionType.CLASSIFICATION:
                 # Convert RGB to class id
-                label_image = utils.label_image_to_class(label_image, classes_file)
-            to_batch = {'images': input_image, 'labels': label_image}
+                patches_label = utils.label_image_to_class(patches_label, classes_file)
+            to_batch = {'images': patches_image, 'labels': patches_label}
 
         # Batch the preprocessed images
         prepared_batch = tf.train.shuffle_batch(to_batch, batch_size=batch_size, num_threads=num_threads,
-                                                min_after_dequeue=200, capacity=3 * batch_size * num_threads,
-                                                allow_smaller_final_batch=True)
+                                                min_after_dequeue=100, capacity=max(3 * batch_size * num_threads, 1.5*100),
+                                                allow_smaller_final_batch=True, enqueue_many=True)
 
         # Summaries for checking that the loading and data augmentation goes fine
         if image_summaries:
@@ -93,9 +108,12 @@ def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor) -> (tf.
         rotation_angle = tf.random_uniform([], -0.05, 0.05)
         label_image = rotate_crop(label_image, rotation_angle, interpolation='NEAREST')
         input_image = rotate_crop(input_image, rotation_angle, interpolation='BILINEAR')
+
+    chanels = input_image.get_shape()[-1]
     input_image = tf.image.random_contrast(input_image, lower=0.8, upper=1.0)
-    input_image = tf.image.random_hue(input_image, max_delta=0.1)
-    input_image = tf.image.random_saturation(input_image, lower=0.8, upper=1.2)
+    if chanels == 3:
+        input_image = tf.image.random_hue(input_image, max_delta=0.1)
+        input_image = tf.image.random_saturation(input_image, lower=0.8, upper=1.2)
     return input_image, label_image
 
 
@@ -116,3 +134,24 @@ def rotate_crop(img, rotation, crop=True, interpolation='NEAREST'):
             bb_begin = tf.cast(tf.ceil((h - new_h) / 2), tf.int32), tf.cast(tf.ceil((w - new_w) / 2), tf.int32)
             rotated_image = rotated_image[bb_begin[0]:h - bb_begin[0], bb_begin[1]:w - bb_begin[1], :]
         return rotated_image
+
+
+def extract_patches_fn(image, patch_shape, offsets):
+    """
+    :param image: tf.Tensor
+    :param patch_shape: [h, w]
+    :param offsets: tuple between 0 and 1
+    :return: patches [batch_patches, h, w, c]
+    """
+    h, w = patch_shape
+    c = image.get_shape()[-1]
+
+    offset_h = tf.cast(tf.round(offsets[0] * h // 2), dtype=tf.int32)
+    offset_w = tf.cast(tf.round(offsets[1] * w // 2), dtype=tf.int32)
+    offset_img = image[offset_h:, offset_w:, :]
+    offset_img = offset_img[None, :, :, :]
+
+    patches = tf.extract_image_patches(offset_img, ksizes=[1, h, w, 1], strides=[1, h // 2, w // 2, 1],
+                                       rates=[1, 1, 1, 1], padding='VALID')
+    patches_shape = tf.shape(patches)
+    return tf.reshape(patches, [tf.reduce_prod(patches_shape[0:3]), h, w, int(c)])  # returns [batch_patches, h, w, c]

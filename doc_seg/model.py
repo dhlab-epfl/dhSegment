@@ -10,7 +10,7 @@ def model_fn(mode, features, labels, params):
     prediction_type = params['prediction_type']
 
     network_output = inference(features['images'], model_params, num_classes,
-                       is_training=(mode == tf.estimator.ModeKeys.TRAIN))
+                               is_training=(mode == tf.estimator.ModeKeys.TRAIN))
 
     # Prediction
     if prediction_type == PredictionType.CLASSIFICATION:
@@ -57,6 +57,13 @@ def model_fn(mode, features, labels, params):
     else:
         ema_loss, train_op = None, None
 
+    if prediction_type == PredictionType.CLASSIFICATION:
+        prediction_labels = prediction_labels
+    elif prediction_type == PredictionType.REGRESSION:
+        prediction_labels = network_output
+    else:
+        raise NotImplementedError
+
     # Evaluation
     if mode == tf.estimator.ModeKeys.EVAL:
         if prediction_type == PredictionType.CLASSIFICATION:
@@ -78,11 +85,11 @@ def model_fn(mode, features, labels, params):
                                       )
 
 
-def inference(images, layer_params, num_classes, is_training=False, use_batch_norm=False, weight_decay=0.0):
+def inference(images, all_layer_params, num_classes, is_training=False, use_batch_norm=False, weight_decay=0.0):
     """
 
     :param images: images tensor
-    :param layer_params: List of List of Tuple(nb_filters, filter_size)
+    :param all_layer_params: List of List of Tuple(nb_filters, filter_size)
     :param num_classes: Dimension of the output for each pixel
     :param is_training:
     :param use_batch_norm:
@@ -103,7 +110,7 @@ def inference(images, layer_params, num_classes, is_training=False, use_batch_no
 
     def upsample_conv(pooled_layer, previous_layer, layer_params, number):
         with tf.name_scope('upsample{}'.format(number)):
-            if previous_layer.get_shape()[1] and previous_layer.get_shape()[2]:
+            if previous_layer.get_shape()[1].value and previous_layer.get_shape()[2].value:
                 target_shape = previous_layer.get_shape()[1:3]
             else:
                 target_shape = tf.shape(previous_layer)[1:3]
@@ -127,14 +134,14 @@ def inference(images, layer_params, num_classes, is_training=False, use_batch_no
             intermediate_levels = []
             current_tensor = images
             n_layer = 1
-            for layer_params in layer_params:
+            for layer_params in all_layer_params:
                 intermediate_levels.append(current_tensor)
                 current_tensor = conv_pool(current_tensor, layer_params, n_layer)
                 n_layer += 1
 
             for i in reversed(range(len(intermediate_levels))):
                 current_tensor = upsample_conv(current_tensor, intermediate_levels[i],
-                                               reversed(layer_params[i]), n_layer)
+                                               reversed(all_layer_params[i]), n_layer)
                 n_layer += 1
 
             logits = layers.conv2d(
