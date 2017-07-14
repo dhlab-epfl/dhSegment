@@ -22,33 +22,39 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
         for input_image_filename in input_images:
             label_image_filename = os.path.join(label_images_folder, os.path.basename(input_image_filename))
             if not os.path.exists(label_image_filename):
-                raise FileNotFoundError(label_image_filename)
+                filename, extension = os.path.splitext(os.path.basename(input_image_filename))
+                new_extension = '.png' if extension == '.jpg' else '.jpg'
+                label_image_filename = os.path.join(label_images_folder, filename + new_extension)
+                if not os.path.exists(label_image_filename):
+                    raise FileNotFoundError(label_image_filename)
+
             label_images.append(label_image_filename)
 
     # Helper loading function
-    def load_image(filename):
+    def load_image(filename, channels):
         with tf.name_scope('load_resize_img'):
-            if prediction_type == utils.PredictionType.CLASSIFICATION:
-                decoded_image = tf.image.decode_jpeg(tf.read_file(filename), channels=3)
-            elif prediction_type == utils.PredictionType.REGRESSION:
-                decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=1))
-            else:
-                raise NotImplementedError
+            decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=channels))
+
             return decoded_image
 
     # Tensorflow input_fn
     def fn():
         if not label_images_folder:
             image_filename = tf.train.string_input_producer(input_images, num_epochs=num_epochs).dequeue()
-            to_batch = {'images': tf.image.resize_images(load_image(image_filename), resized_size)}
+            to_batch = {'images': tf.image.resize_images(load_image(image_filename, 3), resized_size)}
         else:
             # Get one filename of each
             image_filename, label_filename = tf.train.slice_input_producer([input_images, label_images],
                                                                            num_epochs=num_epochs,
                                                                            shuffle=True)
             # Read and resize the images
-            label_image = load_image(label_filename)
-            input_image = load_image(image_filename)
+            if prediction_type == utils.PredictionType.CLASSIFICATION:
+                label_image = load_image(label_filename, 3)
+            elif prediction_type == utils.PredictionType.REGRESSION:
+                label_image = load_image(label_filename, 1)
+            else:
+                raise NotImplementedError
+            input_image = load_image(image_filename, 3)
             # Parallel data augmentation
             if data_augmentation:
                 input_image, label_image = data_augmentation_fn(input_image, label_image)
@@ -74,8 +80,10 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
             to_batch = {'images': patches_image, 'labels': patches_label}
 
         # Batch the preprocessed images
+        min_after_dequeue = 50
         prepared_batch = tf.train.shuffle_batch(to_batch, batch_size=batch_size, num_threads=num_threads,
-                                                min_after_dequeue=100, capacity=max(3 * batch_size * num_threads, 1.5*100),
+                                                min_after_dequeue=min_after_dequeue,
+                                                capacity=max(3 * batch_size * num_threads, 1.5*min_after_dequeue),
                                                 allow_smaller_final_batch=True, enqueue_many=True)
 
         # Summaries for checking that the loading and data augmentation goes fine
@@ -136,22 +144,23 @@ def rotate_crop(img, rotation, crop=True, interpolation='NEAREST'):
         return rotated_image
 
 
-def extract_patches_fn(image, patch_shape, offsets):
+def extract_patches_fn(image: tf.Tensor, patch_shape: list, offsets) -> tf.Tensor:
     """
     :param image: tf.Tensor
     :param patch_shape: [h, w]
     :param offsets: tuple between 0 and 1
     :return: patches [batch_patches, h, w, c]
     """
-    h, w = patch_shape
-    c = image.get_shape()[-1]
+    with tf.name_scope('patch_extraction'):
+        h, w = patch_shape
+        c = image.get_shape()[-1]
 
-    offset_h = tf.cast(tf.round(offsets[0] * h // 2), dtype=tf.int32)
-    offset_w = tf.cast(tf.round(offsets[1] * w // 2), dtype=tf.int32)
-    offset_img = image[offset_h:, offset_w:, :]
-    offset_img = offset_img[None, :, :, :]
+        offset_h = tf.cast(tf.round(offsets[0] * h // 2), dtype=tf.int32)
+        offset_w = tf.cast(tf.round(offsets[1] * w // 2), dtype=tf.int32)
+        offset_img = image[offset_h:, offset_w:, :]
+        offset_img = offset_img[None, :, :, :]
 
-    patches = tf.extract_image_patches(offset_img, ksizes=[1, h, w, 1], strides=[1, h // 2, w // 2, 1],
-                                       rates=[1, 1, 1, 1], padding='VALID')
-    patches_shape = tf.shape(patches)
-    return tf.reshape(patches, [tf.reduce_prod(patches_shape[0:3]), h, w, int(c)])  # returns [batch_patches, h, w, c]
+        patches = tf.extract_image_patches(offset_img, ksizes=[1, h, w, 1], strides=[1, h // 2, w // 2, 1],
+                                           rates=[1, 1, 1, 1], padding='VALID')
+        patches_shape = tf.shape(patches)
+        return tf.reshape(patches, [tf.reduce_prod(patches_shape[0:3]), h, w, int(c)])  # returns [batch_patches, h, w, c]

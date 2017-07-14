@@ -9,7 +9,7 @@ class PredictionType:
 
 
 def label_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.Tensor:
-    classes_color_values = _get_classes_color_from_file(classes_file)
+    classes_color_values = get_classes_color_from_file(classes_file)
     # Convert label_image [H,W,3] to the classes [H,W],int32 according to the classes [C,3]
     with tf.name_scope('LabelAssign'):
         if len(label_image.get_shape()) == 3:
@@ -26,11 +26,11 @@ def label_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.Tensor
 
 
 def class_to_label_image(class_label: tf.Tensor, classes_file: str) -> tf.Tensor:
-    classes_color_values = _get_classes_color_from_file(classes_file)
-    return tf.gather(classes_color_values, class_label)
+    classes_color_values = get_classes_color_from_file(classes_file)
+    return tf.gather(classes_color_values, tf.cast(class_label, dtype=tf.int32))
 
 
-def _get_classes_color_from_file(classes_file: str) -> np.ndarray:
+def get_classes_color_from_file(classes_file: str) -> np.ndarray:
     if not os.path.exists(classes_file):
         raise FileNotFoundError(classes_file)
     result = np.loadtxt(classes_file).astype(np.float32)

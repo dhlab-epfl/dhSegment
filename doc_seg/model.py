@@ -46,8 +46,8 @@ def model_fn(mode, features, labels, params):
         # TODO
         if prediction_type == PredictionType.CLASSIFICATION:
             tf.summary.image('output/prediction',
-                            tf.image.resize_images(class_to_label_image(network_output, params['classes_file']),
-                                                   tf.cast(tf.shape(network_output)[1:3]/3, tf.int32)), max_outputs=1)
+                             tf.image.resize_images(class_to_label_image(prediction_labels, params['classes_file']),
+                                                    tf.cast(tf.shape(network_output)[1:3]/3, tf.int32)), max_outputs=1)
         elif prediction_type == PredictionType.REGRESSION:
             tf.summary.image('output/prediction', network_output[:, :, :, 0:1], max_outputs=1)
 
