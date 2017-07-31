@@ -3,7 +3,7 @@ import os
 from threading import Semaphore
 
 
-class Model:
+class LoadedModel:
     def __init__(self, model_base_dir, num_parallel_predictions=2):
         possible_dirs = os.listdir(model_base_dir)
         model_dir = os.path.join(model_base_dir, max(possible_dirs))

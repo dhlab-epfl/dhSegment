@@ -1,8 +1,11 @@
 import argparse
 import tensorflow as tf
-from doc_seg import model, input, load_model
+from doc_seg import model, input, loader
 import os
-import better_exceptions
+try:
+    import better_exceptions
+except:
+    pass
 from tqdm import trange, tqdm
 from glob import glob
 from PIL import Image
@@ -19,7 +22,7 @@ args = vars(ap.parse_args())
 
 gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3, visible_device_list='0')
 with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)).as_default():
-    m = load_model.Model(args['model_dir'])
+    m = loader.LoadedModel(args['model_dir'])
 
 os.makedirs(args['output_dir'], exist_ok=True)
 

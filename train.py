@@ -55,18 +55,22 @@ if __name__ == "__main__":
 
     train_images_dir, train_labels_dir = os.path.join(args['train_dir'], 'images'), os.path.join(args['train_dir'], 'labels')
     eval_images_dir, eval_labels_dir = os.path.join(args['eval_dir'], 'images'), os.path.join(args['eval_dir'], 'labels')
+    input_fn_args = dict(prediction_type=model_params['prediction_type'],
+                         classes_file=model_params['classes_file'],
+                         #make_patches=False,
+                         #resized_size=(688, 1024)
+                         )
     for i in trange(0, args['nb_epochs'], evaluate_every_epochs):
         # Train for one epoch
-        estimator.train(input.input_fn(prediction_type=model_params['prediction_type'],
-                                       input_folder=train_images_dir,
+        estimator.train(input.input_fn(input_folder=train_images_dir,
                                        label_images_folder=train_labels_dir,
-                                       classes_file=model_params['classes_file'], num_epochs=evaluate_every_epochs,
-                                       data_augmentation=True, image_summaries=True))
+                                       num_epochs=evaluate_every_epochs,
+                                       data_augmentation=True, image_summaries=True,
+                                       **input_fn_args))
         # Evaluate
-        estimator.evaluate(input.input_fn(prediction_type=model_params['prediction_type'],
-                                          input_folder=eval_images_dir,
+        estimator.evaluate(input.input_fn(input_folder=eval_images_dir,
                                           label_images_folder=eval_labels_dir,
-                                          classes_file=model_params['classes_file'], num_epochs=1))
+                                          num_epochs=1, **input_fn_args))
 
     # Exporting model
     export_input_fn = tf.estimator.export.build_raw_serving_input_receiver_fn({

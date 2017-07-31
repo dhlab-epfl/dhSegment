@@ -7,8 +7,8 @@ from . import utils
 
 
 def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_folder=None, classes_file=None,
-             data_augmentation=False, resized_size=(300, 300), batch_size=5, num_epochs=None, num_threads=4,
-             image_summaries=False):
+             data_augmentation=False, resized_size=(300, 300), make_patches=True, batch_size=5, num_epochs=None,
+             num_threads=4, image_summaries=False):
     # Finding the list of images to be used
     input_images = glob(os.path.join(input_folder, '**', '*.jpg'), recursive=True) + \
                    glob(os.path.join(input_folder, '**', '*.png'), recursive=True)
@@ -59,15 +59,18 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
             if data_augmentation:
                 input_image, label_image = data_augmentation_fn(input_image, label_image)
 
-            patch_shape = resized_size
-            if data_augmentation:
-                offsets = (tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32),
-                           tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32))
+            if make_patches:
+                patch_shape = resized_size
+                if data_augmentation:
+                    offsets = (tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32),
+                               tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32))
+                else:
+                    offsets = (0, 0)
+                patches_image = extract_patches_fn(input_image, patch_shape, offsets)
+                patches_label = extract_patches_fn(label_image, patch_shape, offsets)
             else:
-                offsets = (0, 0)
-
-            patches_image = extract_patches_fn(input_image, patch_shape, offsets)
-            patches_label = extract_patches_fn(label_image, patch_shape, offsets)
+                patches_image = tf.expand_dims(tf.image.resize_images(input_image, resized_size), axis=0)
+                patches_label = tf.expand_dims(tf.image.resize_images(label_image, resized_size), axis=0)
 
             # #  see https://stackoverflow.com/questions/40731433/understanding-tf-extract-image-patches-for-extracting-patches-from-an-image
             # input_image = tf.image.resize_images(input_image, resized_size)
