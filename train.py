@@ -25,9 +25,11 @@ if __name__ == "__main__":
 
     evaluate_every_epochs = 5
     model_params = {
-        'learning_rate': 1e-5,
+        'learning_rate': 1e-5,  # 1e-5
+        'exponential_learning': True,
         # 'num_classes': 1, # by default
-        #TODO batch_norm usage
+        'batch_norm': True,
+        'weight_decay': 1e-5,
         'model_params': [
             [(32, 7), (32, 5)],
             [(64, 5), (64, 5)],
@@ -35,6 +37,7 @@ if __name__ == "__main__":
             [(128, 5), (128, 5)],
             [(128, 5), (128, 5)]
         ],
+        'resized_size': (600, 400),
         'prediction_type': prediction_type,
         'classes_file': args.get('classes_file')
     }
@@ -47,7 +50,7 @@ if __name__ == "__main__":
 
     session_config = tf.ConfigProto()
     session_config.gpu_options.visible_device_list = args.get('gpu')
-    session_config.gpu_options.per_process_gpu_memory_fraction = 0.7
+    session_config.gpu_options.per_process_gpu_memory_fraction = 0.9
     estimator_config = tf.estimator.RunConfig().replace(session_config=session_config,
                                                         save_summary_steps=10)
     estimator = tf.estimator.Estimator(model.model_fn, model_dir=args['model_output_dir'],
@@ -57,8 +60,8 @@ if __name__ == "__main__":
     eval_images_dir, eval_labels_dir = os.path.join(args['eval_dir'], 'images'), os.path.join(args['eval_dir'], 'labels')
     input_fn_args = dict(prediction_type=model_params['prediction_type'],
                          classes_file=model_params['classes_file'],
-                         #make_patches=False,
-                         #resized_size=(688, 1024)
+                         resized_size=model_params['resized_size']
+                         #make_patches=False
                          )
     for i in trange(0, args['nb_epochs'], evaluate_every_epochs):
         # Train for one epoch
