@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.contrib import layers, slim
+from tensorflow.contrib import layers, slim  # TODO migration to tf.layers ?
 from .utils import PredictionType, class_to_label_image
 
 
@@ -10,7 +10,9 @@ def model_fn(mode, features, labels, params):
     prediction_type = params['prediction_type']
 
     network_output = inference(features['images'], model_params, num_classes,
-                               is_training=(mode == tf.estimator.ModeKeys.TRAIN))
+                               is_training=(mode == tf.estimator.ModeKeys.TRAIN),
+                               use_batch_norm=params['batch_norm'],
+                               weight_decay=params['weight_decay'])
 
     # Prediction
     if prediction_type == PredictionType.CLASSIFICATION:
@@ -25,6 +27,7 @@ def model_fn(mode, features, labels, params):
 
     # Loss
     if mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
+        regularized_loss = tf.losses.get_regularization_loss()
         if prediction_type == PredictionType.CLASSIFICATION:
             onehot_labels = tf.one_hot(indices=labels, depth=num_classes)
             with tf.name_scope("loss"):
@@ -33,6 +36,8 @@ def model_fn(mode, features, labels, params):
                                       name="loss")
         elif prediction_type == PredictionType.REGRESSION:
             loss = tf.losses.mean_squared_error(labels, network_output)
+
+        loss += regularized_loss
     else:
         loss = None
 
@@ -43,7 +48,7 @@ def model_fn(mode, features, labels, params):
         ema_loss = ema.average(loss)
         tf.summary.scalar('losses/loss', ema_loss)
         tf.summary.scalar('losses/loss_per_batch', loss)
-        # TODO
+        tf.summary.scalar('losses/regularized_loss', regularized_loss)
         if prediction_type == PredictionType.CLASSIFICATION:
             tf.summary.image('output/prediction',
                              tf.image.resize_images(class_to_label_image(prediction_labels, params['classes_file']),
@@ -51,7 +56,13 @@ def model_fn(mode, features, labels, params):
         elif prediction_type == PredictionType.REGRESSION:
             tf.summary.image('output/prediction', network_output[:, :, :, 0:1], max_outputs=1)
 
-        optimizer = tf.train.AdamOptimizer(params['learning_rate'])
+        if params['exponential_learning']:
+            global_step = tf.train.get_or_create_global_step()
+            learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step, 200, 0.95, staircase=False)
+        else:
+            learning_rate = params['learning_rate']
+        tf.summary.scalar('learning_rate', learning_rate)
+        optimizer = tf.train.AdamOptimizer(learning_rate)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             train_op = optimizer.minimize(loss, global_step=tf.train.get_or_create_global_step())
     else:
@@ -81,7 +92,7 @@ def model_fn(mode, features, labels, params):
                                       train_op=train_op,
                                       eval_metric_ops=metrics,
                                       export_outputs={'output':
-                                                      tf.estimator.export.PredictOutput({'labels': prediction_labels})}
+                                                      tf.estimator.export.PredictOutput(predictions)}
                                       )
 
 
@@ -97,12 +108,19 @@ def inference(images, all_layer_params, num_classes, is_training=False, use_batc
     :return: Linear activations
     """
 
+    if use_batch_norm:
+        # TODO use renorm
+        batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm')
+    else:
+        batch_norm_fn = None
+
     def conv_pool(input_tensor, layer_params, number):
         for i, (nb_filters, filter_size) in enumerate(layer_params):
             input_tensor = layers.conv2d(
                 inputs=input_tensor,
                 num_outputs=nb_filters,
                 kernel_size=[filter_size, filter_size],
+                normalizer_fn=batch_norm_fn,
                 scope="conv{}_{}".format(number, i+1))
 
         pool = tf.layers.max_pooling2d(inputs=input_tensor, pool_size=[2, 2], strides=2, name="pool{}".format(number))
@@ -123,6 +141,7 @@ def inference(images, all_layer_params, num_classes, is_training=False, use_batc
                 inputs=input_tensor,
                 num_outputs=nb_filters,
                 kernel_size=[filter_size, filter_size],
+                normalizer_fn=batch_norm_fn,
                 scope="conv{}_{}".format(number, i+1)
             )
         return input_tensor
