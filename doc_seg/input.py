@@ -7,7 +7,7 @@ from . import utils
 
 
 def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_folder=None, classes_file=None,
-             data_augmentation=False, resized_size=(300, 300), make_patches=True, batch_size=5, num_epochs=None,
+             data_augmentation=False, resized_size=(600, 400), make_patches=False, batch_size=5, num_epochs=None,
              num_threads=4, image_summaries=False):
     # Finding the list of images to be used
     input_images = glob(os.path.join(input_folder, '**', '*.jpg'), recursive=True) + \
@@ -33,7 +33,8 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
     # Helper loading function
     def load_image(filename, channels):
         with tf.name_scope('load_resize_img'):
-            decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=channels))
+            decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=channels,
+                                                             try_recover_truncated=True))
 
             return decoded_image
 
@@ -143,7 +144,12 @@ def rotate_crop(img, rotation, crop=True, interpolation='NEAREST'):
             new_h, new_w = tf.cond(h > w, lambda: [new_l, new_s], lambda: [new_s, new_l])
             new_h, new_w = tf.cast(new_h, tf.int32), tf.cast(new_w, tf.int32)
             bb_begin = tf.cast(tf.ceil((h - new_h) / 2), tf.int32), tf.cast(tf.ceil((w - new_w) / 2), tf.int32)
-            rotated_image = rotated_image[bb_begin[0]:h - bb_begin[0], bb_begin[1]:w - bb_begin[1], :]
+            rotated_image_crop = rotated_image[bb_begin[0]:h - bb_begin[0], bb_begin[1]:w - bb_begin[1], :]
+
+            # If crop removes the entire image, keep the original image
+            rotated_image = tf.cond(tf.equal(tf.size(rotated_image_crop), 0),
+                                    true_fn=lambda: img,
+                                    false_fn=lambda: rotated_image_crop)
         return rotated_image
 
 
