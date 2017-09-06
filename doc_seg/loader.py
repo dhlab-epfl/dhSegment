@@ -15,12 +15,16 @@ class LoadedModel:
 
         input_dict, output_dict = _signature_def_to_tensors(loaded_model.signature_def['serving_default'])
         self._input_tensor = input_dict['images']
-        self._output_tensor = output_dict['labels']
+        self._output_dict = output_dict
         self.sema = Semaphore(num_parallel_predictions)
 
-    def predict(self, image_tensor):
+    def predict(self, image_tensor, prediction_key=None):
         with self.sema:
-            return self.sess.run(self._output_tensor, feed_dict={self._input_tensor: image_tensor})
+            if prediction_key:
+                desired_output = self._output_dict[prediction_key]
+            else:
+                desired_output = self._output_dict
+            return self.sess.run(desired_output, feed_dict={self._input_tensor: image_tensor})
 
 
 def _signature_def_to_tensors(signature_def):

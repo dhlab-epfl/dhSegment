@@ -27,7 +27,9 @@ with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)).as_default():
 os.makedirs(args['output_dir'], exist_ok=True)
 
 for path in tqdm(glob(os.path.join(args['input_dir'], '*.jpg'))):
-    img = Image.open(path).resize((1024, 688))
+    img = Image.open(path).resize((400, 600))
     mat = np.asarray(img)
-    predictions = m.predict(mat[None])[0]
+    if len(mat.shape) == 2:
+        mat = np.stack([mat, mat, mat], axis=2)
+    predictions = m.predict(mat[None], prediction_key='labels')[0]
     plt.imsave(os.path.join(args['output_dir'], os.path.relpath(path, args['input_dir'])), predictions)
