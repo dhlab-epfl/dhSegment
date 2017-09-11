@@ -2,6 +2,7 @@ import argparse
 import tensorflow as tf
 from doc_seg import model, input, utils
 import os
+import json
 try:
     import better_exceptions
 except:
@@ -30,16 +31,19 @@ if __name__ == "__main__":
         # 'num_classes': 1, # by default
         'batch_norm': True,
         'weight_decay': 1e-5,
-        'model_params': [
-            [(32, 7), (32, 5)],
-            [(64, 5), (64, 5)],
-            [(128, 5), (128, 5)],
-            [(128, 5), (128, 5)],
-            [(128, 5), (128, 5)]
-        ],
-        'resized_size': (600, 400),
+        # TODO : put this in a config file
+        # 'model_params': [
+        #     [(32, 7), (32, 5)],
+        #     [(64, 5), (64, 5)],
+        #     [(128, 5), (128, 5)],
+        #     [(128, 5), (128, 5)],
+        #     [(128, 5), (128, 5)]
+        # ],
+        'vgg_conv_params': [(64, 1)],
+        'resized_size': (608, 416),  # (19,13)*32
         'prediction_type': prediction_type,
-        'classes_file': args.get('classes_file')
+        'classes_file': args.get('classes_file'),
+        'pretrained_file': '/mnt/cluster-nas/benoit/pretrained_nets/vgg_16.ckpt'
     }
     if model_params['prediction_type'] == utils.PredictionType.CLASSIFICATION:
         assert model_params['classes_file'] is not None
@@ -47,6 +51,12 @@ if __name__ == "__main__":
         model_params['num_classes'] = classes.shape[0]
     elif model_params['prediction_type'] == utils.PredictionType.REGRESSION:
         model_params['num_classes'] = 1
+
+    # Exporting params
+    if not os.path.isdir(args['model_output_dir']):
+        os.mkdir(args['model_output_dir'])
+    with open(os.path.join(args['model_output_dir'], 'model_params.json'), 'w') as f:
+        json.dump(model_params, f)
 
     session_config = tf.ConfigProto()
     session_config.gpu_options.visible_device_list = args.get('gpu')
