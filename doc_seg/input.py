@@ -70,8 +70,9 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
                 patches_image = extract_patches_fn(input_image, patch_shape, offsets)
                 patches_label = extract_patches_fn(label_image, patch_shape, offsets)
             else:
-                patches_image = tf.expand_dims(tf.image.resize_images(input_image, resized_size), axis=0)
-                patches_label = tf.expand_dims(tf.image.resize_images(label_image, resized_size), axis=0)
+                with tf.name_scope('formatting'):
+                    patches_image = tf.expand_dims(tf.image.resize_images(input_image, resized_size), axis=0)
+                    patches_label = tf.expand_dims(tf.image.resize_images(label_image, resized_size), axis=0)
 
             # #  see https://stackoverflow.com/questions/40731433/understanding-tf-extract-image-patches-for-extracting-patches-from-an-image
             # input_image = tf.image.resize_images(input_image, resized_size)
@@ -108,25 +109,26 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
 
 
 def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor) -> (tf.Tensor, tf.Tensor):
-    with tf.name_scope('random_flip_lr'):
-        sample = tf.random_uniform([], 0, 1)
-        label_image = tf.cond(sample > 0.5, lambda: tf.image.flip_left_right(label_image), lambda: label_image)
-        input_image = tf.cond(sample > 0.5, lambda: tf.image.flip_left_right(input_image), lambda: input_image)
-    with tf.name_scope('random_flip_ud'):
-        sample = tf.random_uniform([], 0, 1)
-        label_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(label_image), lambda: label_image)
-        input_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(input_image), lambda: input_image)
-    with tf.name_scope('random_rotate'):
-        rotation_angle = tf.random_uniform([], -0.05, 0.05)
-        label_image = rotate_crop(label_image, rotation_angle, interpolation='NEAREST')
-        input_image = rotate_crop(input_image, rotation_angle, interpolation='BILINEAR')
+    with tf.name_scope('DataAugmentation'):
+        with tf.name_scope('random_flip_lr'):
+            sample = tf.random_uniform([], 0, 1)
+            label_image = tf.cond(sample > 0.5, lambda: tf.image.flip_left_right(label_image), lambda: label_image)
+            input_image = tf.cond(sample > 0.5, lambda: tf.image.flip_left_right(input_image), lambda: input_image)
+        with tf.name_scope('random_flip_ud'):
+            sample = tf.random_uniform([], 0, 1)
+            label_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(label_image), lambda: label_image)
+            input_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(input_image), lambda: input_image)
+        with tf.name_scope('random_rotate'):
+            rotation_angle = tf.random_uniform([], -0.05, 0.05)
+            label_image = rotate_crop(label_image, rotation_angle, interpolation='NEAREST')
+            input_image = rotate_crop(input_image, rotation_angle, interpolation='BILINEAR')
 
-    chanels = input_image.get_shape()[-1]
-    input_image = tf.image.random_contrast(input_image, lower=0.8, upper=1.0)
-    if chanels == 3:
-        input_image = tf.image.random_hue(input_image, max_delta=0.1)
-        input_image = tf.image.random_saturation(input_image, lower=0.8, upper=1.2)
-    return input_image, label_image
+        chanels = input_image.get_shape()[-1]
+        input_image = tf.image.random_contrast(input_image, lower=0.8, upper=1.0)
+        if chanels == 3:
+            input_image = tf.image.random_hue(input_image, max_delta=0.1)
+            input_image = tf.image.random_saturation(input_image, lower=0.8, upper=1.2)
+        return input_image, label_image
 
 
 def rotate_crop(img, rotation, crop=True, interpolation='NEAREST'):
