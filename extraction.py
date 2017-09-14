@@ -47,7 +47,7 @@ def process_image(path_image, params_processing):
     opening = cv2.morphologyEx(prediction_formatted, cv2.MORPH_OPEN, kernel_open)
 
     # Then find the contours
-    img_cnt, contours, h = cv2.findContours(opening, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    img_cnt, contours, h = cv2.findContours(opening.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     min_ratio = 1.0/10.0
     crops_exported = False
@@ -83,9 +83,16 @@ def process_image(path_image, params_processing):
             filename_img_box = os.path.join(params_processing['output_dir_pages'],
                                             os.path.basename(path_image))
             cv2.imwrite(filename_img_box, img_with_boxes)
+            if params_processing['debug']:
+                filename_morph = os.path.join(params_processing['output_dir_pages'],
+                                              '{}-morph.jpg'.format(os.path.splitext(os.path.basename(path_image))[0]))
+                cv2.imwrite(filename_morph, opening)
     else:
         pass
 
+# Make a function that checks whether a rectangle is inside a bigger rectangle
+# def is_contained_in(r1, r2):
+#     return None
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -96,13 +103,15 @@ if __name__ == '__main__':
     args = vars(ap.parse_args())
 
     params_processing = {
-        'resize_size': (416, 608),
-        'kernelsize_opening': (10, 10),
+        # 'resize_size': (416, 608),
+        'resize_size': (480, 320),
+        'kernelsize_opening': (20, 20),
         'upscaling': True,
         'output_dir_crops': os.path.join(args.get('output_dir'), 'crops'),
         'output_dir_pages': os.path.join(args.get('output_dir'), 'pages_with_boxes'),
         'input_dir': args.get('input_dir'),
-        'model_dir': args.get('model_dir')
+        'model_dir': args.get('model_dir'),
+        'debug': True
     }
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5,

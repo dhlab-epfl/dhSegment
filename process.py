@@ -33,7 +33,8 @@ input_filenames = glob(os.path.join(args['input_dir'], '*.jpg')) + \
                   glob(os.path.join(args['input_dir'], '*.jp2'))
 
 for path in tqdm(input_filenames):
-    img = Image.open(path).resize((416, 608))
+    size = (320, 480)
+    img = Image.open(path).resize(size)
     mat = np.asarray(img)
     if len(mat.shape) == 2:
         mat = np.stack([mat, mat, mat], axis=2)
