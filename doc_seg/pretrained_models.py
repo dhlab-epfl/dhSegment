@@ -14,7 +14,7 @@ def mean_substraction(input_tensor, means=_VGG_MEANS):
 def vgg_16_fn(input_tensor: tf.Tensor, scope='vgg_16', blocks=5, weight_decay=0.0005) \
         -> (tf.Tensor, list): # list of tf.Tensors (layers)
     intermediate_levels = []
-    intermediate_levels.append(input_tensor)
+    # intermediate_levels.append(input_tensor)
     with slim.arg_scope(nets.vgg.vgg_arg_scope(weight_decay=weight_decay)):
         with tf.variable_scope(scope, 'vgg_16', [input_tensor]) as sc:
             input_tensor = mean_substraction(input_tensor)

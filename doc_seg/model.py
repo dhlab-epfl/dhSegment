@@ -7,12 +7,15 @@ from .pretrained_models import vgg_16_fn, resnet_v1_50_fn
 def model_fn(mode, features, labels, params):
 
     # model_params = params['vgg_conv_params']
-    model_params = params['vgg_upscale_params']
+    model_params_upscaling = {
+        'upscale_params': params['vgg_upscale_params'],
+        'selected_levels_upscaling': params['vgg_selected_levels_upscaling']
+    }
     num_classes = params['num_classes']
     prediction_type = params['prediction_type']
 
     network_output = inference_vgg16(features['images'],
-                                     model_params,
+                                     model_params_upscaling,
                                      num_classes,
                                      weight_decay=params['weight_decay'],
                                      )
@@ -222,7 +225,6 @@ def inference_vgg16(images, model_params, num_classes, use_batch_norm=False, wei
         # If we have several conv layers
         # vgg_conv_params = model_params
         # in case of uspcaling
-        vgg_upscale_params = model_params
 
         vgg_net, intermediate_levels = vgg_16_fn(images, blocks=5, weight_decay=weight_decay)
         out_tensor = vgg_net
@@ -257,16 +259,20 @@ def inference_vgg16(images, model_params, num_classes, use_batch_norm=False, wei
         #     n_layer += 1
 
         # Upsampling :
-        selected_intermediate_levels = list()
-        # selected_intermediate_levels.append(intermediate_levels[0])
-        for l in intermediate_levels[::2]:
-            selected_intermediate_levels.append(l)
-        assert len(vgg_upscale_params) == len(selected_intermediate_levels), \
-            '{} is different from {}'.format(len(vgg_upscale_params), len(selected_intermediate_levels))
+        selected_upscale_params = [l for i, l in enumerate(model_params['upscale_params'])
+                                   if model_params['selected_levels_upscaling'][i]]
+
+        assert len(model_params['selected_levels_upscaling']) == len(intermediate_levels), \
+            'Upsacaling : {} is different from {}'.format(len(model_params['selected_levels_upscaling']),
+                                                          len(intermediate_levels))
+
+        selected_intermediate_levels = [l for i, l in enumerate(intermediate_levels)
+                                        if model_params['selected_levels_upscaling'][i]]
+
         with tf.name_scope('upsampling'):
             for i in reversed(range(len(selected_intermediate_levels))):
-                out_tensor = upsample_conv(out_tensor, intermediate_levels[i],
-                                           vgg_upscale_params[i], n_layer)
+                out_tensor = upsample_conv(out_tensor, selected_intermediate_levels[i],
+                                           selected_upscale_params[i], n_layer)
                 n_layer += 1
 
         logits = layers.conv2d(inputs=out_tensor,
