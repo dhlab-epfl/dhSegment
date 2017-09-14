@@ -40,7 +40,15 @@ if __name__ == "__main__":
         #     [(128, 5), (128, 5)]
         # ],
         'vgg_conv_params': [(64, 1)],
-        'resized_size': (608, 416),  # (19,13)*32
+        'vgg_upscale_params': [
+            # [(32, 3)],
+            [(64, 3)],
+            [(256, 3)],
+            [(512, 3)]
+        ],
+        # 'resized_size': (608, 416),  # (19,13)*32
+        # 'resized_size': (384, 256),  # (12,8)*32
+        'resized_size': (544, 352),  # (17,12)*32
         'prediction_type': prediction_type,
         'classes_file': args.get('classes_file'),
         'pretrained_file': '/mnt/cluster-nas/benoit/pretrained_nets/vgg_16.ckpt'

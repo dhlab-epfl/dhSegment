@@ -11,7 +11,10 @@ def mean_substraction(input_tensor, means=_VGG_MEANS):
     return tf.subtract(input_tensor, np.array(means)[None, None, None, :], name='MeanSubstraction')
 
 
-def vgg_16_fn(input_tensor: tf.Tensor, scope='vgg_16', blocks=5, weight_decay=0.0005) -> tf.Tensor:
+def vgg_16_fn(input_tensor: tf.Tensor, scope='vgg_16', blocks=5, weight_decay=0.0005) \
+        -> (tf.Tensor, list): # list of tf.Tensors (layers)
+    intermediate_levels = []
+    intermediate_levels.append(input_tensor)
     with slim.arg_scope(nets.vgg.vgg_arg_scope(weight_decay=weight_decay)):
         with tf.variable_scope(scope, 'vgg_16', [input_tensor]) as sc:
             input_tensor = mean_substraction(input_tensor)
@@ -22,23 +25,28 @@ def vgg_16_fn(input_tensor: tf.Tensor, scope='vgg_16', blocks=5, weight_decay=0.
                     outputs_collections=end_points_collection):
                 net = layers.repeat(
                     input_tensor, 2, layers.conv2d, 64, [3, 3], scope='conv1')
+                intermediate_levels.append(net)
                 net = layers.max_pool2d(net, [2, 2], scope='pool1')
                 if blocks >= 2:
                     net = layers.repeat(net, 2, layers.conv2d, 128, [3, 3], scope='conv2')
+                    intermediate_levels.append(net)
                     net = layers.max_pool2d(net, [2, 2], scope='pool2')
                 if blocks >= 3:
                     net = layers.repeat(net, 3, layers.conv2d, 256, [3, 3], scope='conv3')
+                    intermediate_levels.append(net)
                     net = layers.max_pool2d(net, [2, 2], scope='pool3')
                 if blocks >= 4:
                     net = layers.repeat(net, 3, layers.conv2d, 512, [3, 3], scope='conv4')
+                    intermediate_levels.append(net)
                     net = layers.max_pool2d(net, [2, 2], scope='pool4')
                 if blocks >= 5:
                     net = layers.repeat(net, 3, layers.conv2d, 512, [3, 3], scope='conv5')
+                    intermediate_levels.append(net)
                     net = layers.max_pool2d(net, [2, 2], scope='pool5')
 
                 # Convert end_points_collection into a end_point dict.
                 # end_points = utils.convert_collection_to_dict(end_points_collection)
-                return net
+                return net, intermediate_levels
 
 
 def resnet_v1_50_fn(input_tensor: tf.Tensor, is_training=False, blocks=4, weight_decay=0.0001, renorm=True) -> tf.Tensor:
