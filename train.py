@@ -29,7 +29,9 @@ if __name__ == "__main__":
         'learning_rate': 1e-5,  # 1e-5
         'exponential_learning': True,
         'batch_norm': True,
-        'weight_decay': 1e-5,
+        'weight_decay': 1e-4,  # 1e-5
+        'data_augmentation': True,
+        'make_patches': True,
         # TODO : put this in a config file
         # 'model_params': [
         #     [(32, 7), (32, 5)],
@@ -94,12 +96,15 @@ if __name__ == "__main__":
         estimator.train(input.input_fn(input_folder=train_images_dir,
                                        label_images_folder=train_labels_dir,
                                        num_epochs=evaluate_every_epochs,
-                                       data_augmentation=True, image_summaries=True,
+                                       data_augmentation=model_params['data_augmentation'],
+                                       make_patches=model_params['make_patches'],
+                                       image_summaries=True,
                                        **input_fn_args))
         # Evaluate
         estimator.evaluate(input.input_fn(input_folder=eval_images_dir,
                                           label_images_folder=eval_labels_dir,
-                                          num_epochs=1, **input_fn_args))
+                                          num_epochs=1,
+                                          **input_fn_args))
 
     # Exporting model
     export_input_fn = tf.estimator.export.build_raw_serving_input_receiver_fn({
