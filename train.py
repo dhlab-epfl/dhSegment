@@ -25,22 +25,17 @@ if __name__ == "__main__":
         utils.PredictionType.REGRESSION
 
     evaluate_every_epochs = 5
+    # TODO : put this in a config file ?
     model_params = {
         'learning_rate': 1e-5,  # 1e-5
         'exponential_learning': True,
         'batch_norm': True,
         'weight_decay': 1e-4,  # 1e-5
         'data_augmentation': True,
-        'make_patches': True,
-        # TODO : put this in a config file
-        # 'model_params': [
-        #     [(32, 7), (32, 5)],
-        #     [(64, 5), (64, 5)],
-        #     [(128, 5), (128, 5)],
-        #     [(128, 5), (128, 5)],
-        #     [(128, 5), (128, 5)]
-        # ],
-        # 'vgg_conv_params': [(64, 1)],
+        'make_patches': False,
+        'vgg_intermediate_conv': [
+            [(256, 3)]
+        ],
         'vgg_upscale_params': [
             [(64, 3)],
             [(128, 3)],
@@ -51,8 +46,8 @@ if __name__ == "__main__":
         'vgg_selected_levels_upscaling': [True,  # Must have same length as vgg_upscale_params
                                           True,
                                           True,
-                                          True,
-                                          True],
+                                          False,
+                                          False],
         'resized_size': (480, 320),  # (15,10)*32
         'prediction_type': prediction_type,
         'classes_file': args.get('classes_file'),
