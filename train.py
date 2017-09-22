@@ -28,9 +28,10 @@ if __name__ == "__main__":
     model_params = {
         'learning_rate': 1e-5,  # 1e-5
         'exponential_learning': True,
-        # 'num_classes': 1, # by default
         'batch_norm': True,
-        'weight_decay': 1e-5,
+        'weight_decay': 1e-4,  # 1e-5
+        'data_augmentation': True,
+        'make_patches': True,
         # TODO : put this in a config file
         # 'model_params': [
         #     [(32, 7), (32, 5)],
@@ -39,8 +40,20 @@ if __name__ == "__main__":
         #     [(128, 5), (128, 5)],
         #     [(128, 5), (128, 5)]
         # ],
-        'vgg_conv_params': [(64, 1)],
-        'resized_size': (608, 416),  # (19,13)*32
+        # 'vgg_conv_params': [(64, 1)],
+        'vgg_upscale_params': [
+            [(64, 3)],
+            [(128, 3)],
+            [(256, 3)],
+            [(512, 3)],
+            [(512, 3)]
+        ],
+        'vgg_selected_levels_upscaling': [True,  # Must have same length as vgg_upscale_params
+                                          True,
+                                          True,
+                                          True,
+                                          True],
+        'resized_size': (480, 320),  # (15,10)*32
         'prediction_type': prediction_type,
         'classes_file': args.get('classes_file'),
         'pretrained_file': '/mnt/cluster-nas/benoit/pretrained_nets/vgg_16.ckpt'
@@ -51,6 +64,10 @@ if __name__ == "__main__":
         model_params['num_classes'] = classes.shape[0]
     elif model_params['prediction_type'] == utils.PredictionType.REGRESSION:
         model_params['num_classes'] = 1
+
+    assert len(model_params['vgg_upscale_params']) == len(model_params['vgg_selected_levels_upscaling']), \
+        'Upscaling levels and selection levels must have the same lengths (in model_params definition), ' \
+        '{} != {}'.format(len(model_params['vgg_upscale_params']), len(model_params['vgg_selected_levels_upscaling']))
 
     # Exporting params
     if not os.path.isdir(args['model_output_dir']):
@@ -66,24 +83,28 @@ if __name__ == "__main__":
     estimator = tf.estimator.Estimator(model.model_fn, model_dir=args['model_output_dir'],
                                        params=model_params, config=estimator_config)
 
-    train_images_dir, train_labels_dir = os.path.join(args['train_dir'], 'images'), os.path.join(args['train_dir'], 'labels')
-    eval_images_dir, eval_labels_dir = os.path.join(args['eval_dir'], 'images'), os.path.join(args['eval_dir'], 'labels')
+    train_images_dir, train_labels_dir = os.path.join(args['train_dir'], 'images'), \
+                                         os.path.join(args['train_dir'], 'labels')
+    eval_images_dir, eval_labels_dir = os.path.join(args['eval_dir'], 'images'), \
+                                       os.path.join(args['eval_dir'], 'labels')
     input_fn_args = dict(prediction_type=model_params['prediction_type'],
                          classes_file=model_params['classes_file'],
                          resized_size=model_params['resized_size']
-                         #make_patches=False
                          )
     for i in trange(0, args['nb_epochs'], evaluate_every_epochs):
         # Train for one epoch
         estimator.train(input.input_fn(input_folder=train_images_dir,
                                        label_images_folder=train_labels_dir,
                                        num_epochs=evaluate_every_epochs,
-                                       data_augmentation=True, image_summaries=True,
+                                       data_augmentation=model_params['data_augmentation'],
+                                       make_patches=model_params['make_patches'],
+                                       image_summaries=True,
                                        **input_fn_args))
         # Evaluate
         estimator.evaluate(input.input_fn(input_folder=eval_images_dir,
                                           label_images_folder=eval_labels_dir,
-                                          num_epochs=1, **input_fn_args))
+                                          num_epochs=1,
+                                          **input_fn_args))
 
     # Exporting model
     export_input_fn = tf.estimator.export.build_raw_serving_input_receiver_fn({

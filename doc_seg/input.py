@@ -3,12 +3,13 @@ import os
 import tensorflow as tf
 import numpy as np
 from tensorflow.contrib.image import rotate as tf_rotate
+from tensorflow.python.training import queue_runner
 from . import utils
 
 
 def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_folder=None, classes_file=None,
-             data_augmentation=False, resized_size=(600, 400), make_patches=False, batch_size=5, num_epochs=None,
-             num_threads=4, image_summaries=False):
+             data_augmentation=False, resized_size=(600, 400), batch_size=5, make_patches=False, patch_shape=(300,300),
+             num_epochs=None, num_threads=4, image_summaries=False):
     # Finding the list of images to be used
     input_images = glob(os.path.join(input_folder, '**', '*.jpg'), recursive=True) + \
                    glob(os.path.join(input_folder, '**', '*.png'), recursive=True)
@@ -32,7 +33,7 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
 
     # Helper loading function
     def load_image(filename, channels):
-        with tf.name_scope('load_resize_img'):
+        with tf.name_scope('load_img'):
             decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=channels,
                                                              try_recover_truncated=True))
 
@@ -48,7 +49,7 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
             image_filename, label_filename = tf.train.slice_input_producer([input_images, label_images],
                                                                            num_epochs=num_epochs,
                                                                            shuffle=True)
-            # Read and resize the images
+            # Load images
             if prediction_type == utils.PredictionType.CLASSIFICATION:
                 label_image = load_image(label_filename, 3)
             elif prediction_type == utils.PredictionType.REGRESSION:
@@ -56,33 +57,65 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
             else:
                 raise NotImplementedError
             input_image = load_image(image_filename, 3)
-            # Parallel data augmentation
+
             if data_augmentation:
-                input_image, label_image = data_augmentation_fn(input_image, label_image)
+                # Rotation of the original image
+                with tf.name_scope('random_rotatation'):
+                    rotation_angle = tf.random_uniform([], -0.1, 0.1)
+                    label_image = rotate_crop(label_image, rotation_angle, interpolation='NEAREST')
+                    input_image = rotate_crop(input_image, rotation_angle, interpolation='BILINEAR')
+
+                # Offsets for patch extraction
+                offsets = (tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32),
+                           tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32))
+            else:
+                offsets = (0, 0)
 
             if make_patches:
-                patch_shape = resized_size
-                if data_augmentation:
-                    offsets = (tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32),
-                               tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32))
-                else:
-                    offsets = (0, 0)
-                patches_image = extract_patches_fn(input_image, patch_shape, offsets)
-                patches_label = extract_patches_fn(label_image, patch_shape, offsets)
+                with tf.name_scope('patching'):
+                    patches_image = extract_patches_fn(input_image, patch_shape, offsets)
+                    patches_label = extract_patches_fn(label_image, patch_shape, offsets)
+
+                    if data_augmentation:
+                        with tf.name_scope('patches_queue'):
+                            # Data augmentation directly on patches
+                            queue_patches = tf.FIFOQueue(capacity=3000, dtypes=[tf.float32, tf.float32])
+                            # Enqueue all
+                            enqueue_op = queue_patches.enqueue_many((patches_image, patches_label))
+                            queue_runner.add_queue_runner(tf.train.QueueRunner(queue_patches, [enqueue_op] * 2))
+                            # Dequeue one by one
+                            dequeue_patch_img, dequeue_patch_lab = queue_patches.dequeue()
+
+                            dequeue_patch_img.set_shape([*patch_shape, 3])
+                            dequeue_patch_lab.set_shape([*patch_shape, 1])
+
+                        patches_image = dequeue_patch_img
+                        patches_label = dequeue_patch_lab
+
+                    formatted_image = patches_image
+                    formatted_label = patches_label
             else:
                 with tf.name_scope('formatting'):
-                    patches_image = tf.expand_dims(tf.image.resize_images(input_image, resized_size), axis=0)
-                    patches_label = tf.expand_dims(tf.image.resize_images(label_image, resized_size), axis=0)
+                    with tf.name_scope('resizing'):
+                        input_image = tf.image.resize_images(input_image, resized_size,
+                                                             method=tf.image.ResizeMethod.BILINEAR)
+                        label_image = tf.image.resize_images(label_image, resized_size,
+                                                             method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
-            # #  see https://stackoverflow.com/questions/40731433/understanding-tf-extract-image-patches-for-extracting-patches-from-an-image
-            # input_image = tf.image.resize_images(input_image, resized_size)
-            # label_image = tf.image.resize_images(label_image, resized_size,
-            #                                      method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+                    formatted_image = input_image
+                    formatted_label = label_image
+
+            if data_augmentation:
+                formatted_image, formatted_label = data_augmentation_fn(formatted_image, formatted_label)
+
+            with tf.name_scope('dim_expansion'):
+                batch_image = tf.expand_dims(formatted_image, axis=0)
+                batch_label = tf.expand_dims(formatted_label, axis=0)
 
             if prediction_type == utils.PredictionType.CLASSIFICATION:
                 # Convert RGB to class id
-                patches_label = utils.label_image_to_class(patches_label, classes_file)
-            to_batch = {'images': patches_image, 'labels': patches_label}
+                batch_label = utils.label_image_to_class(batch_label, classes_file)
+            to_batch = {'images': batch_image, 'labels': batch_label}
 
         # Batch the preprocessed images
         min_after_dequeue = 50
@@ -93,15 +126,16 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
 
         # Summaries for checking that the loading and data augmentation goes fine
         if image_summaries:
+            shape_summary_img = patch_shape if make_patches else resized_size
             tf.summary.image('input/image',
-                             tf.image.resize_images(prepared_batch['images'], np.array(resized_size) / 3),
+                             tf.image.resize_images(prepared_batch['images'], np.array(shape_summary_img) / 3),
                              max_outputs=1)
             if 'labels' in prepared_batch:
                 label_export = prepared_batch['labels']
                 if prediction_type == utils.PredictionType.CLASSIFICATION:
                     label_export = utils.class_to_label_image(label_export, classes_file)
                 tf.summary.image('input/label',
-                                 tf.image.resize_images(label_export, np.array(resized_size) / 3), max_outputs=1)
+                                 tf.image.resize_images(label_export, np.array(shape_summary_img) / 3), max_outputs=1)
 
         return prepared_batch, prepared_batch.get('labels')
 
@@ -118,10 +152,10 @@ def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor) -> (tf.
             sample = tf.random_uniform([], 0, 1)
             label_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(label_image), lambda: label_image)
             input_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(input_image), lambda: input_image)
-        with tf.name_scope('random_rotate'):
-            rotation_angle = tf.random_uniform([], -0.05, 0.05)
-            label_image = rotate_crop(label_image, rotation_angle, interpolation='NEAREST')
-            input_image = rotate_crop(input_image, rotation_angle, interpolation='BILINEAR')
+        # with tf.name_scope('random_rotate'):
+        #     rotation_angle = tf.random_uniform([], -0.05, 0.05)
+        #     label_image = rotate_crop(label_image, rotation_angle, interpolation='NEAREST')
+        #     input_image = rotate_crop(input_image, rotation_angle, interpolation='BILINEAR')
 
         chanels = input_image.get_shape()[-1]
         input_image = tf.image.random_contrast(input_image, lower=0.8, upper=1.0)
