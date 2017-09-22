@@ -4,28 +4,25 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.contrib.image import rotate as tf_rotate
 from tensorflow.python.training import queue_runner
-from . import utils
+from .utils import Params, PredictionType, label_image_to_class, class_to_label_image
 
 
-def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_folder=None, classes_file=None,
-             data_augmentation=False, resized_size=(600, 400), batch_size=5, make_patches=False, patch_shape=(300,300),
-             num_epochs=None, num_threads=4, image_summaries=False):
+def input_fn(input_image_dir, model_params: Params, input_label_dir=None, data_augmentation=False,
+             batch_size=5, make_patches=False, num_epochs=None, num_threads=4, image_summaries=False):
     # Finding the list of images to be used
-    input_images = glob(os.path.join(input_folder, '**', '*.jpg'), recursive=True) + \
-                   glob(os.path.join(input_folder, '**', '*.png'), recursive=True)
+    input_images = glob(os.path.join(input_image_dir, '**', '*.jpg'), recursive=True) + \
+                   glob(os.path.join(input_image_dir, '**', '*.png'), recursive=True)
     print('Found {} images'.format(len(input_images)))
 
     # Finding the list of labelled images if available
-    if label_images_folder:
-        if prediction_type == utils.PredictionType.CLASSIFICATION:
-            assert classes_file is not None, "Needs a classes_file if training"
+    if input_label_dir:
         label_images = []
         for input_image_filename in input_images:
-            label_image_filename = os.path.join(label_images_folder, os.path.basename(input_image_filename))
+            label_image_filename = os.path.join(input_label_dir, os.path.basename(input_image_filename))
             if not os.path.exists(label_image_filename):
                 filename, extension = os.path.splitext(os.path.basename(input_image_filename))
                 new_extension = '.png' if extension == '.jpg' else '.jpg'
-                label_image_filename = os.path.join(label_images_folder, filename + new_extension)
+                label_image_filename = os.path.join(input_label_dir, filename + new_extension)
                 if not os.path.exists(label_image_filename):
                     raise FileNotFoundError(label_image_filename)
 
@@ -41,18 +38,19 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
 
     # Tensorflow input_fn
     def fn():
-        if not label_images_folder:
+        if not input_label_dir:
             image_filename = tf.train.string_input_producer(input_images, num_epochs=num_epochs).dequeue()
-            to_batch = {'images': tf.image.resize_images(load_image(image_filename, 3), resized_size)}
+            to_batch = {'images': tf.image.resize_images(load_image(image_filename, 3),
+                                                         model_params.input_resized_size)}
         else:
             # Get one filename of each
             image_filename, label_filename = tf.train.slice_input_producer([input_images, label_images],
                                                                            num_epochs=num_epochs,
                                                                            shuffle=True)
             # Load images
-            if prediction_type == utils.PredictionType.CLASSIFICATION:
+            if model_params.prediction_type == PredictionType.CLASSIFICATION:
                 label_image = load_image(label_filename, 3)
-            elif prediction_type == utils.PredictionType.REGRESSION:
+            elif model_params.prediction_type == PredictionType.REGRESSION:
                 label_image = load_image(label_filename, 1)
             else:
                 raise NotImplementedError
@@ -73,8 +71,8 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
 
             if make_patches:
                 with tf.name_scope('patching'):
-                    patches_image = extract_patches_fn(input_image, patch_shape, offsets)
-                    patches_label = extract_patches_fn(label_image, patch_shape, offsets)
+                    patches_image = extract_patches_fn(input_image, model_params.patch_shape, offsets)
+                    patches_label = extract_patches_fn(label_image, model_params.patch_shape, offsets)
 
                     if data_augmentation:
                         with tf.name_scope('patches_queue'):
@@ -86,8 +84,8 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
                             # Dequeue one by one
                             dequeue_patch_img, dequeue_patch_lab = queue_patches.dequeue()
 
-                            dequeue_patch_img.set_shape([*patch_shape, 3])
-                            dequeue_patch_lab.set_shape([*patch_shape, 1])
+                            dequeue_patch_img.set_shape([*model_params.patch_shape, 3])
+                            dequeue_patch_lab.set_shape([*model_params.patch_shape, 1])
 
                         patches_image = dequeue_patch_img
                         patches_label = dequeue_patch_lab
@@ -97,9 +95,9 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
             else:
                 with tf.name_scope('formatting'):
                     with tf.name_scope('resizing'):
-                        input_image = tf.image.resize_images(input_image, resized_size,
+                        input_image = tf.image.resize_images(input_image, model_params.input_resized_size,
                                                              method=tf.image.ResizeMethod.BILINEAR)
-                        label_image = tf.image.resize_images(label_image, resized_size,
+                        label_image = tf.image.resize_images(label_image, model_params.input_resized_size,
                                                              method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
                     formatted_image = input_image
@@ -112,9 +110,9 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
                 batch_image = tf.expand_dims(formatted_image, axis=0)
                 batch_label = tf.expand_dims(formatted_label, axis=0)
 
-            if prediction_type == utils.PredictionType.CLASSIFICATION:
+            if model_params.prediction_type == PredictionType.CLASSIFICATION:
                 # Convert RGB to class id
-                batch_label = utils.label_image_to_class(batch_label, classes_file)
+                batch_label = label_image_to_class(batch_label, model_params.class_file)
             to_batch = {'images': batch_image, 'labels': batch_label}
 
         # Batch the preprocessed images
@@ -126,14 +124,14 @@ def input_fn(prediction_type: utils.PredictionType, input_folder, label_images_f
 
         # Summaries for checking that the loading and data augmentation goes fine
         if image_summaries:
-            shape_summary_img = patch_shape if make_patches else resized_size
+            shape_summary_img = model_params.patch_shape if make_patches else model_params.input_resized_size
             tf.summary.image('input/image',
                              tf.image.resize_images(prepared_batch['images'], np.array(shape_summary_img) / 3),
                              max_outputs=1)
             if 'labels' in prepared_batch:
                 label_export = prepared_batch['labels']
-                if prediction_type == utils.PredictionType.CLASSIFICATION:
-                    label_export = utils.class_to_label_image(label_export, classes_file)
+                if model_params.prediction_type == PredictionType.CLASSIFICATION:
+                    label_export = class_to_label_image(label_export, model_params.class_file)
                 tf.summary.image('input/label',
                                  tf.image.resize_images(label_export, np.array(shape_summary_img) / 3), max_outputs=1)
 

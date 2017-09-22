@@ -1,25 +1,21 @@
 import tensorflow as tf
 from tensorflow.contrib import layers, slim  # TODO migration to tf.layers ?
-from .utils import PredictionType, class_to_label_image
+from .utils import PredictionType, class_to_label_image, Params
 from .pretrained_models import vgg_16_fn, resnet_v1_50_fn
 
 
 def model_fn(mode, features, labels, params):
 
-    # model_params = params['vgg_conv_params']
-    model_params_upscaling = {
-        'upscale_params': params['vgg_upscale_params'],
-        'selected_levels_upscaling': params['vgg_selected_levels_upscaling'],
-        'vgg_intermediate_conv': params['vgg_intermediate_conv']
-    }
-    num_classes = params['num_classes']
-    prediction_type = params['prediction_type']
+    parameters = params.get('Params')
+    assert isinstance(parameters, Params)
 
-    network_output = inference_vgg16(features['images'],
-                                     model_params_upscaling,
-                                     num_classes,
-                                     weight_decay=params['weight_decay'],
-                                     )
+    if parameters.pretrained_model_name == 'vgg16':
+        network_output = inference_vgg16(features['images'],
+                                         parameters,
+                                         parameters.n_classes,
+                                         use_batch_norm=parameters.batch_norm,
+                                         weight_decay=parameters.weight_decay,
+                                         )
 
     if mode == tf.estimator.ModeKeys.TRAIN:
         # Pretrained weights as initialization
@@ -27,31 +23,29 @@ def model_fn(mode, features, labels, params):
                                                        if 'vgg_16' in v.name])
 
         def init_fn(scaffold, session):
-            pretrained_restorer.restore(session, params['pretrained_file'])
+            pretrained_restorer.restore(session, parameters.pretrained_model_file)
     else:
         init_fn = None
 
     # Prediction
-    if prediction_type == PredictionType.CLASSIFICATION:
+    if parameters.prediction_type == PredictionType.CLASSIFICATION:
         with tf.name_scope('softmax'):
             prediction_probs = tf.nn.softmax(network_output, name='softmax')
         prediction_labels = tf.argmax(network_output, axis=-1, name='label_preds')
         predictions = {'probs': prediction_probs, 'labels': prediction_labels}
-    elif prediction_type == PredictionType.REGRESSION:
+    elif parameters.prediction_type == PredictionType.REGRESSION:
         predictions = {'output_values': network_output}
-    else:
-        raise NotImplementedError
 
     # Loss
     if mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
         regularized_loss = tf.losses.get_regularization_loss()
-        if prediction_type == PredictionType.CLASSIFICATION:
-            onehot_labels = tf.one_hot(indices=labels, depth=num_classes)
+        if parameters.prediction_type == PredictionType.CLASSIFICATION:
+            onehot_labels = tf.one_hot(indices=labels, depth=parameters.n_classes)
             with tf.name_scope("loss"):
                 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=network_output,
                                                                               labels=onehot_labels),
                                       name="loss")
-        elif prediction_type == PredictionType.REGRESSION:
+        elif parameters.prediction_type == PredictionType.REGRESSION:
             loss = tf.losses.mean_squared_error(labels, network_output)
 
         loss += regularized_loss
@@ -66,21 +60,21 @@ def model_fn(mode, features, labels, params):
         tf.summary.scalar('losses/loss', ema_loss)
         tf.summary.scalar('losses/loss_per_batch', loss)
         tf.summary.scalar('losses/regularized_loss', regularized_loss)
-        if prediction_type == PredictionType.CLASSIFICATION:
+        if parameters.prediction_type == PredictionType.CLASSIFICATION:
             tf.summary.image('output/prediction',
-                             tf.image.resize_images(class_to_label_image(prediction_labels, params['classes_file']),
+                             tf.image.resize_images(class_to_label_image(prediction_labels, parameters.class_file),
                                                     tf.cast(tf.shape(network_output)[1:3]/3, tf.int32)), max_outputs=1)
             tf.summary.image('output/probs',
                              tf.image.resize_images(prediction_probs[:, :, :, 1:],
                                                     tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)), max_outputs=1)
-        elif prediction_type == PredictionType.REGRESSION:
+        elif parameters.prediction_type == PredictionType.REGRESSION:
             tf.summary.image('output/prediction', network_output[:, :, :, 0:1], max_outputs=1)
 
-        if params['exponential_learning']:
+        if parameters.exponential_learning:
             global_step = tf.train.get_or_create_global_step()
-            learning_rate = tf.train.exponential_decay(params['learning_rate'], global_step, 200, 0.95, staircase=False)
+            learning_rate = tf.train.exponential_decay(parameters.learning_rate, global_step, 200, 0.95, staircase=False)
         else:
-            learning_rate = params['learning_rate']
+            learning_rate = parameters.learning_rate
         tf.summary.scalar('learning_rate', learning_rate)
         optimizer = tf.train.AdamOptimizer(learning_rate)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
@@ -88,32 +82,19 @@ def model_fn(mode, features, labels, params):
     else:
         ema_loss, train_op = None, None
 
-    if prediction_type == PredictionType.CLASSIFICATION:
+    if parameters.prediction_type == PredictionType.CLASSIFICATION:
         prediction_labels = prediction_labels
-    elif prediction_type == PredictionType.REGRESSION:
+    elif parameters.prediction_type == PredictionType.REGRESSION:
         prediction_labels = network_output
-    else:
-        raise NotImplementedError
 
     # Evaluation
     if mode == tf.estimator.ModeKeys.EVAL:
-        if prediction_type == PredictionType.CLASSIFICATION:
+        if parameters.prediction_type == PredictionType.CLASSIFICATION:
             metrics = {'accuracy': tf.metrics.accuracy(labels, predictions=prediction_labels)}
-        elif prediction_type == PredictionType.REGRESSION:
+        elif parameters.prediction_type == PredictionType.REGRESSION:
             metrics = {'accuracy': tf.metrics.mean_squared_error(labels, predictions=prediction_labels)}
-        else:
-            raise NotImplementedError
     else:
         metrics = None
-
-    # return tf.estimator.EstimatorSpec(mode,
-    #                                   predictions=predictions,
-    #                                   loss=loss,
-    #                                   train_op=train_op,
-    #                                   eval_metric_ops=metrics,
-    #                                   export_outputs={'output':
-    #                                                   tf.estimator.export.PredictOutput(predictions)}
-    #                                   )
 
     return tf.estimator.EstimatorSpec(mode,
                                       predictions=predictions,
@@ -203,7 +184,7 @@ def inference(images, all_layer_params, num_classes, is_training=False, use_batc
     return logits
 
 
-def inference_vgg16(images, model_params, num_classes, use_batch_norm=False, weight_decay=0.0,
+def inference_vgg16(images: tf.Tensor, params: Params, num_classes: int, use_batch_norm=False, weight_decay=0.0,
                     is_training=False) -> tf.Tensor:
     with tf.name_scope('vgg_augmented'):
 
@@ -238,9 +219,9 @@ def inference_vgg16(images, model_params, num_classes, use_batch_norm=False, wei
         out_tensor = vgg_net
 
         # Intermediate convolution
-        if 'vgg_intermediate_conv' in model_params:
+        if params.vgg_intermediate_conv is not None:
             with tf.name_scope('intermediate_convs'):
-                for layer_params in model_params['vgg_intermediate_conv']:
+                for layer_params in params._vgg_intermediate_conv:
                     for i, (nb_filters, filter_size) in enumerate(layer_params):
                         # nb_filters, filter_size = intermediate_convs_params
                         out_tensor = layers.conv2d(inputs=out_tensor,
@@ -251,15 +232,15 @@ def inference_vgg16(images, model_params, num_classes, use_batch_norm=False, wei
 
         # Upsampling :
         with tf.name_scope('upsampling'):
-            selected_upscale_params = [l for i, l in enumerate(model_params['upscale_params'])
-                                       if model_params['selected_levels_upscaling'][i]]
+            selected_upscale_params = [l for i, l in enumerate(params.vgg_upscale_params)
+                                       if params.vgg_selected_levels_upscaling[i]]
 
-            assert len(model_params['selected_levels_upscaling']) == len(intermediate_levels), \
-                'Upsacaling : {} is different from {}'.format(len(model_params['selected_levels_upscaling']),
+            assert len(params.vgg_selected_levels_upscaling) == len(intermediate_levels), \
+                'Upsacaling : {} is different from {}'.format(len(params.vgg_selected_levels_upscaling),
                                                               len(intermediate_levels))
 
             selected_intermediate_levels = [l for i, l in enumerate(intermediate_levels)
-                                            if model_params['selected_levels_upscaling'][i]]
+                                            if params.vgg_selected_levels_upscaling[i]]
 
             # Upsampling loop
             n_layer = 1
