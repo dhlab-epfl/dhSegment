@@ -133,7 +133,8 @@ def model_fn(mode, features, labels, params):
                 labels_reshaped = tf.reshape(labels, _new_shape)  # [B, H, W, C, 2]
                 labels_argmax = tf.argmax(labels_reshaped, axis=-1)  # [B, H, W, C]
             metrics = {'eval/MSE': tf.metrics.mean_squared_error(labels_reshaped, predictions=prediction_probs),
-                       'eval/accuracy': tf.metrics.accuracy(labels_argmax, predictions=prediction_labels)}
+                       'eval/accuracy': tf.metrics.accuracy(tf.cast(labels_argmax, tf.bool),
+                                                            predictions=tf.cast(prediction_labels, tf.bool))}
     else:
         metrics = None
 
@@ -161,8 +162,8 @@ def inference(images, all_layer_params, num_classes, is_training=False, use_batc
     """
 
     if use_batch_norm:
-        # TODO use renorm
-        batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm')
+        batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm',
+                                                                renorm=False, renorm_clipping=None, renorm_momentum=0.98)
     else:
         batch_norm_fn = None
 
@@ -231,7 +232,9 @@ def inference_vgg16(images: tf.Tensor, params: Params, num_classes: int, use_bat
 
         if use_batch_norm:
             # TODO use renorm
-            batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm')
+            batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm',
+                                                                    renorm=False, renorm_clipping=None,
+                                                                    renorm_momentum=0.98)
         else:
             batch_norm_fn = None
 

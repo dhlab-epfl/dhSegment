@@ -91,6 +91,8 @@ if __name__ == "__main__":
                                           input_label_dir=eval_labels_dir,
                                           num_epochs=1,
                                           batch_size=parameters_model.batch_size,
+                                          data_augmentation=False,
+                                          make_patches=parameters_model.make_patches,
                                           model_params=parameters_model))
 
     # Exporting model

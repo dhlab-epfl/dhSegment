@@ -55,7 +55,7 @@ class Params:
 
             self._pretrained_model_file = '/mnt/cluster-nas/benoit/pretrained_nets/vgg_16.ckpt'
         else:
-            raise NotImplementedError
+            raise NotImplementedError('Unknown model {}'.format(self._pretrained_model_name))
 
     def _set_prediction_type(self, prediction_type):
             if prediction_type == 'CLASSIFICATION':
@@ -65,7 +65,7 @@ class Params:
             elif prediction_type == 'MULTILABEL':
                 return PredictionType.MULTILABEL
             else:
-                raise NotImplementedError
+                raise NotImplementedError('Unknown prediction type : {}'.format(prediction_type))
 
     def export_experiment_params(self):
         if not os.path.isdir(self.output_model_dir):
@@ -180,7 +180,7 @@ def label_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.Tensor
             diff = tf.cast(label_image[:, :, :, None, :], tf.float32) - tf.constant(
                 classes_color_values[None, None, None, :, :])  # [B,H,W,C,3]
         else:
-            raise NotImplementedError
+            raise NotImplementedError('Length is : {}'.format(len(label_image.get_shape())))
 
         pixel_class_diff = tf.reduce_sum(tf.square(diff), axis=-1)  # [H,W,C] or [B,H,W,C]
         class_label = tf.argmin(pixel_class_diff, axis=-1)  # [H,W] or [B,H,W]
@@ -202,7 +202,7 @@ def multilabel_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.T
             diff = tf.cast(label_image[:, :, :, None, :], tf.float32) - tf.constant(
                 classes_color_values[None, None, None, :, :])  # [B,H,W,C,3]
         else:
-            raise NotImplementedError
+            raise NotImplementedError('Length is : {}'.format(len(label_image.get_shape())))
 
         pixel_class_min = tf.reduce_min(diff, axis=-1)  # [H,W,C] or [B,H,W,C]
         multi_class_label = tf.greater_equal(pixel_class_min, 0)  # [H,W,C] or [B,H,W,C] with TRUE, FALSE
@@ -218,7 +218,7 @@ def multilabel_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.T
             reshaped_label = tf.reshape(one_hot_multiclass, new_shape)  # [B,H,W,C*2]
             reshaped_label.set_shape(new_shape)
         else:
-            raise NotImplementedError
+            raise NotImplementedError('Length is : {}'.format(len(one_hot_multiclass.get_shape())))
 
         return tf.cast(reshaped_label, dtype=tf.float32)
 
@@ -240,7 +240,7 @@ def multiclass_to_label_image(class_label: tf.Tensor, classes_file: str) -> tf.T
                 labels_formatted = labels_reshaped[:, :, :, :, 1]
                 label_img = tf.concat([labels_formatted, tf.zeros(shape[:-1], dtype=tf.float32)[:, :, :, None]], axis=-1)
             else:
-                raise NotImplementedError
+                raise NotImplementedError('Length is : {}'.format(len(labels_reshaped.get_shape())))
             return tf.cast(label_img, dtype=tf.int32)
         else:
             # TODO better

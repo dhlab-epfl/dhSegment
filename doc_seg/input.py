@@ -41,21 +41,20 @@ def input_fn(input_image_dir, model_params: utils.Params, input_label_dir=None, 
             patches_image = extract_patches_fn(input_image, model_params.patch_shape, offsets)
             patches_label = extract_patches_fn(label_image, model_params.patch_shape, offsets)
 
-            if data_augmentation:
-                with tf.name_scope('patches_queue'):
-                    # Data augmentation directly on patches
-                    queue_patches = tf.FIFOQueue(capacity=3000, dtypes=[tf.float32, tf.float32])
-                    # Enqueue all
-                    enqueue_op = queue_patches.enqueue_many((patches_image, patches_label))
-                    queue_runner.add_queue_runner(tf.train.QueueRunner(queue_patches, [enqueue_op] * 2))
-                    # Dequeue one by one
-                    dequeue_patch_img, dequeue_patch_lab = queue_patches.dequeue()
+            with tf.name_scope('patches_queue'):
+                # Data augmentation directly on patches
+                queue_patches = tf.FIFOQueue(capacity=3000, dtypes=[tf.float32, tf.float32])
+                # Enqueue all
+                enqueue_op = queue_patches.enqueue_many((patches_image, patches_label))
+                queue_runner.add_queue_runner(tf.train.QueueRunner(queue_patches, [enqueue_op] * 2))
+                # Dequeue one by one
+                dequeue_patch_img, dequeue_patch_lab = queue_patches.dequeue()
 
-                    dequeue_patch_img.set_shape([*model_params.patch_shape, 3])
-                    dequeue_patch_lab.set_shape([*model_params.patch_shape, 1])
+                dequeue_patch_img.set_shape([*model_params.patch_shape, 3])
+                dequeue_patch_lab.set_shape([*model_params.patch_shape, 1])
 
-                patches_image = dequeue_patch_img
-                patches_label = dequeue_patch_lab
+            patches_image = dequeue_patch_img
+            patches_label = dequeue_patch_lab
 
             return patches_image, patches_label
 
@@ -76,8 +75,7 @@ def input_fn(input_image_dir, model_params: utils.Params, input_label_dir=None, 
                 label_image = load_image(label_filename, 3)
             elif model_params.prediction_type == utils.PredictionType.REGRESSION:
                 label_image = load_image(label_filename, 1)
-            else:
-                raise NotImplementedError
+
             input_image = load_image(image_filename, 3)
 
             if data_augmentation:
