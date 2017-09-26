@@ -29,7 +29,9 @@ if __name__ == "__main__":
         gpu=args.get('gpu'),
         learning_rate=1e-5,  # 1e-5
         weight_decay=1e-4,  # 1e-5
-        make_patches=False,
+        batch_norm=True,
+        make_patches=True,
+        model_name='vgg16',
         vgg_intermediate_conv=[
             [(256, 3)]
         ],
@@ -43,18 +45,19 @@ if __name__ == "__main__":
         vgg_selected_levels_upscaling=[True,  # Must have same length as vgg_upscale_params
                                        True,
                                        True,
-                                       False,
-                                       False],
+                                       True,
+                                       True],
         resized_size=(480, 320),  # (15,10)*32
         prediction_type=args.get('prediction_type'),
         class_file=args.get('classes_file'),
-        model_name='vgg16',
-        # pretrained_file='/mnt/cluster-nas/benoit/pretrained_nets/vgg_16.ckpt'
     )
 
     if parameters_model.prediction_type == utils.PredictionType.CLASSIFICATION:
-        classes = utils.get_classes_color_from_file(args.get('classes_file'))
+        classes = utils.get_classes_color_from_file(parameters_model.class_file)
         parameters_model.n_classes = classes.shape[0]
+    if parameters_model.prediction_type == utils.PredictionType.MULTILABEL:
+        classes = utils.get_classes_color_from_file(parameters_model.class_file)
+        parameters_model.n_classes = 2*classes.shape[0]
 
     parameters_model.export_experiment_params()
 

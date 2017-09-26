@@ -15,6 +15,7 @@ def model_fn(mode, features, labels, params):
                                          parameters.n_classes,
                                          use_batch_norm=parameters.batch_norm,
                                          weight_decay=parameters.weight_decay,
+                                         is_training=(mode == tf.estimator.ModeKeys.TRAIN)
                                          )
 
     if mode == tf.estimator.ModeKeys.TRAIN:
@@ -28,15 +29,25 @@ def model_fn(mode, features, labels, params):
         init_fn = None
 
     # Prediction
+    # ----------
     if parameters.prediction_type == PredictionType.CLASSIFICATION:
-        with tf.name_scope('softmax'):
-            prediction_probs = tf.nn.softmax(network_output, name='softmax')
+        prediction_probs = tf.nn.softmax(network_output, name='softmax')
         prediction_labels = tf.argmax(network_output, axis=-1, name='label_preds')
         predictions = {'probs': prediction_probs, 'labels': prediction_labels}
     elif parameters.prediction_type == PredictionType.REGRESSION:
         predictions = {'output_values': network_output}
+        prediction_labels = network_output
+    elif parameters.prediction_type == PredictionType.MULTILABEL:
+        with tf.name_scope('prediction_ops'):
+            _out_shape = tf.shape(network_output)  # [B,H,W,C*2]
+            _new_shape = [_out_shape[0], _out_shape[1], _out_shape[2], int(parameters.n_classes/2), 2]  # [B,H,W,C,2]
+            output_reshaped = tf.reshape(network_output, _new_shape, name='output_reshape')
+            prediction_probs = tf.nn.softmax(output_reshaped, dim=-1, name='probs')  # [B,H,W,C,2]
+            prediction_labels = tf.argmax(prediction_probs, axis=-1, name='labels')  # [B,H,W,C]
+            predictions = {'probs': prediction_probs, 'labels': prediction_labels}
 
     # Loss
+    # ----
     if mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
         regularized_loss = tf.losses.get_regularization_loss()
         if parameters.prediction_type == PredictionType.CLASSIFICATION:
@@ -47,28 +58,25 @@ def model_fn(mode, features, labels, params):
                                       name="loss")
         elif parameters.prediction_type == PredictionType.REGRESSION:
             loss = tf.losses.mean_squared_error(labels, network_output)
-
+        elif parameters.prediction_type == PredictionType.MULTILABEL:
+            with tf.name_scope('reshape_label_onehot'):
+                _current_shape = tf.shape(labels)
+                _new_shape = [_current_shape[0], _current_shape[1], _current_shape[2], int(parameters.n_classes/2), 2]
+                labels_reshaped = tf.reshape(labels, _new_shape, name='labels_reshaped')
+            with tf.name_scope('softmax_xentropy_loss'):
+                loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=labels_reshaped,
+                                                                              logits=output_reshaped,  # network output [B,H,W,C,2]
+                                                                              dim=-1))
         loss += regularized_loss
     else:
         loss = None
 
     # Train
+    # -----
     if mode == tf.estimator.ModeKeys.TRAIN:
         ema = tf.train.ExponentialMovingAverage(0.9)
         tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, ema.apply([loss]))
         ema_loss = ema.average(loss)
-        tf.summary.scalar('losses/loss', ema_loss)
-        tf.summary.scalar('losses/loss_per_batch', loss)
-        tf.summary.scalar('losses/regularized_loss', regularized_loss)
-        if parameters.prediction_type == PredictionType.CLASSIFICATION:
-            tf.summary.image('output/prediction',
-                             tf.image.resize_images(class_to_label_image(prediction_labels, parameters.class_file),
-                                                    tf.cast(tf.shape(network_output)[1:3]/3, tf.int32)), max_outputs=1)
-            tf.summary.image('output/probs',
-                             tf.image.resize_images(prediction_probs[:, :, :, 1:],
-                                                    tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)), max_outputs=1)
-        elif parameters.prediction_type == PredictionType.REGRESSION:
-            tf.summary.image('output/prediction', network_output[:, :, :, 0:1], max_outputs=1)
 
         if parameters.exponential_learning:
             global_step = tf.train.get_or_create_global_step()
@@ -82,17 +90,50 @@ def model_fn(mode, features, labels, params):
     else:
         ema_loss, train_op = None, None
 
-    if parameters.prediction_type == PredictionType.CLASSIFICATION:
-        prediction_labels = prediction_labels
-    elif parameters.prediction_type == PredictionType.REGRESSION:
-        prediction_labels = network_output
+    # Summaries
+    # ---------
+    if mode == tf.estimator.ModeKeys.TRAIN:
+        tf.summary.scalar('losses/loss', ema_loss)
+        tf.summary.scalar('losses/loss_per_batch', loss)
+        tf.summary.scalar('losses/regularized_loss', regularized_loss)
+        if parameters.prediction_type == PredictionType.CLASSIFICATION:
+            tf.summary.image('output/prediction',
+                             tf.image.resize_images(class_to_label_image(prediction_labels, parameters.class_file),
+                                                    tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
+                             max_outputs=1)
+            tf.summary.image('output/probs',
+                             tf.image.resize_images(prediction_probs[:, :, :, 1:],
+                                                    tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
+                             max_outputs=1)
+        elif parameters.prediction_type == PredictionType.REGRESSION:
+            summary_img = tf.nn.relu(network_output)[:, :, :, 0:1]  # Put negative values to zero
+            tf.summary.image('output/prediction', summary_img, max_outputs=1)
+        elif parameters.prediction_type == PredictionType.MULTILABEL:
+            # TODO : better visualization of outputs
+            tf.summary.image('output/prediction_labelR',
+                             tf.image.resize_images(prediction_labels[:, :, :, 0:1],
+                                                    tf.cast(tf.shape(prediction_labels)[1:3] / 3, tf.int32)),
+                             max_outputs=1)
+            tf.summary.image('output/prediction_labelG',
+                             tf.image.resize_images(prediction_labels[:, :, :, 1:2],
+                                                    tf.cast(tf.shape(prediction_labels)[1:3] / 3, tf.int32)),
+                             max_outputs=1)
 
     # Evaluation
+    # ----------
     if mode == tf.estimator.ModeKeys.EVAL:
         if parameters.prediction_type == PredictionType.CLASSIFICATION:
             metrics = {'accuracy': tf.metrics.accuracy(labels, predictions=prediction_labels)}
         elif parameters.prediction_type == PredictionType.REGRESSION:
             metrics = {'accuracy': tf.metrics.mean_squared_error(labels, predictions=prediction_labels)}
+        elif parameters.prediction_type == PredictionType.MULTILABEL:
+            with tf.name_scope('evaluation/formatting'):
+                _shape = labels.get_shape().as_list()  # [B, H, W, C*2]
+                _new_shape = (_shape[0], _shape[1], _shape[2], int(_shape[3]/2), 2)
+                labels_reshaped = tf.reshape(labels, _new_shape)  # [B, H, W, C, 2]
+                labels_argmax = tf.argmax(labels_reshaped, axis=-1)  # [B, H, W, C]
+            metrics = {'eval/MSE': tf.metrics.mean_squared_error(labels_reshaped, predictions=prediction_probs),
+                       'eval/accuracy': tf.metrics.accuracy(labels_argmax, predictions=prediction_labels)}
     else:
         metrics = None
 
