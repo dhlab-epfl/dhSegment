@@ -18,6 +18,7 @@ class Params:
         self._exponential_learning = kwargs.get('exponential_learning', True)
         self._batch_size = kwargs.get('batch_size', 5)
         self._batch_norm = kwargs.get('batch_norm', False)
+        self._batch_renorm = kwargs.get('batch_renorm', False)
         self._weight_decay = kwargs.get('weight_decay', 1e-5)
         self._data_augmentation = kwargs.get('data_augmentation', True)
         self._make_patches = kwargs.get('make_patches', False)
@@ -124,6 +125,10 @@ class Params:
     @property
     def batch_norm(self):
         return self._batch_norm
+
+    @property
+    def batch_renorm(self):
+        return self._batch_renorm
 
     @property
     def data_augmentation(self):

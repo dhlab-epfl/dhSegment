@@ -149,81 +149,81 @@ def model_fn(mode, features, labels, params):
                                       )
 
 
-def inference(images, all_layer_params, num_classes, is_training=False, use_batch_norm=False, weight_decay=0.0):
-    """
-
-    :param images: images tensor
-    :param all_layer_params: List of List of Tuple(nb_filters, filter_size)
-    :param num_classes: Dimension of the output for each pixel
-    :param is_training:
-    :param use_batch_norm:
-    :param weight_decay:
-    :return: Linear activations
-    """
-
-    if use_batch_norm:
-        batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm',
-                                                                renorm=False, renorm_clipping=None, renorm_momentum=0.98)
-    else:
-        batch_norm_fn = None
-
-    def conv_pool(input_tensor, layer_params, number):
-        for i, (nb_filters, filter_size) in enumerate(layer_params):
-            input_tensor = layers.conv2d(
-                inputs=input_tensor,
-                num_outputs=nb_filters,
-                kernel_size=[filter_size, filter_size],
-                normalizer_fn=batch_norm_fn,
-                scope="conv{}_{}".format(number, i+1))
-
-        pool = tf.layers.max_pooling2d(inputs=input_tensor, pool_size=[2, 2], strides=2, name="pool{}".format(number))
-        return pool
-
-    def upsample_conv(pooled_layer, previous_layer, layer_params, number):
-        with tf.name_scope('upsample{}'.format(number)):
-            if previous_layer.get_shape()[1].value and previous_layer.get_shape()[2].value:
-                target_shape = previous_layer.get_shape()[1:3]
-            else:
-                target_shape = tf.shape(previous_layer)[1:3]
-            upsampled_layer = tf.image.resize_images(pooled_layer, target_shape,
-                                                     method=tf.image.ResizeMethod.BILINEAR)
-            input_tensor = tf.concat([upsampled_layer, previous_layer], 3)
-
-        for i, (nb_filters, filter_size) in enumerate(layer_params):
-            input_tensor = layers.conv2d(
-                inputs=input_tensor,
-                num_outputs=nb_filters,
-                kernel_size=[filter_size, filter_size],
-                normalizer_fn=batch_norm_fn,
-                scope="conv{}_{}".format(number, i+1)
-            )
-        return input_tensor
-
-    with slim.arg_scope([layers.conv2d], activation_fn=tf.nn.relu, padding='same',
-                        normalizer_fn=layers.batch_norm if use_batch_norm else None,
-                        weights_regularizer=slim.regularizers.l2_regularizer(weight_decay)):
-        with slim.arg_scope([layers.batch_norm], is_training=is_training):
-            intermediate_levels = []
-            current_tensor = images
-            n_layer = 1
-            for layer_params in all_layer_params:
-                intermediate_levels.append(current_tensor)
-                current_tensor = conv_pool(current_tensor, layer_params, n_layer)
-                n_layer += 1
-
-            for i in reversed(range(len(intermediate_levels))):
-                current_tensor = upsample_conv(current_tensor, intermediate_levels[i],
-                                               reversed(all_layer_params[i]), n_layer)
-                n_layer += 1
-
-            logits = layers.conv2d(
-                inputs=current_tensor,
-                num_outputs=num_classes,
-                activation_fn=None,
-                kernel_size=[7, 7],
-                scope="conv{}_logits".format(n_layer)
-            )
-    return logits
+# def inference(images, all_layer_params, num_classes, is_training=False, use_batch_norm=False, weight_decay=0.0):
+#     """
+#
+#     :param images: images tensor
+#     :param all_layer_params: List of List of Tuple(nb_filters, filter_size)
+#     :param num_classes: Dimension of the output for each pixel
+#     :param is_training:
+#     :param use_batch_norm:
+#     :param weight_decay:
+#     :return: Linear activations
+#     """
+#
+#     if use_batch_norm:
+#         batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm',
+#                                                                 renorm=False, renorm_clipping=None, renorm_momentum=0.98)
+#     else:
+#         batch_norm_fn = None
+#
+#     def conv_pool(input_tensor, layer_params, number):
+#         for i, (nb_filters, filter_size) in enumerate(layer_params):
+#             input_tensor = layers.conv2d(
+#                 inputs=input_tensor,
+#                 num_outputs=nb_filters,
+#                 kernel_size=[filter_size, filter_size],
+#                 normalizer_fn=batch_norm_fn,
+#                 scope="conv{}_{}".format(number, i+1))
+#
+#         pool = tf.layers.max_pooling2d(inputs=input_tensor, pool_size=[2, 2], strides=2, name="pool{}".format(number))
+#         return pool
+#
+#     def upsample_conv(pooled_layer, previous_layer, layer_params, number):
+#         with tf.name_scope('upsample{}'.format(number)):
+#             if previous_layer.get_shape()[1].value and previous_layer.get_shape()[2].value:
+#                 target_shape = previous_layer.get_shape()[1:3]
+#             else:
+#                 target_shape = tf.shape(previous_layer)[1:3]
+#             upsampled_layer = tf.image.resize_images(pooled_layer, target_shape,
+#                                                      method=tf.image.ResizeMethod.BILINEAR)
+#             input_tensor = tf.concat([upsampled_layer, previous_layer], 3)
+#
+#         for i, (nb_filters, filter_size) in enumerate(layer_params):
+#             input_tensor = layers.conv2d(
+#                 inputs=input_tensor,
+#                 num_outputs=nb_filters,
+#                 kernel_size=[filter_size, filter_size],
+#                 normalizer_fn=batch_norm_fn,
+#                 scope="conv{}_{}".format(number, i+1)
+#             )
+#         return input_tensor
+#
+#     with slim.arg_scope([layers.conv2d], activation_fn=tf.nn.relu, padding='same',
+#                         normalizer_fn=layers.batch_norm if use_batch_norm else None,
+#                         weights_regularizer=slim.regularizers.l2_regularizer(weight_decay)):
+#         with slim.arg_scope([layers.batch_norm], is_training=is_training):
+#             intermediate_levels = []
+#             current_tensor = images
+#             n_layer = 1
+#             for layer_params in all_layer_params:
+#                 intermediate_levels.append(current_tensor)
+#                 current_tensor = conv_pool(current_tensor, layer_params, n_layer)
+#                 n_layer += 1
+#
+#             for i in reversed(range(len(intermediate_levels))):
+#                 current_tensor = upsample_conv(current_tensor, intermediate_levels[i],
+#                                                reversed(all_layer_params[i]), n_layer)
+#                 n_layer += 1
+#
+#             logits = layers.conv2d(
+#                 inputs=current_tensor,
+#                 num_outputs=num_classes,
+#                 activation_fn=None,
+#                 kernel_size=[7, 7],
+#                 scope="conv{}_logits".format(n_layer)
+#             )
+#     return logits
 
 
 def inference_vgg16(images: tf.Tensor, params: Params, num_classes: int, use_batch_norm=False, weight_decay=0.0,
@@ -231,10 +231,16 @@ def inference_vgg16(images: tf.Tensor, params: Params, num_classes: int, use_bat
     with tf.name_scope('vgg_augmented'):
 
         if use_batch_norm:
-            # TODO use renorm
+            if params.batch_renorm:
+                renorm_clipping = {'rmax': 100, 'rmin': 0.1, 'dmax': 10}
+                renorm_momentum = 0.98
+            else:
+                renorm_clipping = None
+                renorm_momentum = 0.99
             batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm',
-                                                                    renorm=False, renorm_clipping=None,
-                                                                    renorm_momentum=0.98)
+                                                                    renorm=params.batch_renorm,
+                                                                    renorm_clipping=renorm_clipping,
+                                                                    renorm_momentum=renorm_momentum)
         else:
             batch_norm_fn = None
 
@@ -302,9 +308,21 @@ def inference_vgg16(images: tf.Tensor, params: Params, num_classes: int, use_bat
         return logits  # [B,h,w,Classes]
 
 
-def inference_resnet_v1_50(images, model_params, num_classes, use_batch_norm=False, weight_decay=0.0) -> tf.Tensor:
+def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, weight_decay=0.0,
+                           is_training=False) -> tf.Tensor:
+    if use_batch_norm:
+        if params.batch_renorm:
+            renorm_clipping = {'rmax': 100, 'rmin': 0.1, 'dmax': 1}
+            renorm_momentum = 0.98
+        else:
+            renorm_clipping = None
+            renorm_momentum = 0.99
+        batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm',
+                                                                renorm=params.batch_renorm,
+                                                                renorm_clipping=renorm_clipping,
+                                                                renorm_momentum=renorm_momentum)
     with tf.name_scope('resnet_v1_50'):
-        resnet_conv_params = model_params
+        resnet_conv_params = params
 
         resnet_net = resnet_v1_50_fn(images, is_training=False, blocks=4, weight_decay=weight_decay)
         out_tensor = resnet_net
@@ -313,6 +331,7 @@ def inference_resnet_v1_50(images, model_params, num_classes, use_batch_norm=Fal
             out_tensor = layers.conv2d(inputs=out_tensor,
                                        num_outputs=nb_filters,
                                        kernel_size=[filter_size, filter_size],
+                                       normalizer_fn=batch_norm_fn,
                                        scope="conv-{}".format(i + 1)
                                        )
 

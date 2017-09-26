@@ -30,6 +30,7 @@ if __name__ == "__main__":
         learning_rate=1e-5,  # 1e-5
         weight_decay=1e-4,  # 1e-5
         batch_norm=True,
+        batch_renorm=False,
         make_patches=True,
         model_name='vgg16',
         vgg_intermediate_conv=[
@@ -44,9 +45,9 @@ if __name__ == "__main__":
         ],
         vgg_selected_levels_upscaling=[True,  # Must have same length as vgg_upscale_params
                                        True,
-                                       True,
-                                       True,
-                                       True],
+                                       False,
+                                       False,
+                                       False],
         resized_size=(480, 320),  # (15,10)*32
         prediction_type=args.get('prediction_type'),
         class_file=args.get('classes_file'),
