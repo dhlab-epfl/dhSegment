@@ -101,10 +101,11 @@ def model_fn(mode, features, labels, params):
                              tf.image.resize_images(class_to_label_image(prediction_labels, parameters.class_file),
                                                     tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
                              max_outputs=1)
-            tf.summary.image('output/probs',
-                             tf.image.resize_images(prediction_probs[:, :, :, 1:],
-                                                    tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
-                             max_outputs=1)
+            if parameters.n_classes in [1, 3]:
+                tf.summary.image('output/probs',
+                                 tf.image.resize_images(prediction_probs[:, :, :, :],
+                                                        tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
+                                 max_outputs=1)
         elif parameters.prediction_type == PredictionType.REGRESSION:
             summary_img = tf.nn.relu(network_output)[:, :, :, 0:1]  # Put negative values to zero
             tf.summary.image('output/prediction', summary_img, max_outputs=1)
