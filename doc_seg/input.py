@@ -80,7 +80,7 @@ def input_fn(input_image_dir, model_params: utils.Params, input_label_dir=None, 
 
             if data_augmentation:
                 # Rotation of the original image
-                with tf.name_scope('random_rotatation'):
+                with tf.name_scope('random_rotation'):
                     rotation_angle = tf.random_uniform([], -0.1, 0.1)
                     label_image = rotate_crop(label_image, rotation_angle, interpolation='NEAREST')
                     input_image = rotate_crop(input_image, rotation_angle, interpolation='BILINEAR')
