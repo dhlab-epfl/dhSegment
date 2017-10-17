@@ -1,20 +1,22 @@
 import tensorflow as tf
 from tensorflow.contrib import layers, slim  # TODO migration to tf.layers ?
-from .utils import PredictionType, class_to_label_image, Params
+from .utils import PredictionType, class_to_label_image, ModelParams, TrainingParams
 from .pretrained_models import vgg_16_fn, resnet_v1_50_fn
 
 
 def model_fn(mode, features, labels, params):
 
-    parameters = params.get('Params')
-    assert isinstance(parameters, Params)
+    model_params = ModelParams.from_dict(params['model_params'])
+    training_params = TrainingParams.from_dict(params['training_params'])
+    prediction_type = params['prediction_type']
+    classes_file = params['classes_file']
 
-    if parameters.pretrained_model_name == 'vgg16':
+    if model_params.pretrained_model_name == 'vgg16':
         network_output = inference_vgg16(features['images'],
-                                         parameters,
-                                         parameters.n_classes,
-                                         use_batch_norm=parameters.batch_norm,
-                                         weight_decay=parameters.weight_decay,
+                                         model_params,
+                                         model_params.n_classes,
+                                         use_batch_norm=model_params.batch_norm,
+                                         weight_decay=model_params.weight_decay,
                                          is_training=(mode == tf.estimator.ModeKeys.TRAIN)
                                          )
 
@@ -24,23 +26,23 @@ def model_fn(mode, features, labels, params):
                                                        if 'vgg_16' in v.name])
 
         def init_fn(scaffold, session):
-            pretrained_restorer.restore(session, parameters.pretrained_model_file)
+            pretrained_restorer.restore(session, model_params.pretrained_model_file)
     else:
         init_fn = None
 
     # Prediction
     # ----------
-    if parameters.prediction_type == PredictionType.CLASSIFICATION:
+    if prediction_type == PredictionType.CLASSIFICATION:
         prediction_probs = tf.nn.softmax(network_output, name='softmax')
         prediction_labels = tf.argmax(network_output, axis=-1, name='label_preds')
         predictions = {'probs': prediction_probs, 'labels': prediction_labels}
-    elif parameters.prediction_type == PredictionType.REGRESSION:
+    elif prediction_type == PredictionType.REGRESSION:
         predictions = {'output_values': network_output}
         prediction_labels = network_output
-    elif parameters.prediction_type == PredictionType.MULTILABEL:
+    elif prediction_type == PredictionType.MULTILABEL:
         with tf.name_scope('prediction_ops'):
             _out_shape = tf.shape(network_output)  # [B,H,W,C*2]
-            _new_shape = [_out_shape[0], _out_shape[1], _out_shape[2], int(parameters.n_classes/2), 2]  # [B,H,W,C,2]
+            _new_shape = [_out_shape[0], _out_shape[1], _out_shape[2], int(model_params.n_classes/2), 2]  # [B,H,W,C,2]
             output_reshaped = tf.reshape(network_output, _new_shape, name='output_reshape')
             prediction_probs = tf.nn.softmax(output_reshaped, dim=-1, name='probs')  # [B,H,W,C,2]
             prediction_labels = tf.argmax(prediction_probs, axis=-1, name='labels')  # [B,H,W,C]
@@ -50,18 +52,18 @@ def model_fn(mode, features, labels, params):
     # ----
     if mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
         regularized_loss = tf.losses.get_regularization_loss()
-        if parameters.prediction_type == PredictionType.CLASSIFICATION:
-            onehot_labels = tf.one_hot(indices=labels, depth=parameters.n_classes)
+        if prediction_type == PredictionType.CLASSIFICATION:
+            onehot_labels = tf.one_hot(indices=labels, depth=model_params.n_classes)
             with tf.name_scope("loss"):
                 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=network_output,
                                                                               labels=onehot_labels),
                                       name="loss")
-        elif parameters.prediction_type == PredictionType.REGRESSION:
+        elif prediction_type == PredictionType.REGRESSION:
             loss = tf.losses.mean_squared_error(labels, network_output)
-        elif parameters.prediction_type == PredictionType.MULTILABEL:
+        elif prediction_type == PredictionType.MULTILABEL:
             with tf.name_scope('reshape_label_onehot'):
                 _current_shape = tf.shape(labels)
-                _new_shape = [_current_shape[0], _current_shape[1], _current_shape[2], int(parameters.n_classes/2), 2]
+                _new_shape = [_current_shape[0], _current_shape[1], _current_shape[2], int(model_params.n_classes/2), 2]
                 labels_reshaped = tf.reshape(labels, _new_shape, name='labels_reshaped')
             with tf.name_scope('softmax_xentropy_loss'):
                 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=labels_reshaped,
@@ -78,11 +80,11 @@ def model_fn(mode, features, labels, params):
         tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, ema.apply([loss]))
         ema_loss = ema.average(loss)
 
-        if parameters.exponential_learning:
+        if training_params.exponential_learning:
             global_step = tf.train.get_or_create_global_step()
-            learning_rate = tf.train.exponential_decay(parameters.learning_rate, global_step, 200, 0.95, staircase=False)
+            learning_rate = tf.train.exponential_decay(training_params.learning_rate, global_step, 200, 0.95, staircase=False)
         else:
-            learning_rate = parameters.learning_rate
+            learning_rate = training_params.learning_rate
         tf.summary.scalar('learning_rate', learning_rate)
         optimizer = tf.train.AdamOptimizer(learning_rate)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
@@ -96,20 +98,20 @@ def model_fn(mode, features, labels, params):
         tf.summary.scalar('losses/loss', ema_loss)
         tf.summary.scalar('losses/loss_per_batch', loss)
         tf.summary.scalar('losses/regularized_loss', regularized_loss)
-        if parameters.prediction_type == PredictionType.CLASSIFICATION:
+        if prediction_type == PredictionType.CLASSIFICATION:
             tf.summary.image('output/prediction',
-                             tf.image.resize_images(class_to_label_image(prediction_labels, parameters.class_file),
+                             tf.image.resize_images(class_to_label_image(prediction_labels, classes_file),
                                                     tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
                              max_outputs=1)
-            if parameters.n_classes in [1, 3]:
+            if model_params.n_classes in [1, 3]:
                 tf.summary.image('output/probs',
                                  tf.image.resize_images(prediction_probs[:, :, :, :],
                                                         tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
                                  max_outputs=1)
-        elif parameters.prediction_type == PredictionType.REGRESSION:
+        elif prediction_type == PredictionType.REGRESSION:
             summary_img = tf.nn.relu(network_output)[:, :, :, 0:1]  # Put negative values to zero
             tf.summary.image('output/prediction', summary_img, max_outputs=1)
-        elif parameters.prediction_type == PredictionType.MULTILABEL:
+        elif prediction_type == PredictionType.MULTILABEL:
             # TODO : better visualization of outputs
             tf.summary.image('output/prediction_labelR',
                              tf.image.resize_images(prediction_labels[:, :, :, 0:1],
@@ -123,11 +125,11 @@ def model_fn(mode, features, labels, params):
     # Evaluation
     # ----------
     if mode == tf.estimator.ModeKeys.EVAL:
-        if parameters.prediction_type == PredictionType.CLASSIFICATION:
+        if prediction_type == PredictionType.CLASSIFICATION:
             metrics = {'accuracy': tf.metrics.accuracy(labels, predictions=prediction_labels)}
-        elif parameters.prediction_type == PredictionType.REGRESSION:
+        elif prediction_type == PredictionType.REGRESSION:
             metrics = {'accuracy': tf.metrics.mean_squared_error(labels, predictions=prediction_labels)}
-        elif parameters.prediction_type == PredictionType.MULTILABEL:
+        elif prediction_type == PredictionType.MULTILABEL:
             with tf.name_scope('evaluation/formatting'):
                 _shape = labels.get_shape().as_list()  # [B, H, W, C*2]
                 _new_shape = (_shape[0], _shape[1], _shape[2], int(_shape[3]/2), 2)
@@ -227,7 +229,7 @@ def model_fn(mode, features, labels, params):
 #     return logits
 
 
-def inference_vgg16(images: tf.Tensor, params: Params, num_classes: int, use_batch_norm=False, weight_decay=0.0,
+def inference_vgg16(images: tf.Tensor, params: ModelParams, num_classes: int, use_batch_norm=False, weight_decay=0.0,
                     is_training=False) -> tf.Tensor:
     with tf.name_scope('vgg_augmented'):
 
@@ -272,7 +274,7 @@ def inference_vgg16(images: tf.Tensor, params: Params, num_classes: int, use_bat
         # Intermediate convolution
         if params.vgg_intermediate_conv is not None:
             with tf.name_scope('intermediate_convs'):
-                for layer_params in params._vgg_intermediate_conv:
+                for layer_params in params.vgg_intermediate_conv:
                     for i, (nb_filters, filter_size) in enumerate(layer_params):
                         # nb_filters, filter_size = intermediate_convs_params
                         out_tensor = layers.conv2d(inputs=out_tensor,

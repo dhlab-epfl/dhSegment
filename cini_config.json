@@ -1,0 +1,10 @@
+{
+  "training_params" : {
+      "learning_rate": 5e-5,
+      "batch_size": 2
+  },
+  "train_dir" : "/scratch/benoit/cini_extraction_training_data/train",
+  "eval_dir" : "/scratch/benoit/cini_extraction_training_data/eval",
+  "classes_file" : "/scratch/benoit/cini_extraction_training_data/train/classes.txt",
+  "prediction_type" : "CLASSIFICATION"
+}
