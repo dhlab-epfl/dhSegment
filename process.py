@@ -40,11 +40,11 @@ if __name__ == '__main__':
     ap.add_argument("-o", "--output-dir", required=True, help="Folder with output results")
     ap.add_argument("-m", "--model-dir", required=True, help="Where the model will be loaded")
     ap.add_argument("-g", "--gpu", type=str, required=True, help="Which GPU to use (0, 1)")
-    ap.add_argument("-s", "--size", type=str, required=False, default=(320, 480),
-                    help="Resizing size of the input image (w, h)")
+    ap.add_argument("-s", "--size", type=str, required=False, default='1024,688',
+                    help="Resizing size of the input image 'w,h'")
     args = vars(ap.parse_args())
 
-    size_str = args.get('size').split()
+    size_str = args.get('size').split(',')
     resizing_size = [int(s) for s in size_str]
 
     process(args.get('input_dir'), args.get('output_dir'), args.get('model_dir'),
