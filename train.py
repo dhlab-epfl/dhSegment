@@ -8,6 +8,30 @@ try:
 except:
     pass
 from tqdm import trange
+from sacred import Experiment
+
+ex = Experiment('DocumentSegmentation_experiment')
+
+
+@ex.config
+def my_config():
+    """This is my demo configuration"""
+
+    a = 10  # some integer
+
+    # a dictionary
+    foo = {
+        'a_squared': a**2,
+        'bar': 'my_string%d' % a
+    }
+    if a > 8:
+        # cool: a dynamic entry
+        e = a/2
+
+
+@ex.main
+def run():
+    pass
 
 
 if __name__ == "__main__":
@@ -16,7 +40,7 @@ if __name__ == "__main__":
     ap.add_argument("-e", "--eval-dir", required=True, help="Folder with the evaluation images and labels")
     ap.add_argument("-o", "--model-output-dir", required=True, help="Where the model will be saved")
     ap.add_argument("-c", "--classes-file", required=False, help="Text file describing the classes (only for classification)")
-    ap.add_argument("--nb-epochs", default=20, type=int, help="Number of epochs")
+    ap.add_argument("--nb-epochs", default=5, type=int, help="Number of epochs")
     ap.add_argument("-g", "--gpu", required=True, type=str, help='GPU 0, 1 or CPU ('') ')
     ap.add_argument("-p", "--prediction-type", required=True, type=str, help='CLASSIFICATION or REGRESSION')
     args = vars(ap.parse_args())
@@ -27,11 +51,11 @@ if __name__ == "__main__":
         output_model_dir=args.get('model_output_dir'),
         n_epochs=args.get('nb_epochs'),
         gpu=args.get('gpu'),
-        learning_rate=1e-5,  # 1e-5
-        weight_decay=1e-4,  # 1e-5
+        learning_rate=5e-5,  # 1e-5
+        weight_decay=1e-5,  # 1e-5
         batch_norm=True,
-        batch_renorm=False,
-        make_patches=True,
+        batch_renorm=True,
+        make_patches=False,
         model_name='vgg16',
         vgg_intermediate_conv=[
             [(256, 3)]
@@ -45,12 +69,13 @@ if __name__ == "__main__":
         ],
         vgg_selected_levels_upscaling=[True,  # Must have same length as vgg_upscale_params
                                        True,
-                                       False,
+                                       True,
                                        False,
                                        False],
-        resized_size=(480, 320),  # (15,10)*32
+        resized_size=(688, 1024),  # (15,10)*32
         prediction_type=args.get('prediction_type'),
         class_file=args.get('classes_file'),
+        batch_size=2
     )
 
     if parameters_model.prediction_type == utils.PredictionType.CLASSIFICATION:
