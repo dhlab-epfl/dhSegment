@@ -11,6 +11,16 @@ def _try_to_int(d: Optional[Union[str, int]])-> Optional[int]:
         return d
 
 
+def _get_text_equiv(e: ET.Element) -> str:
+    tmp = e.find('p:TextEquiv', _ns)
+    if tmp is None:
+        return ''
+    tmp = tmp.find('p:Unicode', _ns)
+    if tmp is None:
+        return ''
+    return tmp.text
+
+
 class Point:
     def __init__(self, y: int, x: int):
         self.y = y
@@ -56,7 +66,7 @@ class TextLine(BaseElement):
             id=e.attrib.get('id'),
             coords=Point.list_from_xml(e.find('p:Coords', _ns)),
             baseline=Point.list_from_xml(e.find('p:Baseline', _ns)),
-            text_equiv=e.find('p:TextEquiv', _ns).find('p:Unicode', _ns).text
+            text_equiv=_get_text_equiv(e)
         )
 
 
@@ -76,7 +86,7 @@ class TextRegion(BaseElement):
             id=e.attrib.get('id'),
             coords=Point.list_from_xml(e.find('p:Coords', _ns)),
             text_lines=[TextLine.from_xml(tl) for tl in e.findall('p:TextLine', _ns)],
-            text_equiv=e.find('p:TextEquiv', _ns).find('p:Unicode', _ns).text
+            text_equiv=_get_text_equiv(e)
         )
 
 
