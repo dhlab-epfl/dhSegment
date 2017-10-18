@@ -175,3 +175,7 @@ def get_classes_color_from_file(classes_file: str) -> np.ndarray:
     result = np.loadtxt(classes_file).astype(np.float32)
     assert result.shape[1] == 3, "Color file should represent RGB values"
     return result
+
+
+def get_n_classes_from_file(classes_file: str) -> int:
+    return get_classes_color_from_file(classes_file).shape[0]

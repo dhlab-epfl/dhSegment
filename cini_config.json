@@ -1,10 +1,33 @@
 {
   "training_params" : {
       "learning_rate": 5e-5,
-      "batch_size": 2
+      "batch_size": 2,
+      "make_patches": false,
+      "input_resized_size": [688, 1024]
+  },
+  "model_params": {
+    "batch_norm": true,
+    "batch_renorm": true,
+    "vgg_intermediate_conv":[
+        [[256, 3]]
+    ],
+    "vgg_upscale_params" : [
+        [[64, 3]],
+        [[128, 3]],
+        [[256, 3]],
+        [[512, 3]],
+        [[512, 3]]
+    ],
+    "vgg_selected_levels_upscaling" : [
+        true,
+        true,
+        true,
+        false,
+        false
+    ]
   },
   "train_dir" : "/scratch/benoit/cini_extraction_training_data/train",
   "eval_dir" : "/scratch/benoit/cini_extraction_training_data/eval",
-  "classes_file" : "/scratch/benoit/cini_extraction_training_data/train/classes.txt",
+  "classes_file" : "/scratch/benoit/cini_extraction_training_data/train/labels/classes.txt",
   "prediction_type" : "CLASSIFICATION"
 }

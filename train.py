@@ -15,26 +15,22 @@ ex = Experiment('DocumentSegmentation_experiment')
 
 @ex.config
 def default_config():
-    train_dir = None
-    eval_dir = None
-    classes_file = None
-    gpu = None
-    prediction_type = utils.PredictionType.CLASSIFICATION
-    # Default values
-    model_params = utils.ModelParams().to_dict()
-    training_params = utils.TrainingParams().to_dict()
+    train_dir = None  # Directory with training data
+    eval_dir = None  # Directory with validation data
+    classes_file = None  # txt file with classes values (unused for REGRESSION)
+    gpu = None  # GPU to be used for training
+    prediction_type = utils.PredictionType.REGRESSION  # One of CLASSIFICATION, REGRESSION or MULTILABEL
+    model_params = utils.ModelParams().to_dict()  # Model parameters
+    training_params = utils.TrainingParams().to_dict()  # Training parameters
 
-    # Prediction type check
     if prediction_type == utils.PredictionType.CLASSIFICATION:
         assert classes_file is not None
-        classes = utils.get_classes_color_from_file(classes_file)
-        model_params['n_classes'] = classes.shape[0]
+        model_params['n_classes'] = utils.get_n_classes_from_file(classes_file)
     elif prediction_type == utils.PredictionType.REGRESSION:
         model_params['n_classes'] = 1
     elif prediction_type == utils.PredictionType.MULTILABEL:
         assert classes_file is not None
-        classes = utils.get_classes_color_from_file(classes_file)
-        model_params['n_classes'] = 2 * classes.shape[0]
+        model_params['n_classes'] = 2 * utils.get_n_classes_from_file(classes_file)
 
 
 @ex.automain
