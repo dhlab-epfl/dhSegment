@@ -1,5 +1,6 @@
 from xml.etree import ElementTree as ET
 from typing import List, Optional, Union
+import numpy as np
 
 _ns = {'p': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'}
 
@@ -36,6 +37,10 @@ class Point:
             x, y = int(values[0]), int(values[1])
             result.append(Point(y,x))
         return result
+
+    @classmethod
+    def list_to_cv2poly(cls, list_points: List['Point']):
+        return np.array([(p.x, p.y) for p in list_points], dtype=np.int32).reshape([-1, 1, 2])
 
 
 class BaseElement:
