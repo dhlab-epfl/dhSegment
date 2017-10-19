@@ -18,7 +18,7 @@ def default_config():
     train_dir = None  # Directory with training data
     eval_dir = None  # Directory with validation data
     classes_file = None  # txt file with classes values (unused for REGRESSION)
-    gpu = None  # GPU to be used for training
+    gpu = ''  # GPU to be used for training
     prediction_type = utils.PredictionType.REGRESSION  # One of CLASSIFICATION, REGRESSION or MULTILABEL
     model_params = utils.ModelParams().to_dict()  # Model parameters
     training_params = utils.TrainingParams().to_dict()  # Training parameters
@@ -38,14 +38,14 @@ def run(train_dir, eval_dir, model_output_dir, classes_file, gpu, model_params,
         prediction_type, training_params, _config):
     # Save config
     if not os.path.isdir(model_output_dir):
-        os.mkdir(model_output_dir)
+        os.makedirs(model_output_dir)
     with open(os.path.join(model_output_dir, 'config.json'), 'w') as f:
         json.dump(_config, f)
 
     training_params = utils.TrainingParams.from_dict(training_params)
 
     session_config = tf.ConfigProto()
-    session_config.gpu_options.visible_device_list = gpu
+    session_config.gpu_options.visible_device_list = str(gpu)
     session_config.gpu_options.per_process_gpu_memory_fraction = 0.9
     estimator_config = tf.estimator.RunConfig().replace(session_config=session_config,
                                                         save_summary_steps=10)

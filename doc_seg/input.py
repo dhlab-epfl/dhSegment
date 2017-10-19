@@ -117,9 +117,9 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
                 batch_label = tf.expand_dims(formatted_label, axis=0)
 
             # Convert RGB to class id
-            if model_params.prediction_type == utils.PredictionType.CLASSIFICATION:
+            if prediction_type == utils.PredictionType.CLASSIFICATION:
                 batch_label = utils.label_image_to_class(batch_label, classes_file)
-            elif model_params.prediction_type == utils.PredictionType.MULTILABEL:
+            elif prediction_type == utils.PredictionType.MULTILABEL:
                 batch_label = utils.multilabel_image_to_class(batch_label, classes_file)
 
             to_batch = {'images': batch_image, 'labels': batch_label}

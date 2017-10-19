@@ -103,9 +103,14 @@ def model_fn(mode, features, labels, params):
                              tf.image.resize_images(class_to_label_image(prediction_labels, classes_file),
                                                     tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
                              max_outputs=1)
-            if model_params.n_classes in [1, 3]:
+            if model_params.n_classes == 3:
                 tf.summary.image('output/probs',
                                  tf.image.resize_images(prediction_probs[:, :, :, :],
+                                                        tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
+                                 max_outputs=1)
+            if model_params.n_classes == 2:
+                tf.summary.image('output/probs',
+                                 tf.image.resize_images(prediction_probs[:, :, :, 1],
                                                         tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
                                  max_outputs=1)
         elif prediction_type == PredictionType.REGRESSION:
