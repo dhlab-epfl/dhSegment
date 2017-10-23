@@ -29,6 +29,9 @@ class Point:
 
     @classmethod
     def list_from_xml(cls, e: ET.Element) -> List['Point']:
+        if e is None:
+            print('warning, trying to construct list of points from None, defaulting to []')
+            return []
         t = e.attrib['points']
         result = []
         for p in t.split(' '):
