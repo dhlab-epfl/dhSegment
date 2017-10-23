@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.contrib import layers, slim  # TODO migration to tf.layers ?
 from .utils import PredictionType, class_to_label_image, ModelParams, TrainingParams
 from .pretrained_models import vgg_16_fn, resnet_v1_50_fn
+from doc_seg import utils
 
 
 def model_fn(mode, features, labels, params):
@@ -41,11 +42,8 @@ def model_fn(mode, features, labels, params):
         prediction_labels = network_output
     elif prediction_type == PredictionType.MULTILABEL:
         with tf.name_scope('prediction_ops'):
-            _out_shape = tf.shape(network_output)  # [B,H,W,C*2]
-            _new_shape = [_out_shape[0], _out_shape[1], _out_shape[2], int(model_params.n_classes/2), 2]  # [B,H,W,C,2]
-            output_reshaped = tf.reshape(network_output, _new_shape, name='output_reshape')
-            prediction_probs = tf.nn.softmax(output_reshaped, dim=-1, name='probs')  # [B,H,W,C,2]
-            prediction_labels = tf.argmax(prediction_probs, axis=-1, name='labels')  # [B,H,W,C]
+            prediction_probs = tf.nn.sigmoid(network_output, name='probs')  # [B,H,W,C]
+            prediction_labels = tf.cast(tf.greater_equal(prediction_probs, 0.5, name='labels'), tf.int32)  # [B,H,W,C]
             predictions = {'probs': prediction_probs, 'labels': prediction_labels}
 
     # Loss
@@ -61,14 +59,10 @@ def model_fn(mode, features, labels, params):
         elif prediction_type == PredictionType.REGRESSION:
             loss = tf.losses.mean_squared_error(labels, network_output)
         elif prediction_type == PredictionType.MULTILABEL:
-            with tf.name_scope('reshape_label_onehot'):
-                _current_shape = tf.shape(labels)
-                _new_shape = [_current_shape[0], _current_shape[1], _current_shape[2], int(model_params.n_classes/2), 2]
-                labels_reshaped = tf.reshape(labels, _new_shape, name='labels_reshaped')
-            with tf.name_scope('softmax_xentropy_loss'):
-                loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=labels_reshaped,
-                                                                              logits=output_reshaped,  # network output [B,H,W,C,2]
-                                                                              dim=-1))
+            with tf.name_scope('sigmoid_xentropy_loss'):
+                loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(labels, tf.float32),
+                                                                              logits=network_output))
+
         loss += regularized_loss
     else:
         loss = None
@@ -126,6 +120,12 @@ def model_fn(mode, features, labels, params):
                              tf.image.resize_images(prediction_labels[:, :, :, 1:2],
                                                     tf.cast(tf.shape(prediction_labels)[1:3] / 3, tf.int32)),
                              max_outputs=1)
+            labels_visualization = tf.cast(prediction_labels, tf.int32)
+            labels_visualization = utils.multiclass_to_label_image(labels_visualization, classes_file)
+            tf.summary.image('output/prediction_image',
+                             tf.image.resize_images(labels_visualization,
+                                                    tf.cast(tf.shape(prediction_labels)[1:3] / 3, tf.int32)),
+                             max_outputs=1)
 
     # Evaluation
     # ----------
@@ -135,14 +135,10 @@ def model_fn(mode, features, labels, params):
         elif prediction_type == PredictionType.REGRESSION:
             metrics = {'accuracy': tf.metrics.mean_squared_error(labels, predictions=prediction_labels)}
         elif prediction_type == PredictionType.MULTILABEL:
-            with tf.name_scope('evaluation/formatting'):
-                _shape = labels.get_shape().as_list()  # [B, H, W, C*2]
-                _new_shape = (_shape[0], _shape[1], _shape[2], int(_shape[3]/2), 2)
-                labels_reshaped = tf.reshape(labels, _new_shape)  # [B, H, W, C, 2]
-                labels_argmax = tf.argmax(labels_reshaped, axis=-1)  # [B, H, W, C]
-            metrics = {'eval/MSE': tf.metrics.mean_squared_error(labels_reshaped, predictions=prediction_probs),
-                       'eval/accuracy': tf.metrics.accuracy(tf.cast(labels_argmax, tf.bool),
-                                                            predictions=tf.cast(prediction_labels, tf.bool))}
+            metrics = {'eval/MSE': tf.metrics.mean_squared_error(tf.cast(labels, tf.float32), predictions=prediction_probs),
+                       'eval/accuracy': tf.metrics.accuracy(tf.cast(labels, tf.bool),
+                                                            predictions=tf.cast(prediction_labels, tf.bool))
+                       }
     else:
         metrics = None
 
@@ -155,83 +151,6 @@ def model_fn(mode, features, labels, params):
                                                       tf.estimator.export.PredictOutput(predictions)},
                                       scaffold=tf.train.Scaffold(init_fn=init_fn)
                                       )
-
-
-# def inference(images, all_layer_params, num_classes, is_training=False, use_batch_norm=False, weight_decay=0.0):
-#     """
-#
-#     :param images: images tensor
-#     :param all_layer_params: List of List of Tuple(nb_filters, filter_size)
-#     :param num_classes: Dimension of the output for each pixel
-#     :param is_training:
-#     :param use_batch_norm:
-#     :param weight_decay:
-#     :return: Linear activations
-#     """
-#
-#     if use_batch_norm:
-#         batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm',
-#                                                                 renorm=False, renorm_clipping=None, renorm_momentum=0.98)
-#     else:
-#         batch_norm_fn = None
-#
-#     def conv_pool(input_tensor, layer_params, number):
-#         for i, (nb_filters, filter_size) in enumerate(layer_params):
-#             input_tensor = layers.conv2d(
-#                 inputs=input_tensor,
-#                 num_outputs=nb_filters,
-#                 kernel_size=[filter_size, filter_size],
-#                 normalizer_fn=batch_norm_fn,
-#                 scope="conv{}_{}".format(number, i+1))
-#
-#         pool = tf.layers.max_pooling2d(inputs=input_tensor, pool_size=[2, 2], strides=2, name="pool{}".format(number))
-#         return pool
-#
-#     def upsample_conv(pooled_layer, previous_layer, layer_params, number):
-#         with tf.name_scope('upsample{}'.format(number)):
-#             if previous_layer.get_shape()[1].value and previous_layer.get_shape()[2].value:
-#                 target_shape = previous_layer.get_shape()[1:3]
-#             else:
-#                 target_shape = tf.shape(previous_layer)[1:3]
-#             upsampled_layer = tf.image.resize_images(pooled_layer, target_shape,
-#                                                      method=tf.image.ResizeMethod.BILINEAR)
-#             input_tensor = tf.concat([upsampled_layer, previous_layer], 3)
-#
-#         for i, (nb_filters, filter_size) in enumerate(layer_params):
-#             input_tensor = layers.conv2d(
-#                 inputs=input_tensor,
-#                 num_outputs=nb_filters,
-#                 kernel_size=[filter_size, filter_size],
-#                 normalizer_fn=batch_norm_fn,
-#                 scope="conv{}_{}".format(number, i+1)
-#             )
-#         return input_tensor
-#
-#     with slim.arg_scope([layers.conv2d], activation_fn=tf.nn.relu, padding='same',
-#                         normalizer_fn=layers.batch_norm if use_batch_norm else None,
-#                         weights_regularizer=slim.regularizers.l2_regularizer(weight_decay)):
-#         with slim.arg_scope([layers.batch_norm], is_training=is_training):
-#             intermediate_levels = []
-#             current_tensor = images
-#             n_layer = 1
-#             for layer_params in all_layer_params:
-#                 intermediate_levels.append(current_tensor)
-#                 current_tensor = conv_pool(current_tensor, layer_params, n_layer)
-#                 n_layer += 1
-#
-#             for i in reversed(range(len(intermediate_levels))):
-#                 current_tensor = upsample_conv(current_tensor, intermediate_levels[i],
-#                                                reversed(all_layer_params[i]), n_layer)
-#                 n_layer += 1
-#
-#             logits = layers.conv2d(
-#                 inputs=current_tensor,
-#                 num_outputs=num_classes,
-#                 activation_fn=None,
-#                 kernel_size=[7, 7],
-#                 scope="conv{}_logits".format(n_layer)
-#             )
-#     return logits
 
 
 def inference_vgg16(images: tf.Tensor, params: ModelParams, num_classes: int, use_batch_norm=False, weight_decay=0.0,

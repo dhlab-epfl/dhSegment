@@ -33,7 +33,6 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
 
             label_images.append(label_image_filename)
 
-    # Helper loading function
     def load_image(filename, channels):
         with tf.name_scope('load_img'):
             decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=channels,
@@ -120,6 +119,7 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
             if prediction_type == utils.PredictionType.CLASSIFICATION:
                 batch_label = utils.label_image_to_class(batch_label, classes_file)
             elif prediction_type == utils.PredictionType.MULTILABEL:
+                # TODO : change this function to have directly 'onehot' labelling and use sigmoid cross entropy
                 batch_label = utils.multilabel_image_to_class(batch_label, classes_file)
 
             to_batch = {'images': batch_image, 'labels': batch_label}
@@ -143,12 +143,12 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
                 if prediction_type == utils.PredictionType.CLASSIFICATION:
                     label_export = utils.class_to_label_image(label_export, classes_file)
                 if prediction_type == utils.PredictionType.MULTILABEL:
-                    _shape = label_export.get_shape().as_list()
+                    # TODO : adapt multiclass_to_label_image
+                    label_export = tf.cast(label_export, tf.int32)
                     label_export.set_shape((batch_size, *shape_summary_img, None))
                     label_export = utils.multiclass_to_label_image(label_export, classes_file)
-
-                tf.summary.image('input/label',
-                                 tf.image.resize_images(label_export, np.array(shape_summary_img) / 3), max_outputs=1)
+                    tf.summary.image('input/label',
+                                     tf.image.resize_images(label_export, np.array(shape_summary_img) / 3), max_outputs=1)
 
         return prepared_batch, prepared_batch.get('labels')
 
@@ -165,10 +165,6 @@ def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor) -> (tf.
             sample = tf.random_uniform([], 0, 1)
             label_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(label_image), lambda: label_image)
             input_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(input_image), lambda: input_image)
-        # with tf.name_scope('random_rotate'):
-        #     rotation_angle = tf.random_uniform([], -0.05, 0.05)
-        #     label_image = rotate_crop(label_image, rotation_angle, interpolation='NEAREST')
-        #     input_image = rotate_crop(input_image, rotation_angle, interpolation='BILINEAR')
 
         chanels = input_image.get_shape()[-1]
         input_image = tf.image.random_contrast(input_image, lower=0.8, upper=1.0)
