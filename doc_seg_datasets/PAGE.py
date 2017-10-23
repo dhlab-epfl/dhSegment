@@ -78,6 +78,22 @@ class TextLine(BaseElement):
         )
 
 
+class GraphicRegion(BaseElement):
+    tag = 'GraphicRegion'
+
+    def __init__(self, id=None, coords=None,):
+        self.coords = coords if coords is not None else []  # type: List[Point]
+        self.id = id  # type: Optional[str]
+
+    @classmethod
+    def from_xml(cls, e: ET.Element) -> 'GraphicRegion':
+        cls.check_tag(e.tag)
+        return GraphicRegion(
+            id=e.attrib.get('id'),
+            coords=Point.list_from_xml(e.find('p:Coords', _ns))
+        )
+
+
 class TextRegion(BaseElement):
     tag = 'TextRegion'
 
@@ -101,11 +117,13 @@ class TextRegion(BaseElement):
 class Page(BaseElement):
     tag = 'Page'
 
-    def __init__(self, image_filename=None, image_width=None, image_height=None, text_regions=None):
+    def __init__(self, image_filename=None, image_width=None, image_height=None,
+                 text_regions=None, graphic_regions=None):
         self.image_filename = image_filename  # type: Optional[str]
         self.image_width = _try_to_int(image_width)  # type: Optional[int]
         self.image_height = _try_to_int(image_height)  # type: Optional[int]
         self.text_regions = text_regions if text_regions is not None else []  # type: List[TextRegion]
+        self.graphic_regions = graphic_regions if graphic_regions is not None else []  # type: List[GraphicRegion]
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'Page':
@@ -114,7 +132,8 @@ class Page(BaseElement):
             image_filename=e.attrib.get('imageFilename'),
             image_width=e.attrib.get('imageWidth'),
             image_height=e.attrib.get('imageHeight'),
-            text_regions=[TextRegion.from_xml(tr) for tr in e.findall('p:TextRegion', _ns)]
+            text_regions=[TextRegion.from_xml(tr) for tr in e.findall('p:TextRegion', _ns)],
+            graphic_regions=[GraphicRegion.from_xml(tr) for tr in e.findall('p:GraphicRegion', _ns)]
         )
 
 
