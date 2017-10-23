@@ -119,7 +119,6 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
             if prediction_type == utils.PredictionType.CLASSIFICATION:
                 batch_label = utils.label_image_to_class(batch_label, classes_file)
             elif prediction_type == utils.PredictionType.MULTILABEL:
-                # TODO : change this function to have directly 'onehot' labelling and use sigmoid cross entropy
                 batch_label = utils.multilabel_image_to_class(batch_label, classes_file)
 
             to_batch = {'images': batch_image, 'labels': batch_label}
@@ -143,7 +142,6 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
                 if prediction_type == utils.PredictionType.CLASSIFICATION:
                     label_export = utils.class_to_label_image(label_export, classes_file)
                 if prediction_type == utils.PredictionType.MULTILABEL:
-                    # TODO : adapt multiclass_to_label_image
                     label_export = tf.cast(label_export, tf.int32)
                     label_export.set_shape((batch_size, *shape_summary_img, None))
                     label_export = utils.multiclass_to_label_image(label_export, classes_file)

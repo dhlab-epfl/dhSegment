@@ -43,7 +43,7 @@ def model_fn(mode, features, labels, params):
     elif prediction_type == PredictionType.MULTILABEL:
         with tf.name_scope('prediction_ops'):
             prediction_probs = tf.nn.sigmoid(network_output, name='probs')  # [B,H,W,C]
-            prediction_labels = tf.cast(tf.greater_equal(prediction_probs, 0.5, name='labels'), tf.int32)  # [B,H,W,C]
+            prediction_labels = tf.greater_equal(prediction_probs, 0.5, name='labels')  # [B,H,W,C]
             predictions = {'probs': prediction_probs, 'labels': prediction_labels}
 
     # Loss
@@ -111,7 +111,6 @@ def model_fn(mode, features, labels, params):
             summary_img = tf.nn.relu(network_output)[:, :, :, 0:1]  # Put negative values to zero
             tf.summary.image('output/prediction', summary_img, max_outputs=1)
         elif prediction_type == PredictionType.MULTILABEL:
-            # TODO : better visualization of outputs
             tf.summary.image('output/prediction_labelR',
                              tf.image.resize_images(prediction_labels[:, :, :, 0:1],
                                                     tf.cast(tf.shape(prediction_labels)[1:3] / 3, tf.int32)),
