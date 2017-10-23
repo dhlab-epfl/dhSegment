@@ -31,7 +31,7 @@ def default_config():
         model_params['n_classes'] = 1
     elif prediction_type == utils.PredictionType.MULTILABEL:
         assert classes_file is not None
-        model_params['n_classes'] = utils.get_n_classes_from_file(classes_file)
+        model_params['n_classes'] = utils.get_n_classes_from_file_multilabel(classes_file)
 
 
 @ex.automain

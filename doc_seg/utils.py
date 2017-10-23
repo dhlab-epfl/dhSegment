@@ -114,9 +114,9 @@ def class_to_label_image(class_label: tf.Tensor, classes_file: str) -> tf.Tensor
 
 
 def multilabel_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.Tensor:
-    classes_color_values = get_classes_color_from_file(classes_file)
+    classes_color_values, colors_labels = get_classes_color_from_file_multilabel(classes_file)
     # Convert label_image [H,W,3] to the classes [H,W,C],int32 according to the classes [C,3]
-    with tf.name_scope('MultiLabelAssign'):
+    with tf.name_scope('LabelAssign'):
         if len(label_image.get_shape()) == 3:
             diff = tf.cast(label_image[:, :, None, :], tf.float32) - tf.constant(classes_color_values[None, None, :, :])  # [H,W,C,3]
         elif len(label_image.get_shape()) == 4:
@@ -125,27 +125,23 @@ def multilabel_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.T
         else:
             raise NotImplementedError('Length is : {}'.format(len(label_image.get_shape())))
 
-        pixel_class_min = tf.reduce_min(diff, axis=-1)  # [H,W,C] or [B,H,W,C]
-        one_hot_multiclass = tf.greater_equal(pixel_class_min, 0)  # [H,W,C] or [B,H,W,C] with TRUE, FALSE
-        return one_hot_multiclass
+        pixel_class_diff = tf.reduce_sum(tf.square(diff), axis=-1)  # [H,W,C] or [B,H,W,C]
+        class_label = tf.argmin(pixel_class_diff, axis=-1)  # [H,W] or [B,H,W]
+
+        return tf.gather(colors_labels, class_label) > 0
 
 
 def multiclass_to_label_image(class_label_tensor: tf.Tensor, classes_file: str) -> tf.Tensor:
 
-    def multilabel_to_img(multiclass_label, classes_color_values):
-        _shape = multiclass_label.shape  # [H, W, Class]
-        image = np.zeros([_shape[0], _shape[1], classes_color_values.shape[1]], dtype='int32')
-        for i in range(len(classes_color_values)):
-            image[multiclass_label[:, :, i].astype('bool'), :] += classes_color_values[i]
-        return image.astype('int32')
+    classes_color_values, colors_labels = get_classes_color_from_file_multilabel(classes_file)
+
+    n_classes = colors_labels.shape[1]
+    c = np.zeros((2,)*n_classes+(3,), np.int32)
+    for c_value, inds in zip(classes_color_values, colors_labels):
+        c[tuple(inds)] = c_value
 
     with tf.name_scope('Label2Img'):
-        classes_color_values = tf.cast(get_classes_color_from_file(classes_file), tf.int32)
-        fn = lambda x: tf.py_func(multilabel_to_img, [x, classes_color_values], tf.int32, name='py_label2img')
-        image_tf = tf.map_fn(fn, class_label_tensor, name='map_for_batch')
-        _shape = class_label_tensor.get_shape().as_list()
-        image_tf.set_shape([_shape[0], _shape[1], _shape[2], 3])
-        return image_tf
+        return tf.gather_nd(c, tf.cast(class_label_tensor, tf.int32))
 
 
 def get_classes_color_from_file(classes_file: str) -> np.ndarray:
@@ -158,3 +154,17 @@ def get_classes_color_from_file(classes_file: str) -> np.ndarray:
 
 def get_n_classes_from_file(classes_file: str) -> int:
     return get_classes_color_from_file(classes_file).shape[0]
+
+
+def get_classes_color_from_file_multilabel(classes_file: str) -> np.ndarray:
+    if not os.path.exists(classes_file):
+        raise FileNotFoundError(classes_file)
+    result = np.loadtxt(classes_file).astype(np.float32)
+    assert result.shape[1] > 3, "The number of columns should be greater in multilabel framework"
+    colors = result[:, :3]
+    labels = result[:, 3:]
+    return colors, labels.astype(np.int32)
+
+
+def get_n_classes_from_file_multilabel(classes_file: str) -> int:
+    return get_classes_color_from_file_multilabel(classes_file)[1].shape[1]
