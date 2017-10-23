@@ -17,9 +17,10 @@ ex = Experiment('DocumentSegmentation_experiment')
 def default_config():
     train_dir = None  # Directory with training data
     eval_dir = None  # Directory with validation data
+    model_output_dir = None  # Directory to output tf model
     classes_file = None  # txt file with classes values (unused for REGRESSION)
     gpu = ''  # GPU to be used for training
-    prediction_type = utils.PredictionType.REGRESSION  # One of CLASSIFICATION, REGRESSION or MULTILABEL
+    prediction_type = utils.PredictionType.CLASSIFICATION  # One of CLASSIFICATION, REGRESSION or MULTILABEL
     model_params = utils.ModelParams().to_dict()  # Model parameters
     training_params = utils.TrainingParams().to_dict()  # Training parameters
 
@@ -30,12 +31,11 @@ def default_config():
         model_params['n_classes'] = 1
     elif prediction_type == utils.PredictionType.MULTILABEL:
         assert classes_file is not None
-        model_params['n_classes'] = 2 * utils.get_n_classes_from_file(classes_file)
+        model_params['n_classes'] = utils.get_n_classes_from_file(classes_file)
 
 
 @ex.automain
-def run(train_dir, eval_dir, model_output_dir, classes_file, gpu, model_params,
-        prediction_type, training_params, _config):
+def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
     # Save config
     if not os.path.isdir(model_output_dir):
         os.makedirs(model_output_dir)

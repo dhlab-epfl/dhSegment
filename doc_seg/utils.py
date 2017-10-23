@@ -1,7 +1,6 @@
 import tensorflow as tf
 import numpy as np
 import os
-import json
 
 
 class PredictionType:
@@ -127,46 +126,26 @@ def multilabel_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.T
             raise NotImplementedError('Length is : {}'.format(len(label_image.get_shape())))
 
         pixel_class_min = tf.reduce_min(diff, axis=-1)  # [H,W,C] or [B,H,W,C]
-        multi_class_label = tf.greater_equal(pixel_class_min, 0)  # [H,W,C] or [B,H,W,C] with TRUE, FALSE
-        one_hot_multiclass = tf.stack([multi_class_label,
-                                       tf.logical_not(multi_class_label)], axis=-1)  # [H,W,C,2] 'one_hot' encoding
-        shape = one_hot_multiclass.get_shape().as_list()
-        if len(one_hot_multiclass.get_shape()) == 4:
-            new_shape = (shape[0], shape[1], shape[2] * shape[3])
-            reshaped_label = tf.reshape(one_hot_multiclass, new_shape)  # [H,W,C*2]
-            reshaped_label.set_shape(new_shape)
-        elif len(one_hot_multiclass.get_shape()) == 5:
-            new_shape = (shape[0], shape[1], shape[2], shape[3] * shape[4])
-            reshaped_label = tf.reshape(one_hot_multiclass, new_shape)  # [B,H,W,C*2]
-            reshaped_label.set_shape(new_shape)
-        else:
-            raise NotImplementedError('Length is : {}'.format(len(one_hot_multiclass.get_shape())))
-
-        return tf.cast(reshaped_label, dtype=tf.float32)
+        one_hot_multiclass = tf.greater_equal(pixel_class_min, 0)  # [H,W,C] or [B,H,W,C] with TRUE, FALSE
+        return one_hot_multiclass
 
 
-def multiclass_to_label_image(class_label: tf.Tensor, classes_file: str) -> tf.Tensor:
-    classes_color_values = get_classes_color_from_file(classes_file)
-    with tf.name_scope('Label2Image'):
-        shape = class_label.get_shape()
+def multiclass_to_label_image(class_label_tensor: tf.Tensor, classes_file: str) -> tf.Tensor:
 
-        # class_label : [B,H,W,C*2]
-        new_shape = tf.concat([shape[:-1], [classes_color_values.shape[0], 2]], axis=0)
-        labels_reshaped = tf.reshape(class_label, new_shape)  # [B,H,W,C,2]
+    def multilabel_to_img(multiclass_label, classes_color_values):
+        _shape = multiclass_label.shape  # [H, W, Class]
+        image = np.zeros([_shape[0], _shape[1], classes_color_values.shape[1]], dtype='int32')
+        for i in range(len(classes_color_values)):
+            image[multiclass_label[:, :, i].astype('bool'), :] += classes_color_values[i]
+        return image.astype('int32')
 
-        if classes_color_values.shape[0] == 2:
-            if len(labels_reshaped.get_shape()) == 4:
-                labels_formatted = labels_reshaped[:, :, :, 1]
-                label_img = tf.concat([labels_formatted, tf.zeros(shape[:-1], dtype=tf.float32)[:, :, None]], axis=-1)
-            elif len(labels_reshaped.get_shape()) == 5:
-                labels_formatted = labels_reshaped[:, :, :, :, 1]
-                label_img = tf.concat([labels_formatted, tf.zeros(shape[:-1], dtype=tf.float32)[:, :, :, None]], axis=-1)
-            else:
-                raise NotImplementedError('Length is : {}'.format(len(labels_reshaped.get_shape())))
-            return tf.cast(label_img, dtype=tf.int32)
-        else:
-            # TODO better
-            return tf.cast(class_label[:, :, :, :3, 0], dtype=tf.int32)
+    with tf.name_scope('Label2Img'):
+        classes_color_values = tf.cast(get_classes_color_from_file(classes_file), tf.int32)
+        fn = lambda x: tf.py_func(multilabel_to_img, [x, classes_color_values], tf.int32, name='py_label2img')
+        image_tf = tf.map_fn(fn, class_label_tensor, name='map_for_batch')
+        _shape = class_label_tensor.get_shape().as_list()
+        image_tf.set_shape([_shape[0], _shape[1], _shape[2], 3])
+        return image_tf
 
 
 def get_classes_color_from_file(classes_file: str) -> np.ndarray:
