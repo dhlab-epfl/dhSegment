@@ -111,15 +111,15 @@ def model_fn(mode, features, labels, params):
             summary_img = tf.nn.relu(network_output)[:, :, :, 0:1]  # Put negative values to zero
             tf.summary.image('output/prediction', summary_img, max_outputs=1)
         elif prediction_type == PredictionType.MULTILABEL:
+            #tf.summary.image('output/prediction_labelR',
+            #                 tf.image.resize_images(prediction_labels[:, :, :, 0:1],
+            #                                        tf.cast(tf.shape(prediction_labels)[1:3] / 3, tf.int32)),
+            #                 max_outputs=1)
+            #tf.summary.image('output/prediction_labelG',
+            #                 tf.image.resize_images(prediction_labels[:, :, :, 1:2],
+            #                                        tf.cast(tf.shape(prediction_labels)[1:3] / 3, tf.int32)),
+            #                 max_outputs=1)
             labels_visualization = tf.cast(prediction_labels, tf.int32)
-            tf.summary.image('output/prediction_labelR',
-                             tf.image.resize_images(labels_visualization[:, :, :, 0:1],
-                                                    tf.cast(tf.shape(labels_visualization)[1:3] / 3, tf.int32)),
-                             max_outputs=1)
-            tf.summary.image('output/prediction_labelG',
-                             tf.image.resize_images(labels_visualization[:, :, :, 1:2],
-                                                    tf.cast(tf.shape(labels_visualization)[1:3] / 3, tf.int32)),
-                             max_outputs=1)
             labels_visualization = utils.multiclass_to_label_image(labels_visualization, classes_file)
             tf.summary.image('output/prediction_image',
                              tf.image.resize_images(labels_visualization,
