@@ -18,6 +18,7 @@ def default_config():
     train_dir = None  # Directory with training data
     eval_dir = None  # Directory with validation data
     model_output_dir = None  # Directory to output tf model
+    restore_model = False  # Set to true to continue training
     classes_file = None  # txt file with classes values (unused for REGRESSION)
     gpu = ''  # GPU to be used for training
     prediction_type = utils.PredictionType.CLASSIFICATION  # One of CLASSIFICATION, REGRESSION or MULTILABEL
@@ -39,6 +40,10 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
     # Save config
     if not os.path.isdir(model_output_dir):
         os.makedirs(model_output_dir)
+    else:
+        assert _config.get('restore_model'), \
+            '{} already exists, you cannot use it as output directory. ' \
+            'Set "restore_model=True" to continue training'.format(model_output_dir)
     with open(os.path.join(model_output_dir, 'config.json'), 'w') as f:
         json.dump(_config, f)
 
