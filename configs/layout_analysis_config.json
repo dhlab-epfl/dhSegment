@@ -1,0 +1,34 @@
+{
+  "training_params" : {
+      "learning_rate": 4e-5,
+      "batch_size": 5,
+      "make_patches": true,
+      "patch_shape": [400, 400],
+      "n_epochs": -1
+  },
+  "model_params": {
+    "batch_norm": true,
+    "batch_renorm": true,
+    "vgg_intermediate_conv":[
+        [[256, 3]]
+    ],
+    "vgg_upscale_params" : [
+        [[64, 3]],
+        [[128, 3]],
+        [[256, 3]],
+        [[512, 3]],
+        [[512, 3]]
+    ],
+    "vgg_selected_levels_upscaling" : [
+        true,
+        true,
+        true,
+        false,
+        false
+    ]
+  },
+  "train_dir" : "/scratch/benoit/layout_analysis/train",
+  "eval_dir" : "/scratch/benoit/layout_analysis/eval",
+  "classes_file" : "/scratch/benoit/layout_analysis/train/classes.txt",
+  "prediction_type" : "MULTILABEL"
+}
