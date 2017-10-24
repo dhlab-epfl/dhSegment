@@ -6,8 +6,12 @@ import numpy as np
 import cv2
 from scipy.misc import imread, imsave
 
-INPUT_DIR = '/home/seguin/basline/Baseline Competition - Simple Documents'
-OUTPUT_DIR = '/scratch/benoit/baseline'
+# Generate Datasets from the cBAD competition
+
+INPUT_DIR = '/home/seguin/document_datasets/Baseline Competition - Complex Documents'
+OUTPUT_DIR = '/scratch/benoit/baseline_complex'
+#INPUT_DIR = '/home/seguin/document_datasets/Baseline Competition - Simple Documents'
+#OUTPUT_DIR = '/scratch/benoit/baseline'
 TARGET_WIDTH = 600
 DRAWING_COLOR = (255, 0, 0)
 
@@ -16,8 +20,9 @@ image_filenames = glob('{}/**/*.jpg'.format(INPUT_DIR))
 def get_page_filename(image_filename):
     return os.path.dirname(image_filename)+'/page/{}.xml'.format(os.path.basename(image_filename)[:-4])
 
-def save_and_resize(img, filename):
-    resized = cv2.resize(img, (TARGET_WIDTH, (img.shape[0]*TARGET_WIDTH)//img.shape[1]))
+def save_and_resize(img, filename, nearest=False):
+    resized = cv2.resize(img, (TARGET_WIDTH, (img.shape[0]*TARGET_WIDTH)//img.shape[1]),
+                         interpolation=cv2.INTER_NEAREST if nearest else None)
     imsave(filename, resized)
 
 def process_one(image_filename, output_dir, basename):
@@ -27,7 +32,7 @@ def process_one(image_filename, output_dir, basename):
     gt = np.zeros_like(img)
     cv2.fillPoly(gt, [PAGE.Point.list_to_cv2poly(tl.coords) for tl in text_lines], DRAWING_COLOR)
     save_and_resize(img, os.path.join(output_dir, 'images', '{}.jpg'.format(basename)))
-    save_and_resize(gt, os.path.join(output_dir, 'labels', '{}.png'.format(basename)))
+    save_and_resize(gt, os.path.join(output_dir, 'labels', '{}.png'.format(basename)), nearest=True)
 
     classes = np.stack([(0, 0, 0), DRAWING_COLOR])
     np.savetxt(os.path.join(output_dir, 'classes.txt'), classes, fmt='%d')
