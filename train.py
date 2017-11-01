@@ -24,7 +24,6 @@ def default_config():
     prediction_type = utils.PredictionType.CLASSIFICATION  # One of CLASSIFICATION, REGRESSION or MULTILABEL
     model_params = utils.ModelParams().to_dict()  # Model parameters
     training_params = utils.TrainingParams().to_dict()  # Training parameters
-
     if prediction_type == utils.PredictionType.CLASSIFICATION:
         assert classes_file is not None
         model_params['n_classes'] = utils.get_n_classes_from_file(classes_file)
