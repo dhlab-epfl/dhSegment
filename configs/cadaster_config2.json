@@ -7,14 +7,21 @@
       "n_epochs": 30
   },
   "model_params": {
-    "pretrained_model_name": "resnet50",
     "batch_norm": true,
     "batch_renorm": true,
-    "weight_decay": 1e-4
+    "weight_decay": 1e-4,
+    "selected_levels_upscaling" : [
+        true,
+        true,
+        true,
+        true,
+        false
+    ]
   },
   "train_dir" : "/scratch/sofia/DT_document_segmentation/cadasters/cadasters_multiclass/",
   "eval_dir" : "/scratch/sofia/DT_document_segmentation/cadasters/cadasters_multiclass/",
   "classes_file" : "/scratch/sofia/DT_document_segmentation/cadasters/cadasters_multiclass/classes.txt",
   "prediction_type" : "MULTILABEL",
+  "pretrained_model_name" : "resnet50",
   "model_output_dir" : "/scratch/sofia/tf_models/cadaster_seg_multilabel_resnet/"
 }

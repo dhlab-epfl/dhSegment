@@ -57,7 +57,6 @@ class VGG16ModelParams:
         False,
         False
     ]
-    POOLING = None
 
 
 class ResNetModelParams:
@@ -77,13 +76,6 @@ class ResNetModelParams:
         True,
         True
     ]
-    POOLING = [
-        True,  # max pool
-        True,
-        True,  # conv3_1
-        True,  # conv4_1
-        True  # conv5_1
-    ]
 
 
 class ModelParams(BaseParams):
@@ -92,21 +84,19 @@ class ModelParams(BaseParams):
         self.batch_renorm = kwargs.get('batch_renorm', True)  # type: bool
         self.weight_decay = kwargs.get('weight_decay', 1e-5)  # type: float
         self.n_classes = kwargs.get('n_classes', None)  # type: int
-        self.pretrained_model_name = kwargs.get('pretrained_model_name', None)
+        self.pretrained_model_name = kwargs.get('pretrained_model_name', None)  # type: str
 
         if self.pretrained_model_name == 'vgg16':
             model_class = VGG16ModelParams
         elif self.pretrained_model_name == 'resnet50':
             model_class = ResNetModelParams
-        elif self.pretrained_model_name is None:
-            return
         else:
             raise NotImplementedError
-        self.pretrained_model_file = model_class.PRETRAINED_MODEL_FILE
-        self.intermediate_conv = model_class.INTERMEDIATE_CONV
-        self.upscale_params = model_class.UPSCALE_PARAMS
-        self.selected_levels_upscaling = model_class.SELECTED_LAYERS_UPSCALING
-        self.pooling_layers = model_class.POOLING
+
+        self.pretrained_model_file = kwargs.get('pretrained_model_file', model_class.PRETRAINED_MODEL_FILE)
+        self.intermediate_conv = kwargs.get('intermediate_conv', model_class.INTERMEDIATE_CONV)
+        self.upscale_params = kwargs.get('upscale_params', model_class.UPSCALE_PARAMS)
+        self.selected_levels_upscaling = kwargs.get('selected_levels_upscaling', model_class.SELECTED_LAYERS_UPSCALING)
         self.check_params()
 
     def check_params(self):

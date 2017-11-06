@@ -175,7 +175,7 @@ def inference_vgg16(images: tf.Tensor, params: ModelParams, num_classes: int, us
             batch_norm_fn = None
 
         def upsample_conv(pooled_layer, previous_layer, layer_params, number):
-            with tf.name_scope('upsample_{}'.format(number)):
+            with tf.name_scope('deconv{}'.format(number)):
                 if previous_layer.get_shape()[1].value and previous_layer.get_shape()[2].value:
                     target_shape = previous_layer.get_shape()[1:3]
                 else:
@@ -246,7 +246,6 @@ def inference_vgg16(images: tf.Tensor, params: ModelParams, num_classes: int, us
             with tf.name_scope('intermediate_convs'):
                 for layer_params in params.intermediate_conv:
                     for i, (nb_filters, filter_size) in enumerate(layer_params):
-                        # nb_filters, filter_size = intermediate_convs_params
                         out_tensor = layers.conv2d(inputs=out_tensor,
                                                    num_outputs=nb_filters,
                                                    kernel_size=[filter_size, filter_size],
@@ -259,8 +258,8 @@ def inference_vgg16(images: tf.Tensor, params: ModelParams, num_classes: int, us
                                        if params.selected_levels_upscaling[i]]
 
             assert len(params.selected_levels_upscaling) == len(intermediate_levels), \
-                'Upsacaling : {} is different from {}'.format(len(params.selected_levels_upscaling),
-                                                              len(intermediate_levels))
+                'Upscaling : {} is different from {}'.format(len(params.selected_levels_upscaling),
+                                                             len(intermediate_levels))
 
             selected_intermediate_levels = [l for i, l in enumerate(intermediate_levels)
                                             if params.selected_levels_upscaling[i]]
@@ -300,29 +299,13 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
 
         def upsample_conv(input_tensor, previous_intermediate_layer, layer_params, number):
             with tf.name_scope('deconv_{}'.format(number)):
-                with tf.name_scope('upsample'):
-                    if previous_intermediate_layer.get_shape()[1].value and previous_intermediate_layer.get_shape()[2].value:
-                        target_shape = previous_intermediate_layer.get_shape()[1:3]
-                    else:
-                        target_shape = tf.shape(previous_intermediate_layer)[1:3]
-                    upsampled_layer = tf.image.resize_images(input_tensor, target_shape,
-                                                             method=tf.image.ResizeMethod.BILINEAR)
+                if previous_intermediate_layer.get_shape()[1].value and previous_intermediate_layer.get_shape()[2].value:
+                    target_shape = previous_intermediate_layer.get_shape()[1:3]
+                else:
+                    target_shape = tf.shape(previous_intermediate_layer)[1:3]
+                upsampled_layer = tf.image.resize_images(input_tensor, target_shape,
+                                                         method=tf.image.ResizeMethod.BILINEAR)
                 net = tf.concat([upsampled_layer, previous_intermediate_layer], 3)
-
-                for i, (nb_filters, filter_size) in enumerate(layer_params):
-                    net = layers.conv2d(
-                        inputs=net,
-                        num_outputs=nb_filters,
-                        kernel_size=[filter_size, filter_size],
-                        normalizer_fn=batch_norm_fn,
-                        scope="conv{}_{}".format(number, i + 1)
-                    )
-            return net
-
-        def simple_conv(input_tensor, previous_intermediate_layer, layer_params, number):
-            with tf.name_scope('deconv_{}'.format(number)):
-
-                net = tf.concat([input_tensor, previous_intermediate_layer], 3)
 
                 for i, (nb_filters, filter_size) in enumerate(layer_params):
                     net = layers.conv2d(
@@ -354,12 +337,8 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
             # Deconvolving loop
             n_layer = 1
             for i in reversed(range(len(selected_intermediate_levels))):
-                if params.pooling_layers[i]:
-                    out_tensor = upsample_conv(out_tensor, selected_intermediate_levels[i],
-                                               selected_upscale_params[i], n_layer)
-                else:
-                    out_tensor = simple_conv(out_tensor, selected_intermediate_levels[i],
-                                             selected_upscale_params[i], n_layer)
+                out_tensor = upsample_conv(out_tensor, selected_intermediate_levels[i],
+                                           selected_upscale_params[i], n_layer)
 
                 n_layer += 1
 
