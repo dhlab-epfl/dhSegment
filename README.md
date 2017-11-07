@@ -4,8 +4,8 @@ DocumentSegmentation allows you to extract content (segment regions) from differ
 It is inspired by the paper [_U-Net: Convolutional Networks for Biomedical Image Segmentation_](https://arxiv.org/pdf/1505.04597.pdf) but uses a pretrained network for encoding.
 
 Available pretrained implementations : 
-* VGG-16: (find link to download ckpt)
-* (Resnet-V1-50): soon
+* VGG-16: http://download.tensorflow.org/models/vgg_16_2016_08_28.tar.gz
+* Resnet-V1-50 : http://download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz
 
 ### Usage
 #### Training
