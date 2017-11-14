@@ -84,3 +84,7 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
         'images': tf.placeholder(tf.float32, [None, None, None, 3])
     })
     estimator.export_savedmodel(os.path.join(model_output_dir, 'export'), export_input_fn)
+
+    # Update config
+    with open(os.path.join(model_output_dir, 'config.json'), 'w') as f:
+        json.dump(_config, f)
