@@ -46,8 +46,9 @@ class LoadedModel:
             full_output[:, :, assigned_up_to:assigned_up_to+normal_part_size] = new_input[:, :, overlap_size:]
             if overlap_size > 0:
                 weights = np.arange(0, overlap_size)/overlap_size
-                full_output[:, :, begin_position:assigned_up_to] = (1-weights)[:, None]*full_output[:, :, begin_position:assigned_up_to] +\
+                full_output[:, :, begin_position:assigned_up_to] = (1-weights)[:, None]*full_output[:, :, begin_position:assigned_up_to] + \
                                                                    weights[:, None]*new_input[:, :, :overlap_size]
+
         def _merge_y(full_output, assigned_up_to, new_input, begin_position):
             assert full_output.shape[2] == new_input.shape[2]
             overlap_size = assigned_up_to - begin_position

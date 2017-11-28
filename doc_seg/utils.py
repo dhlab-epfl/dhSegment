@@ -38,44 +38,78 @@ class BaseParams:
         pass
 
 
+class VGG16ModelParams:
+    PRETRAINED_MODEL_FILE = '/scratch/sofia/pretrained_models/vgg_16.ckpt'
+    INTERMEDIATE_CONV = [
+        [(256, 3)]
+    ]
+    UPSCALE_PARAMS = [
+        [(64, 3)],
+        [(128, 3)],
+        [(256, 3)],
+        [(512, 3)],
+        [(512, 3)]
+    ]
+    SELECTED_LAYERS_UPSCALING = [
+        True,  # Must have same length as vgg_upscale_params
+        True,
+        True,
+        False,
+        False
+    ]
+
+
+class ResNetModelParams:
+    PRETRAINED_MODEL_FILE = '/scratch/sofia/pretrained_models/resnet_v1_50.ckpt'
+    INTERMEDIATE_CONV = None
+    UPSCALE_PARAMS = [
+        [(64, 3)],
+        [(64, 3)],
+        [(128, 3)],
+        [(256, 3)],
+        [(512, 3)]
+    ]
+    SELECTED_LAYERS_UPSCALING = [
+        True,  # Must have same length as resnet_upscale_params
+        True,
+        True,
+        True,
+        True
+    ]
+
+
 class ModelParams(BaseParams):
-    def __init__(self):
-        self.batch_norm = True  # type: bool
-        self.batch_renorm = True  # type: bool
-        self.weight_decay = 1e-5  # type: float
-        self.n_classes = None  # type: int
-        self.pretrained_model_name = 'vgg16'
-        self.pretrained_model_file = '/mnt/cluster-nas/benoit/pretrained_nets/vgg_16.ckpt'
-        self.vgg_intermediate_conv = [
-            [(256, 3)]
-        ]
-        self.vgg_upscale_params = [
-            [(64, 3)],
-            [(128, 3)],
-            [(256, 3)],
-            [(512, 3)],
-            [(512, 3)]
-        ]
-        self.vgg_selected_levels_upscaling = [
-            True,  # Must have same length as vgg_upscale_params
-            True,
-            True,
-            False,
-            False
-        ]
+    def __init__(self, **kwargs):
+        self.batch_norm = kwargs.get('batch_norm', True)  # type: bool
+        self.batch_renorm = kwargs.get('batch_renorm', True)  # type: bool
+        self.weight_decay = kwargs.get('weight_decay', 1e-5)  # type: float
+        self.n_classes = kwargs.get('n_classes', None)  # type: int
+        self.pretrained_model_name = kwargs.get('pretrained_model_name', None)  # type: str
+
+        if self.pretrained_model_name == 'vgg16':
+            model_class = VGG16ModelParams
+        elif self.pretrained_model_name == 'resnet50':
+            model_class = ResNetModelParams
+        else:
+            raise NotImplementedError
+
+        self.pretrained_model_file = kwargs.get('pretrained_model_file', model_class.PRETRAINED_MODEL_FILE)
+        self.intermediate_conv = kwargs.get('intermediate_conv', model_class.INTERMEDIATE_CONV)
+        self.upscale_params = kwargs.get('upscale_params', model_class.UPSCALE_PARAMS)
+        self.selected_levels_upscaling = kwargs.get('selected_levels_upscaling', model_class.SELECTED_LAYERS_UPSCALING)
+        self.check_params()
 
     def check_params(self):
         # Pretrained model name check
-        if self.pretrained_model_name == 'vgg16':
-            assert self.vgg_upscale_params is not None and self.vgg_selected_levels_upscaling is not None, \
-                'VGG16 parameters cannot be None'
+        assert self.upscale_params is not None and self.selected_levels_upscaling is not None, \
+            'Model parameters cannot be None'
 
-            assert len(self.vgg_upscale_params) == len(self.vgg_selected_levels_upscaling), \
-                'Upscaling levels and selection levels must have the same lengths (in model_params definition), ' \
-                '{} != {}'.format(len(self.vgg_upscale_params),
-                                  len(self.vgg_selected_levels_upscaling))
-        else:
-            raise NotImplementedError('Unknown model {}'.format(self.pretrained_model_name))
+        assert len(self.upscale_params) == len(self.selected_levels_upscaling), \
+            'Upscaling levels and selection levels must have the same lengths (in model_params definition), ' \
+            '{} != {}'.format(len(self.upscale_params),
+                              len(self.selected_levels_upscaling))
+
+        assert os.path.isfile(self.pretrained_model_file)
 
 
 class TrainingParams(BaseParams):

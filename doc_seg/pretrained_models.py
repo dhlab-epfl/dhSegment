@@ -12,7 +12,7 @@ def mean_substraction(input_tensor, means=_VGG_MEANS):
 
 
 def vgg_16_fn(input_tensor: tf.Tensor, scope='vgg_16', blocks=5, weight_decay=0.0005) \
-        -> (tf.Tensor, list): # list of tf.Tensors (layers)
+        -> (tf.Tensor, list):  # list of tf.Tensors (layers)
     intermediate_levels = []
     # intermediate_levels.append(input_tensor)
     with slim.arg_scope(nets.vgg.vgg_arg_scope(weight_decay=weight_decay)):
@@ -44,8 +44,6 @@ def vgg_16_fn(input_tensor: tf.Tensor, scope='vgg_16', blocks=5, weight_decay=0.
                     intermediate_levels.append(net)
                     net = layers.max_pool2d(net, [2, 2], scope='pool5')
 
-                # Convert end_points_collection into a end_point dict.
-                # end_points = utils.convert_collection_to_dict(end_points_collection)
                 return net, intermediate_levels
 
 
@@ -60,13 +58,25 @@ def resnet_v1_50_fn(input_tensor: tf.Tensor, is_training=False, blocks=4, weight
               nets.resnet_v1.resnet_v1_block('block3', base_depth=256, num_units=6, stride=2),
               nets.resnet_v1.resnet_v1_block('block4', base_depth=512, num_units=3, stride=1),
         ]
-        return nets.resnet_v1.resnet_v1(
-              input_tensor,
-              blocks=blocks_list[:blocks],
-              num_classes=None,
-              is_training=is_training,
-              global_pool=False,
-              output_stride=None,
-              include_root_block=True,
-              reuse=None,
-              scope='resnet_v1_50')[0]
+        net, endpoints = nets.resnet_v1.resnet_v1(input_tensor,
+                                                  blocks=blocks_list[:blocks],
+                                                  num_classes=None,
+                                                  is_training=is_training,
+                                                  global_pool=False,
+                                                  output_stride=None,
+                                                  include_root_block=True,
+                                                  reuse=None,
+                                                  scope='resnet_v1_50')
+
+        desired_endpoints = ['resnet_augmented/resnet_v1_50/conv1',
+                             'resnet_v1_50/block1/unit_2/bottleneck_v1',
+                             'resnet_v1_50/block2/unit_3/bottleneck_v1',
+                             'resnet_v1_50/block3/unit_5/bottleneck_v1',
+                             'resnet_v1_50/block4/unit_2/bottleneck_v1'
+                             ]
+
+        intermediate_layers = list()
+        for d in desired_endpoints:
+            intermediate_layers.append(endpoints[d])
+
+        return net, intermediate_layers

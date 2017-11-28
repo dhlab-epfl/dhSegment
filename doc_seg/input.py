@@ -145,8 +145,8 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
                     label_export = tf.cast(label_export, tf.int32)
                     label_export.set_shape((batch_size, *shape_summary_img, None))
                     label_export = utils.multiclass_to_label_image(label_export, classes_file)
-                    tf.summary.image('input/label',
-                                     tf.image.resize_images(label_export, np.array(shape_summary_img) / 3), max_outputs=1)
+                tf.summary.image('input/label',
+                                 tf.image.resize_images(label_export, np.array(shape_summary_img) / 3), max_outputs=1)
 
         return prepared_batch, prepared_batch.get('labels')
 

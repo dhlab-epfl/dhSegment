@@ -1,8 +1,12 @@
 from xml.etree import ElementTree as ET
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 import numpy as np
+import datetime
 
 _ns = {'p': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'}
+_attribs = {'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
+            'xsi:schemaLocation': "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 "
+                                  "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd"}
 
 
 def _try_to_int(d: Optional[Union[str, int]])-> Optional[int]:
@@ -45,6 +49,14 @@ class Point:
     def list_to_cv2poly(cls, list_points: List['Point']):
         return np.array([(p.x, p.y) for p in list_points], dtype=np.int32).reshape([-1, 1, 2])
 
+    @classmethod
+    def cv2_to_point_list(cls, cv2_array) -> List['Point']:
+        return [Point(p[0, 0], p[0, 1]) for p in cv2_array]
+
+    @classmethod
+    def list_point_to_string(cls, list_points: List['Point']):
+        return ' '.join(['{},{}'.format(p.y, p.x) for p in list_points])
+
 
 class BaseElement:
     tag = None
@@ -76,6 +88,30 @@ class TextLine(BaseElement):
             baseline=Point.list_from_xml(e.find('p:Baseline', _ns)),
             text_equiv=_get_text_equiv(e)
         )
+
+    @classmethod
+    def from_array(cls, cv2_coords: np.array=None, baseline_coords: np.array=None,  # shape [N, 1, 2]
+                   text_equiv: str=None, id: str=None):
+        return TextLine(
+            id=id,
+            coords=Point.cv2_to_point_list(cv2_coords) if cv2_coords is not None else [],
+            baseline=Point.cv2_to_point_list(baseline_coords) if baseline_coords is not None else [],
+            text_equiv=text_equiv
+        )
+
+    def to_xml(self):
+        line_et = ET.Element('TextLine')
+        line_et.set('id', self.id if self.id is not None else '')
+        if not not self.coords:
+            line_coords = ET.SubElement(line_et, 'Coords')
+            line_coords.set('points', Point.list_point_to_string(self.coords))
+        if not not self.baseline:
+            line_baseline = ET.SubElement(line_et, 'Baseline')
+            line_baseline.set('points', Point.list_point_to_string(self.baseline))
+        line_text_equiv = ET.SubElement(line_et, 'TextEquiv')
+        text_unicode = ET.SubElement(line_text_equiv, 'Unicode')
+        # TODO : complete Text Equiv
+        return line_et
 
 
 class GraphicRegion(BaseElement):
@@ -113,6 +149,30 @@ class TextRegion(BaseElement):
             text_equiv=_get_text_equiv(e)
         )
 
+    @classmethod
+    def from_array(cls, coordinates: Tuple[int, int, int, int], text_lines: List[np.array],
+                   id: str=None, text_equiv: str=None):
+        x, y, w, h = coordinates
+        return TextRegion(
+            id=id,
+            coords=[Point(x=x, y=y), Point(x=x+w, y=y), Point(x=x+w, y=y+h), Point(x=x, y=y+h)],
+            text_lines=[TextLine.from_array(tl) for tl in text_lines],
+            text_equiv=text_equiv
+        )
+
+    def to_xml(self):
+        text_et = ET.Element('TextRegion')
+        text_et.set('id', self.id if self.id is not None else '')
+        if not not self.coords:
+            text_coords = ET.SubElement(text_et, 'Coords')
+            text_coords.set('points', Point.list_point_to_string(self.coords))
+        for tl in self.text_lines:
+            text_et.append(tl.to_xml())
+        text_equiv = ET.SubElement(text_et, 'TextEquiv')
+        text_unicode = ET.SubElement(text_equiv, 'Unicode')
+        # TODO : TextEquiv
+        return text_et
+
 
 class Page(BaseElement):
     tag = 'Page'
@@ -136,10 +196,52 @@ class Page(BaseElement):
             graphic_regions=[GraphicRegion.from_xml(tr) for tr in e.findall('p:GraphicRegion', _ns)]
         )
 
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> 'Page':
+        return Page(image_filename=dictionary.get('image_filename'),
+                    image_width=dictionary.get('image_width'),
+                    image_height=dictionary.get('image_height'),
+                    text_regions=dictionary.get('text_regions'),
+                    graphic_regions=dictionary.get('graphic_regions')
+                    )
+
+    def to_xml(self):
+        page_et = ET.Element('Page')
+        page_et.set('imageFilename', self.image_filename)
+        page_et.set('imageWidth', str(self.image_width))
+        page_et.set('imageHeight', str(self.image_height))
+        for tr in self.text_regions:
+            page_et.append(tr.to_xml())
+        # TODO : complete graphic regions
+        return page_et
+
 
 def parse_file(filename: str) -> Page:
     xml_page = ET.parse(filename)
     page_elements = xml_page.findall('p:Page', _ns)
-    #TODO can there be multiple pages in a single XML file?
+    # TODO can there be multiple pages in a single XML file?
     assert len(page_elements) == 1
     return Page.from_xml(page_elements[0])
+
+
+def create_xml_page(dictionary: dict, creator_name='DocSeg') -> 'Page':
+    page = Page.from_dict(dictionary)
+
+    # Create xml
+    root = ET.Element('PcGts')
+    root.set('xmlns', _ns['p'])
+    # Metadata
+    generated_on = str(datetime.datetime.now())
+    metadata = ET.SubElement(root, 'Metadata')
+    creator = ET.SubElement(metadata, 'Creator')
+    creator.text = creator_name
+    created = ET.SubElement(metadata, 'Created')
+    created.text = generated_on
+    last_change = ET.SubElement(metadata, 'LastChange')
+    last_change.text = generated_on
+
+    root.append(page.to_xml())
+    for k, v in _attribs.items():
+        root.attrib[k] = v
+
+    return root
