@@ -42,7 +42,7 @@ class Point:
             values = p.split(',')
             assert len(values) == 2
             x, y = int(values[0]), int(values[1])
-            result.append(Point(y,x))
+            result.append(Point(y, x))
         return result
 
     @classmethod
