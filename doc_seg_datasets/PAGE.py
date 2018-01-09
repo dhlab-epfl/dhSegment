@@ -110,8 +110,16 @@ class TextLine(BaseElement):
             line_baseline.set('points', Point.list_point_to_string(self.baseline))
         line_text_equiv = ET.SubElement(line_et, 'TextEquiv')
         text_unicode = ET.SubElement(line_text_equiv, 'Unicode')
-        # TODO : complete Text Equiv
+        if not not self.text_equiv:
+            text_unicode.text = self.text_equiv
         return line_et
+
+    def scale_baseline_points(self, ratio):
+        scaled_points = list()
+        for pt in self.baseline:
+            scaled_points.append(Point(int(pt.y * ratio[0]), int(pt.x * ratio[1])))
+
+        self.baseline = scaled_points
 
 
 class GraphicRegion(BaseElement):
@@ -147,17 +155,6 @@ class TextRegion(BaseElement):
             coords=Point.list_from_xml(e.find('p:Coords', _ns)),
             text_lines=[TextLine.from_xml(tl) for tl in e.findall('p:TextLine', _ns)],
             text_equiv=_get_text_equiv(e)
-        )
-
-    @classmethod
-    def from_array(cls, coordinates: Tuple[int, int, int, int], text_lines: List[np.array],
-                   id: str=None, text_equiv: str=None):
-        x, y, w, h = coordinates
-        return TextRegion(
-            id=id,
-            coords=[Point(x=x, y=y), Point(x=x+w, y=y), Point(x=x+w, y=y+h), Point(x=x, y=y+h)],
-            text_lines=[TextLine.from_array(tl) for tl in text_lines],
-            text_equiv=text_equiv
         )
 
     def to_xml(self):

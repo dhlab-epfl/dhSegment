@@ -30,6 +30,7 @@ class LoadedModel:
     def predict_with_tiles(self, image_tensor, tile_size=500, min_overlap=0.2, linear_interpolation=True):
         b, h, w = image_tensor.shape[:3]
         assert h > tile_size, w > tile_size
+        # Get x and y coordinates of beginning of tiles and compute prediction for each tile
         y_step = np.ceil((h-tile_size)/(tile_size*(1-min_overlap)))
         x_step = np.ceil((w-tile_size)/(tile_size*(1-min_overlap)))
         y_pos = np.round(np.arange(y_step+1)/y_step*(h-tile_size)).astype(np.int32)
