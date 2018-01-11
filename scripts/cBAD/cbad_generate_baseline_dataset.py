@@ -11,7 +11,8 @@ import argparse
 TARGET_HEIGHT = 1100
 DRAWING_COLOR_BASELINES = (255, 0, 0)
 DRAWING_COLOR_POINTS = (0, 255, 0)
-P_THICKNESS = 3e-3
+# LINE_THICKNESS = 10  # 3e-3
+# DIAMETER_ENDPOINT = 20
 
 RANDOM_SEED = 0
 np.random.seed(RANDOM_SEED)
@@ -36,28 +37,39 @@ def save_and_resize(img, filename, nearest=False):
     imsave(filename, resized)
 
 
-def process_one(image_filename, output_dir, endpoints=False):
+def process_one(image_filename, output_dir, endpoints=False, line_thickness=10, diameter_endpoint=20):
     page = PAGE.parse_file(get_page_filename(image_filename))
     text_lines = [tl for tr in page.text_regions for tl in tr.text_lines]
     img = imread(image_filename, mode='RGB')
     gt = np.zeros_like(img)
-    gt = cv2.polylines(gt,
-                       [(PAGE.Point.list_to_cv2poly(tl.baseline)[:, 0, :])[:, None, :] for tl in text_lines],
-                       isClosed=False, color=DRAWING_COLOR_BASELINES,
-                       thickness=int(P_THICKNESS * gt.shape[0]))
 
-    # Mark end and beginning of baselines
-    if endpoints:
+    if not endpoints:
+        gt = cv2.polylines(gt,
+                           [(PAGE.Point.list_to_cv2poly(tl.baseline)[:, 0, :])[:, None, :] for tl in text_lines],
+                           isClosed=False, color=DRAWING_COLOR_BASELINES,
+                           thickness=int(line_thickness * (gt.shape[0] / TARGET_HEIGHT)))
+
+    else:
+        gt_lines = np.zeros_like(img[:, :, 0])
+        gt_lines = cv2.polylines(gt_lines,
+                           [(PAGE.Point.list_to_cv2poly(tl.baseline)[:, 0, :])[:, None, :] for tl in text_lines],
+                           isClosed=False, color=255,
+                           thickness=int(line_thickness * (gt_lines.shape[0] / TARGET_HEIGHT)))
+
+        gt_points = np.zeros_like(img[:, :, 0])
         for tl in text_lines:
             try:
-                gt = cv2.circle(gt, (tl.baseline[0].x, tl.baseline[0].y),
-                                radius=int((P_THICKNESS * gt.shape[0]) / 2) + 1,
-                                color=DRAWING_COLOR_POINTS, thickness=-1)
-                gt = cv2.circle(gt, (tl.baseline[-1].x, tl.baseline[-1].y),
-                                radius=int((P_THICKNESS * gt.shape[0]) / 2) + 1,
-                                color=DRAWING_COLOR_POINTS, thickness=-1)
+                gt_points = cv2.circle(gt_points, (tl.baseline[0].x, tl.baseline[0].y),
+                                       radius=int((diameter_endpoint/2 * (gt_points.shape[0]/TARGET_HEIGHT))),
+                                       color=255, thickness=-1)
+                gt_points = cv2.circle(gt_points, (tl.baseline[-1].x, tl.baseline[-1].y),
+                                       radius=int((diameter_endpoint/2 * (gt_points.shape[0]/TARGET_HEIGHT))),
+                                       color=255, thickness=-1)
             except IndexError:
                 print('Length of baseline is {}'.format(len(tl.baseline)))
+
+        gt[:, :, np.argmax(DRAWING_COLOR_BASELINES)] = gt_lines
+        gt[:, :, np.argmax(DRAWING_COLOR_POINTS)] = gt_points
 
     save_and_resize(img, os.path.join(output_dir, 'images', '{}.jpg'.format(get_image_label_basename(image_filename))))
     save_and_resize(gt, os.path.join(output_dir, 'labels', '{}.png'.format(get_image_label_basename(image_filename))),
@@ -72,6 +84,8 @@ if __name__ == '__main__':
                         help='Output directory to save images and labels')
     parser.add_argument('-e', '--endpoints', required=False, type=bool, default=False,
                         help='Predict beginning and end of baselines')
+    parser.add_argument('-l', '--line_thickness', type=int, default=10, help='Thickness of annotated baseline')
+    parser.add_argument('-c', '--circle_thickness', type=int, default=20, help='Diameter of annotated start/end points')
     args = vars(parser.parse_args())
 
     # Get image filenames to process
@@ -88,25 +102,27 @@ if __name__ == '__main__':
     os.makedirs('{}/train/images'.format(args.get('output_dir')))
     os.makedirs('{}/train/labels'.format(args.get('output_dir')))
     for image_filename in tqdm(image_filenames_train):
-        process_one(image_filename, '{}/train'.format(args.get('output_dir')), args.get('endpoints'))
+        process_one(image_filename, '{}/train'.format(args.get('output_dir')), args.get('endpoints'),
+                    args.get('line_thickness'), args.get('circle_thickness'))
 
     # Validation set
     os.makedirs('{}/validation/images'.format(args.get('output_dir')))
     os.makedirs('{}/validation/labels'.format(args.get('output_dir')))
     for image_filename in tqdm(image_filenames_eval):
-        process_one(image_filename, '{}/validation'.format(args.get('output_dir')), args.get('endpoints'))
+        process_one(image_filename, '{}/validation'.format(args.get('output_dir')), args.get('endpoints'),
+                    args.get('line_thickness'), args.get('circle_thickness'))
 
     # Classes file
     classes = np.stack([(0, 0, 0), DRAWING_COLOR_BASELINES])
     if args.get('endpoints'):
         classes = np.vstack((classes, DRAWING_COLOR_POINTS))
-    # For multilabels, we should add the code for each color after the RGB values (R G B Code)
-    if args.get('endpoints'):
+        classes = np.vstack((classes, np.array(DRAWING_COLOR_BASELINES) + np.array(DRAWING_COLOR_POINTS)))
+        # For multilabels, we should add the code for each color after the RGB values (R G B Code)
         codes_list = list()
         n_bits = len('{:b}'.format(classes.shape[0] - 1))
         for i in range(classes.shape[0]):
             codes_list.append('{:08b}'.format(i)[-n_bits:])
         codes_ints = [[int(char) for char in code] for code in codes_list]
-        np.hstack((classes, np.array(codes_ints)))
+        classes = np.hstack((classes, np.array(codes_ints)))
 
     np.savetxt(os.path.join(args.get('output_dir'), 'classes.txt'), classes, fmt='%d')
