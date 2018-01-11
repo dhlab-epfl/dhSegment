@@ -6,6 +6,7 @@ import json
 try:
     import better_exceptions
 except:
+    print('/!\ W -- Not able to import package better_exceptions')
     pass
 from tqdm import trange
 from sacred import Experiment

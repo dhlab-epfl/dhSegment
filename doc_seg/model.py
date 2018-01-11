@@ -55,7 +55,7 @@ def model_fn(mode, features, labels, params):
         prediction_labels = network_output
     elif prediction_type == PredictionType.MULTILABEL:
         with tf.name_scope('prediction_ops'):
-            prediction_probs = tf.nn.sigmoid(network_output, name='probs')  # [B,H,W,C]
+            prediction_probs = tf.nn.sigmoid(network_output, name='sigmoid')  # [B,H,W,C]
             prediction_labels = tf.greater_equal(prediction_probs, 0.5, name='labels')  # [B,H,W,C]
             predictions = {'probs': prediction_probs, 'labels': prediction_labels}
 
@@ -73,10 +73,6 @@ def model_fn(mode, features, labels, params):
             loss = tf.losses.mean_squared_error(labels, network_output)
         elif prediction_type == PredictionType.MULTILABEL:
             with tf.name_scope('sigmoid_xentropy_loss'):
-                # loss = tf.losses.sigmoid_cross_entropy(multi_class_labels=labels,
-                #                                        logits=network_output,
-                #                                        weights=training_params.weight_labels)
-
                 labels_floats = tf.cast(labels, tf.float32)
                 loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels_floats,
                                                                logits=network_output)
@@ -138,6 +134,16 @@ def model_fn(mode, features, labels, params):
             tf.summary.image('output/prediction_image',
                              tf.image.resize_images(labels_visualization,
                                                     tf.cast(tf.shape(labels_visualization)[1:3] / 3, tf.int32)),
+                             max_outputs=1)
+            class_dim = prediction_probs.get_shape().as_list()[-1]
+            for c in range(1, class_dim):
+                tf.summary.image('output/prediction_probs_{}'.format(c-1),
+                                 tf.image.resize_images(prediction_probs[:, :, :, c-1:c],
+                                                        tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
+                                 max_outputs=1)
+            tf.summary.image('output/prediction_probs_{}'.format(class_dim),
+                             tf.image.resize_images(prediction_probs[:, :, :, -1:],
+                                                    tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
                              max_outputs=1)
 
     # Evaluation
@@ -203,49 +209,6 @@ def inference_vgg16(images: tf.Tensor, params: ModelParams, num_classes: int, us
                         scope="conv{}_{}".format(number, i + 1)
                     )
             return input_tensor
-        #
-        # def upsample_conv_with_residuals(pooled_layer, previous_layer, layer_params, number):
-        #     with tf.name_scope('upsample_res_{}'.format(number)):
-        #         if previous_layer.get_shape()[1].value and previous_layer.get_shape()[2].value:
-        #             target_shape = previous_layer.get_shape()[1:3]
-        #         else:
-        #             target_shape = tf.shape(previous_layer)[1:3]
-        #         upsampled_layer = tf.image.resize_images(pooled_layer, target_shape,
-        #                                                  method=tf.image.ResizeMethod.BILINEAR)
-        #         input_tensor = tf.concat([upsampled_layer, previous_layer], 3)
-        #
-        #         # Make bottleneck block
-        #         for i, (nb_filters, filter_size) in enumerate(layer_params):
-        #             with tf.name_scope('bottleneck_{}'.format(number)):
-        #                 # 1 x 1 conv
-        #                 net = layers.conv2d(
-        #                     inputs=input_tensor,
-        #                     num_outputs=nb_filters,
-        #                     kernel_size=[1, 1],
-        #                     pading='valid',
-        #                     normalizer_fn=batch_norm_fn,
-        #                     scope="conv{}_in".format(number, i + 1)
-        #                 )
-        #
-        #                 net = layers.conv2d(
-        #                     inputs=net,
-        #                     num_outputs=nb_filters,
-        #                     kernel_size=[filter_size, filter_size],
-        #                     normalizer_fn=batch_norm_fn,
-        #                     scope="conv{}_bottleneck".format(number, i + 1)
-        #                 )
-        #
-        #                 input_dim = input_tensor.get_shape()[-1].value
-        #                 net = layers.conv2d(
-        #                     inputs=net,
-        #                     num_outputs=input_dim,
-        #                     kernel_size=[1, 1],
-        #                     padding='valid',
-        #                     normalizer_fn=batch_norm_fn,
-        #                     scope="conv{}_out".format(number, i + 1)
-        #                 )
-        #
-        #         return net + input_tensor
 
         # Original VGG :
         vgg_net, intermediate_levels = vgg_16_fn(images, blocks=5, weight_decay=weight_decay)
