@@ -85,7 +85,7 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
             if data_augmentation:
                 # Rotation of the original image
                 with tf.name_scope('random_rotation'):
-                    rotation_angle = tf.random_uniform([], -0.1, 0.1)
+                    rotation_angle = tf.random_uniform([], -0.2, 0.2)
                     label_image = rotate_crop(label_image, rotation_angle, interpolation='NEAREST')
                     input_image = rotate_crop(input_image, rotation_angle, interpolation='BILINEAR')
 
@@ -109,7 +109,9 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
                     formatted_label = label_image
 
             if data_augmentation:
-                formatted_image, formatted_label = data_augmentation_fn(formatted_image, formatted_label)
+                formatted_image, formatted_label = data_augmentation_fn(formatted_image, formatted_label,
+                                                                        training_params.data_augmentation_flip_lr,
+                                                                        training_params.data_augmentation_flip_ud)
 
             with tf.name_scope('dim_expansion'):
                 batch_image = tf.expand_dims(formatted_image, axis=0)
@@ -153,16 +155,19 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
     return fn
 
 
-def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor) -> (tf.Tensor, tf.Tensor):
+def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor,
+                         flip_lr: bool=True, flip_ud: bool=True) -> (tf.Tensor, tf.Tensor):
     with tf.name_scope('DataAugmentation'):
-        with tf.name_scope('random_flip_lr'):
-            sample = tf.random_uniform([], 0, 1)
-            label_image = tf.cond(sample > 0.5, lambda: tf.image.flip_left_right(label_image), lambda: label_image)
-            input_image = tf.cond(sample > 0.5, lambda: tf.image.flip_left_right(input_image), lambda: input_image)
-        with tf.name_scope('random_flip_ud'):
-            sample = tf.random_uniform([], 0, 1)
-            label_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(label_image), lambda: label_image)
-            input_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(input_image), lambda: input_image)
+        if flip_lr:
+            with tf.name_scope('random_flip_lr'):
+                sample = tf.random_uniform([], 0, 1)
+                label_image = tf.cond(sample > 0.5, lambda: tf.image.flip_left_right(label_image), lambda: label_image)
+                input_image = tf.cond(sample > 0.5, lambda: tf.image.flip_left_right(input_image), lambda: input_image)
+        if flip_ud:
+            with tf.name_scope('random_flip_ud'):
+                sample = tf.random_uniform([], 0, 1)
+                label_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(label_image), lambda: label_image)
+                input_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(input_image), lambda: input_image)
 
         chanels = input_image.get_shape()[-1]
         input_image = tf.image.random_contrast(input_image, lower=0.8, upper=1.0)

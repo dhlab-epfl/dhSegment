@@ -120,9 +120,12 @@ class TrainingParams(BaseParams):
         self.exponential_learning = True
         self.batch_size = 5
         self.data_augmentation = True
+        self.data_augmentation_flip_lr = True
+        self.data_augmentation_flip_ud = True
         self.make_patches = False
         self.patch_shape = (300, 300)
         self.input_resized_size = (480, 320)
+        self.weights_labels = 1.0
 
 
 def label_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.Tensor:
