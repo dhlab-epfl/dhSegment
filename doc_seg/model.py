@@ -3,6 +3,7 @@ from tensorflow.contrib import layers, slim  # TODO migration to tf.layers ?
 from .utils import PredictionType, class_to_label_image, ModelParams, TrainingParams
 from .pretrained_models import vgg_16_fn, resnet_v1_50_fn
 from doc_seg import utils
+import numpy as np
 
 
 def model_fn(mode, features, labels, params):
@@ -72,8 +73,17 @@ def model_fn(mode, features, labels, params):
             loss = tf.losses.mean_squared_error(labels, network_output)
         elif prediction_type == PredictionType.MULTILABEL:
             with tf.name_scope('sigmoid_xentropy_loss'):
-                loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(labels, tf.float32),
-                                                                              logits=network_output))
+                # loss = tf.losses.sigmoid_cross_entropy(multi_class_labels=labels,
+                #                                        logits=network_output,
+                #                                        weights=training_params.weight_labels)
+
+                labels_floats = tf.cast(labels, tf.float32)
+                loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels_floats,
+                                                               logits=network_output)
+                weight_mask = tf.maximum(tf.reduce_max(
+                    tf.constant(np.array(training_params.weights_labels, dtype=np.float32)[None, None, None]) * labels_floats, axis=-1), 1.0)
+
+                loss = tf.reduce_mean(loss*weight_mask[:, :, :, None])
 
         loss += regularized_loss
     else:
