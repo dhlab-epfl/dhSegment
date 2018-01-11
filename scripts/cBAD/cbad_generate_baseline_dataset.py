@@ -49,10 +49,15 @@ def process_one(image_filename, output_dir, endpoints=False):
     # Mark end and beginning of baselines
     if endpoints:
         for tl in text_lines:
-            gt = cv2.circle(gt, (tl.baseline[0].x, tl.baseline[0].y), radius=int((P_THICKNESS * gt.shape[0]) / 2) + 1,
-                            color=DRAWING_COLOR_POINTS, thickness=-1)
-            gt = cv2.circle(gt, (tl.baseline[-1].x, tl.baseline[-1].y), radius=int((P_THICKNESS * gt.shape[0]) / 2) + 1,
-                            color=DRAWING_COLOR_POINTS, thickness=-1)
+            try:
+                gt = cv2.circle(gt, (tl.baseline[0].x, tl.baseline[0].y),
+                                radius=int((P_THICKNESS * gt.shape[0]) / 2) + 1,
+                                color=DRAWING_COLOR_POINTS, thickness=-1)
+                gt = cv2.circle(gt, (tl.baseline[-1].x, tl.baseline[-1].y),
+                                radius=int((P_THICKNESS * gt.shape[0]) / 2) + 1,
+                                color=DRAWING_COLOR_POINTS, thickness=-1)
+            except IndexError:
+                print('Length of baseline is {}'.format(len(tl.baseline)))
 
     save_and_resize(img, os.path.join(output_dir, 'images', '{}.jpg'.format(get_image_label_basename(image_filename))))
     save_and_resize(gt, os.path.join(output_dir, 'labels', '{}.png'.format(get_image_label_basename(image_filename))),
@@ -95,4 +100,13 @@ if __name__ == '__main__':
     classes = np.stack([(0, 0, 0), DRAWING_COLOR_BASELINES])
     if args.get('endpoints'):
         classes = np.vstack((classes, DRAWING_COLOR_POINTS))
+    # For multilabels, we should add the code for each color after the RGB values (R G B Code)
+    if args.get('endpoints'):
+        codes_list = list()
+        n_bits = len('{:b}'.format(classes.shape[0] - 1))
+        for i in range(classes.shape[0]):
+            codes_list.append('{:08b}'.format(i)[-n_bits:])
+        codes_ints = [[int(char) for char in code] for code in codes_list]
+        np.hstack((classes, np.array(codes_ints)))
+
     np.savetxt(os.path.join(args.get('output_dir'), 'classes.txt'), classes, fmt='%d')
