@@ -34,7 +34,7 @@ class Point:
     @classmethod
     def list_from_xml(cls, e: ET.Element) -> List['Point']:
         if e is None:
-            print('warning, trying to construct list of points from None, defaulting to []')
+            #print('warning, trying to construct list of points from None, defaulting to []')
             return []
         t = e.attrib['points']
         result = []
@@ -55,7 +55,7 @@ class Point:
 
     @classmethod
     def list_point_to_string(cls, list_points: List['Point']):
-        return ' '.join(['{},{}'.format(p.y, p.x) for p in list_points])
+        return ' '.join(['{},{}'.format(p.x, p.y) for p in list_points])
 
 
 class BaseElement:
@@ -91,6 +91,26 @@ class TextLine(BaseElement):
 
     @classmethod
     def from_array(cls, cv2_coords: np.array=None, baseline_coords: np.array=None,  # shape [N, 1, 2]
+                   text_equiv: str=None, id: str=None):
+        return TextLine(
+            id=id,
+            coords=Point.cv2_to_point_list(cv2_coords) if cv2_coords is not None else [],
+            baseline=Point.cv2_to_point_list(baseline_coords) if baseline_coords is not None else [],
+            text_equiv=text_equiv
+        )
+
+    @classmethod
+    def from_coords_array(cls, coords: np.array=None, baseline_coords: np.array=None,  # shape [N, 1, 2]
+                   text_equiv: str=None, id: str=None):
+        return TextLine(
+            id=id,
+            coords=Point.arr_to_point_list(coords) if coords is not None else [],
+            baseline=Point.arr_to_point_list(baseline_coords) if baseline_coords is not None else [],
+            text_equiv=text_equiv
+        )
+
+    @classmethod
+    def from_cv2_array(cls, cv2_coords: np.array=None, baseline_coords: np.array=None,  # shape [N, 1, 2]
                    text_equiv: str=None, id: str=None):
         return TextLine(
             id=id,
@@ -204,13 +224,34 @@ class Page(BaseElement):
 
     def to_xml(self):
         page_et = ET.Element('Page')
-        page_et.set('imageFilename', self.image_filename)
-        page_et.set('imageWidth', str(self.image_width))
-        page_et.set('imageHeight', str(self.image_height))
+        if self.image_filename:
+            page_et.set('imageFilename', self.image_filename)
+        if self.image_width:
+            page_et.set('imageWidth', str(self.image_width))
+        if self.image_height:
+            page_et.set('imageHeight', str(self.image_height))
         for tr in self.text_regions:
             page_et.append(tr.to_xml())
         # TODO : complete graphic regions
         return page_et
+
+    def write_to_file(self, filename, creator_name='DocSeg'):
+        root = ET.Element('PcGts')
+        root.set('xmlns', _ns['p'])
+        # Metadata
+        generated_on = str(datetime.datetime.now())
+        metadata = ET.SubElement(root, 'Metadata')
+        creator = ET.SubElement(metadata, 'Creator')
+        creator.text = creator_name
+        created = ET.SubElement(metadata, 'Created')
+        created.text = generated_on
+        last_change = ET.SubElement(metadata, 'LastChange')
+        last_change.text = generated_on
+
+        root.append(self.to_xml())
+        for k, v in _attribs.items():
+            root.attrib[k] = v
+        ET.ElementTree(element=root).write(filename)
 
 
 def parse_file(filename: str) -> Page:
@@ -221,7 +262,22 @@ def parse_file(filename: str) -> Page:
     return Page.from_xml(page_elements[0])
 
 
+def save_baselines(filename, baselines, ratio):
+    txt_lines = [TextLine.from_array(baseline_coords=b, id='line_{}'.format(i)) for i, b in enumerate(baselines)]
+    for l in txt_lines:
+        l.scale_baseline_points((ratio, ratio))
+    txt_region = TextRegion(text_lines=txt_lines, id='region_0')
+    page = Page(text_regions=[txt_region])
+    page.write_to_file(filename)
+
+
 def create_xml_page(dictionary: dict, creator_name='DocSeg') -> 'Page':
+    """
+    DEPRECATED look at Page.write_to_file
+    :param dictionary:
+    :param creator_name:
+    :return:
+    """
     page = Page.from_dict(dictionary)
 
     # Create xml
