@@ -124,7 +124,8 @@ class TrainingParams(BaseParams):
         self.data_augmentation_flip_ud = True
         self.make_patches = False
         self.patch_shape = (300, 300)
-        self.input_resized_size = (480, 320)
+        self.input_resized_shape = (480, 320)
+        self.input_resized_size = int(72e4)  # (600*1200) # type: int
         self.weights_labels = 1.0
 
 
