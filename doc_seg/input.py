@@ -67,12 +67,13 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
         if not input_label_dir:
             image_filename = tf.train.string_input_producer(input_images, num_epochs=num_epochs).dequeue()
             to_batch = {'images': tf.image.resize_images(load_image(image_filename, 3),
-                                                         training_params.input_resized_size)}
+                                                         training_params.input_resized_shape)}
         else:
             # Get one filename of each
             image_filename, label_filename = tf.train.slice_input_producer([input_images, label_images],
                                                                            num_epochs=num_epochs,
                                                                            shuffle=True)
+
             # Load images
             if prediction_type == utils.PredictionType.CLASSIFICATION or \
                             prediction_type == utils.PredictionType.MULTILABEL:
@@ -86,8 +87,10 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
                 # Rotation of the original image
                 with tf.name_scope('random_rotation'):
                     rotation_angle = tf.random_uniform([], -0.2, 0.2)
-                    label_image = rotate_crop(label_image, rotation_angle, interpolation='NEAREST')
-                    input_image = rotate_crop(input_image, rotation_angle, interpolation='BILINEAR')
+                    label_image = rotate_crop(label_image, rotation_angle,
+                                              minimum_shape=2 * training_params.patch_shape, interpolation='NEAREST')
+                    input_image = rotate_crop(input_image, rotation_angle,
+                                              minimum_shape=2 * training_params.patch_shape, interpolation='BILINEAR')
 
                 # Offsets for patch extraction
                 offsets = (tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32),
@@ -96,13 +99,26 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
                 offsets = (0, 0)
 
             if make_patches:
+                # Rescale image
+                with tf.name_scope('ImageRescaling'):
+                    input_shape = tf.cast(tf.shape(input_image)[:2], tf.float32)
+                    ratio_size = tf.div(training_params.input_resized_size,
+                                        tf.reduce_prod(input_shape))
+                    new_shape = tf.cast(tf.round(tf.multiply(ratio_size, input_shape)), tf.int32)
+                    input_image = tf.image.resize_images(input_image, new_shape,
+                                                         method=tf.image.ResizeMethod.BILINEAR)
+                    label_image = tf.image.resize_images(label_image, new_shape,
+                                                         method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+
+                    # label_image = tf.Print(label_image, [tf.shape(label_image)], message='>>>')
+
                 formatted_image, formatted_label = make_patches_fn(input_image, label_image, offsets)
             else:
                 with tf.name_scope('formatting'):
                     with tf.name_scope('resizing'):
-                        input_image = tf.image.resize_images(input_image, training_params.input_resized_size,
+                        input_image = tf.image.resize_images(input_image, training_params.input_resized_shape,
                                                              method=tf.image.ResizeMethod.BILINEAR)
-                        label_image = tf.image.resize_images(label_image, training_params.input_resized_size,
+                        label_image = tf.image.resize_images(label_image, training_params.input_resized_shape,
                                                              method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
                     formatted_image = input_image
@@ -135,7 +151,7 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
 
         # Summaries for checking that the loading and data augmentation goes fine
         if image_summaries:
-            shape_summary_img = training_params.patch_shape if make_patches else training_params.input_resized_size
+            shape_summary_img = training_params.patch_shape if make_patches else training_params.input_resized_shape
             tf.summary.image('input/image',
                              tf.image.resize_images(prepared_batch['images'], np.array(shape_summary_img) / 3),
                              max_outputs=1)
@@ -177,7 +193,7 @@ def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor,
         return input_image, label_image
 
 
-def rotate_crop(img, rotation, crop=True, interpolation='NEAREST'):
+def rotate_crop(img, rotation, crop=True, minimum_shape=[0, 0], interpolation='NEAREST'):
     with tf.name_scope('RotateCrop'):
         rotated_image = tf_rotate(img, rotation, interpolation)
         if crop:
@@ -195,7 +211,8 @@ def rotate_crop(img, rotation, crop=True, interpolation='NEAREST'):
             rotated_image_crop = rotated_image[bb_begin[0]:h - bb_begin[0], bb_begin[1]:w - bb_begin[1], :]
 
             # If crop removes the entire image, keep the original image
-            rotated_image = tf.cond(tf.equal(tf.size(rotated_image_crop), 0),
+            rotated_image = tf.cond(tf.less_equal(tf.reduce_min(tf.shape(rotated_image_crop)[:2]),
+                                                  tf.reduce_max(minimum_shape)),
                                     true_fn=lambda: img,
                                     false_fn=lambda: rotated_image_crop)
         return rotated_image
