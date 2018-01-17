@@ -82,11 +82,14 @@ def model_fn(mode, features, labels, params):
         else:
             raise NotImplementedError
 
-        if training_params.training_margin > 0:
-            margin = training_params.training_margin
-            loss = tf.reduce_mean(per_pixel_loss[:, margin:-margin, margin:-margin], name='loss')
-        else:
-            loss = tf.reduce_mean(per_pixel_loss, name='loss')
+        margin = training_params.training_margin
+        input_shapes = features['shapes']
+        with tf.name_scope('Loss'):
+            def _fn(_in):
+                output, shape = _in
+                return tf.reduce_mean(output[margin:shape[0]-margin, margin:shape[1]-margin])
+            per_img_loss = tf.map_fn(_fn, (per_pixel_loss, input_shapes), dtype=tf.float32)
+            loss = tf.reduce_mean(per_img_loss, name='loss')
 
         loss += regularized_loss
     else:

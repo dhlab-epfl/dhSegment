@@ -122,9 +122,11 @@ class TrainingParams(BaseParams):
         self.data_augmentation = True
         self.data_augmentation_flip_lr = True
         self.data_augmentation_flip_ud = True
+        self.data_augmentation_max_rotation = 0.2
         self.make_patches = False
         self.patch_shape = (300, 300)
         self.input_resized_shape = (480, 320)
+        # If input_resized_size == -1, no resizing is done
         self.input_resized_size = int(72e4)  # (600*1200) # type: int
         self.weights_labels = 1.0
         self.training_margin = 16
