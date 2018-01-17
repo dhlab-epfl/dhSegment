@@ -68,7 +68,7 @@ def resnet_v1_50_fn(input_tensor: tf.Tensor, is_training=False, blocks=4, weight
                                                   reuse=None,
                                                   scope='resnet_v1_50')
 
-        desired_endpoints = ['resnet_augmented/resnet_v1_50/conv1',
+        desired_endpoints = ['resnet_v1_50/conv1',
                              'resnet_v1_50/block1/unit_2/bottleneck_v1',
                              'resnet_v1_50/block2/unit_3/bottleneck_v1',
                              'resnet_v1_50/block3/unit_5/bottleneck_v1',

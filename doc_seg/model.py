@@ -14,6 +14,8 @@ def model_fn(mode, features, labels, params):
     prediction_type = params['prediction_type']
     classes_file = params['classes_file']
 
+    input_images = features['images']
+    input_images = tf.Print(input_images, [tf.shape(input_images)])
     if model_params.pretrained_model_name == 'vgg16':
         network_output = inference_vgg16(features['images'],
                                          model_params,

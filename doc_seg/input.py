@@ -117,8 +117,9 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
                     with tf.name_scope('formatting'):
                         batch_image = tf.expand_dims(input_image, axis=0)
                         batch_label = tf.expand_dims(label_image, axis=0)
-                return batch_image, batch_label
-            dataset = dataset.flat_map(_map_fn_2, num_threads)
+                return tf.data.Dataset.from_tensor_slices((batch_image, batch_label))
+
+            dataset = dataset.flat_map(_map_fn_2)
 
             if data_augmentation:
                 dataset = dataset.map(lambda input_image, label_image: data_augmentation_fn(input_image,
@@ -145,7 +146,8 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
             'shapes': [2]
         }
         if 'labels' in dataset.output_shapes.keys():
-            padded_shapes['labels'] = [-1, -1, dataset.output_shapes['labels'][-1]]
+            output_shapes_label = dataset.output_shapes['labels']
+            padded_shapes['labels'] = [-1, -1] + list(output_shapes_label[2:])
         dataset = dataset.padded_batch(batch_size=batch_size, padded_shapes=padded_shapes)
 
         dataset = dataset.prefetch(4)
