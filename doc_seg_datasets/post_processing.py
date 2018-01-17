@@ -1,8 +1,11 @@
 import numpy as np
 from scipy.ndimage import label
+from skimage.measure import label as skimage_label
 from typing import Tuple, List
 from scipy.signal import convolve2d
 from skimage.graph import MCP_Connect
+from skimage.morphology import skeletonize
+from sklearn.metrics.pairwise import euclidean_distances
 from collections import defaultdict
 import cv2
 
@@ -36,9 +39,9 @@ def remove_borders(mask, margin=5):
     return result
 
 
-def extract_line_polygons(lines_mask, fully_connected=True):
-    if not fully_connected:
-        raise NotImplementedError
+def extract_line_polygons(lines_mask):
+    # Make sure one-pixel wide 8-connected mask
+    lines_mask = skeletonize(lines_mask)
 
     class MakeLineMCP(MCP_Connect):
         def __init__(self, *args, **kwargs):
@@ -66,7 +69,21 @@ def extract_line_polygons(lines_mask, fully_connected=True):
             else:
                 return 0
 
-    end_points = np.stack(np.where((convolve2d(lines_mask, np.ones((3, 3)), mode='same') == 2) & lines_mask)).T
+    # Find extremities points
+    end_points_candidates = np.stack(np.where((convolve2d(lines_mask, np.ones((3, 3)), mode='same') == 2) & lines_mask)).T
+    connected_components = skimage_label(lines_mask, connectivity=2)
+    # Group endpoint by connected components and keep only the two points furthest away
+    d = defaultdict(list)
+    for pt in end_points_candidates:
+        d[connected_components[pt[0], pt[1]]].append(pt)
+    end_points = []
+    for pts in d.values():
+        d = euclidean_distances(np.stack(pts), np.stack(pts))
+        i, j = np.unravel_index(d.argmax(), d.shape)
+        end_points.append(pts[i])
+        end_points.append(pts[j])
+    end_points = np.stack(end_points)
+
     mcp = MakeLineMCP(~lines_mask)
     mcp.find_costs(end_points)
     connections = mcp.get_connections()
