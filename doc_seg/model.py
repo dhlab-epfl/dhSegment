@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.contrib import layers, slim  # TODO migration to tf.layers ?
+from tensorflow.contrib import layers  # TODO migration to tf.layers ?
 from .utils import PredictionType, class_to_label_image, ModelParams, TrainingParams
 from .pretrained_models import vgg_16_fn, resnet_v1_50_fn
 from doc_seg import utils
