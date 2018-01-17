@@ -127,6 +127,10 @@ class TrainingParams(BaseParams):
         self.input_resized_shape = (480, 320)
         self.input_resized_size = int(72e4)  # (600*1200) # type: int
         self.weights_labels = 1.0
+        self.training_margin = 16
+
+    def check_params(self):
+        assert self.training_margin*2 < min(self.patch_shape)
 
 
 def label_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.Tensor:

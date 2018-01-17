@@ -66,20 +66,27 @@ def model_fn(mode, features, labels, params):
         if prediction_type == PredictionType.CLASSIFICATION:
             onehot_labels = tf.one_hot(indices=labels, depth=model_params.n_classes)
             with tf.name_scope("loss"):
-                loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=network_output,
-                                                                              labels=onehot_labels),
-                                      name="loss")
+                per_pixel_loss = tf.nn.softmax_cross_entropy_with_logits(logits=network_output,
+                                                                         labels=onehot_labels)
         elif prediction_type == PredictionType.REGRESSION:
-            loss = tf.losses.mean_squared_error(labels, network_output)
+            per_pixel_loss = tf.squared_difference(labels, network_output)
         elif prediction_type == PredictionType.MULTILABEL:
             with tf.name_scope('sigmoid_xentropy_loss'):
                 labels_floats = tf.cast(labels, tf.float32)
-                loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels_floats,
+                per_pixel_loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels_floats,
                                                                logits=network_output)
                 weight_mask = tf.maximum(tf.reduce_max(
                     tf.constant(np.array(training_params.weights_labels, dtype=np.float32)[None, None, None]) * labels_floats, axis=-1), 1.0)
 
-                loss = tf.reduce_mean(loss*weight_mask[:, :, :, None])
+                per_pixel_loss = per_pixel_loss*weight_mask[:, :, :, None]
+        else:
+            raise NotImplementedError
+
+        if training_params.training_margin > 0:
+            margin = training_params.training_margin
+            loss = tf.reduce_mean(per_pixel_loss[:, margin:-margin, margin:-margin], name='loss')
+        else:
+            loss = tf.reduce_mean(per_pixel_loss, name='loss')
 
         loss += regularized_loss
     else:
