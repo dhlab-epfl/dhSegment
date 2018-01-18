@@ -15,9 +15,14 @@ def model_fn(mode, features, labels, params):
     classes_file = params['classes_file']
 
     input_images = features['images']
-    input_images = tf.Print(input_images, [tf.shape(input_images)])
+
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        margin = training_params.training_margin
+        input_images = tf.pad(input_images, [[0,0], [margin, margin], [margin, margin], [0,0]],
+                              mode='SYMMETRIC', name='mirror_padding')
+
     if model_params.pretrained_model_name == 'vgg16':
-        network_output = inference_vgg16(features['images'],
+        network_output = inference_vgg16(input_images,
                                          model_params,
                                          model_params.n_classes,
                                          use_batch_norm=model_params.batch_norm,
@@ -27,7 +32,7 @@ def model_fn(mode, features, labels, params):
         key_restore_model = 'vgg_16'
 
     elif model_params.pretrained_model_name == 'resnet50':
-        network_output = inference_resnet_v1_50(features['images'],
+        network_output = inference_resnet_v1_50(input_images,
                                                 model_params,
                                                 model_params.n_classes,
                                                 use_batch_norm=model_params.batch_norm,
@@ -45,6 +50,11 @@ def model_fn(mode, features, labels, params):
             pretrained_restorer.restore(session, model_params.pretrained_model_file)
     else:
         init_fn = None
+
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        # Crop padding
+        if margin > 0:
+            network_output = network_output[:, margin:-margin, margin:-margin, :]
 
     # Prediction
     # ----------
@@ -69,14 +79,16 @@ def model_fn(mode, features, labels, params):
             onehot_labels = tf.one_hot(indices=labels, depth=model_params.n_classes)
             with tf.name_scope("loss"):
                 per_pixel_loss = tf.nn.softmax_cross_entropy_with_logits(logits=network_output,
-                                                                         labels=onehot_labels)
+                                                                         labels=onehot_labels, name='per_pixel_loss')
+
+                # TODO : weight mask
         elif prediction_type == PredictionType.REGRESSION:
-            per_pixel_loss = tf.squared_difference(labels, network_output)
+            per_pixel_loss = tf.squared_difference(labels, network_output, name='per_pixel_loss')
         elif prediction_type == PredictionType.MULTILABEL:
             with tf.name_scope('sigmoid_xentropy_loss'):
                 labels_floats = tf.cast(labels, tf.float32)
                 per_pixel_loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels_floats,
-                                                               logits=network_output)
+                                                                         logits=network_output, name='per_pixel_loss')
                 weight_mask = tf.maximum(tf.reduce_max(
                     tf.constant(np.array(training_params.weights_labels, dtype=np.float32)[None, None, None]) * labels_floats, axis=-1), 1.0)
 
@@ -100,9 +112,10 @@ def model_fn(mode, features, labels, params):
     # Train
     # -----
     if mode == tf.estimator.ModeKeys.TRAIN:
-        ema = tf.train.ExponentialMovingAverage(0.9)
-        tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, ema.apply([loss]))
-        ema_loss = ema.average(loss)
+        # >> Stucks the training... Why ?
+        # ema = tf.train.ExponentialMovingAverage(0.9)
+        # tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, ema.apply([loss]))
+        # ema_loss = ema.average(loss)
 
         if training_params.exponential_learning:
             global_step = tf.train.get_or_create_global_step()
@@ -119,7 +132,7 @@ def model_fn(mode, features, labels, params):
     # Summaries
     # ---------
     if mode == tf.estimator.ModeKeys.TRAIN:
-        tf.summary.scalar('losses/loss', ema_loss)
+        # tf.summary.scalar('losses/loss', ema_loss)
         tf.summary.scalar('losses/loss_per_batch', loss)
         tf.summary.scalar('losses/regularized_loss', regularized_loss)
         if prediction_type == PredictionType.CLASSIFICATION:

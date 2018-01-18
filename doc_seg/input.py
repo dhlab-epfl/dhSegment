@@ -3,7 +3,6 @@ import os
 import tensorflow as tf
 import numpy as np
 from tensorflow.contrib.image import rotate as tf_rotate
-from tensorflow.python.training import queue_runner
 from . import utils
 from tqdm import tqdm
 from random import shuffle
@@ -74,7 +73,6 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
             shuffle(encoded_filenames)
             dataset = tf.data.Dataset.from_generator(lambda: tqdm(encoded_filenames),
                                                      (tf.string, tf.string), (tf.TensorShape([]), tf.TensorShape([])))
-            dataset = dataset.repeat(count=num_epochs)
 
             # Load and resize images
             def _map_fn_1(image_filename, label_filename):
@@ -135,6 +133,7 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
                 elif prediction_type == utils.PredictionType.MULTILABEL:
                     label_image = utils.multilabel_image_to_class(label_image, classes_file)
                 return {'images': input_image, 'labels': label_image}
+
             dataset = dataset.map(_map_fn_3, num_threads)
 
         # Save original size of images
@@ -151,7 +150,7 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
         dataset = dataset.padded_batch(batch_size=batch_size, padded_shapes=padded_shapes)
 
         dataset = dataset.prefetch(4)
-
+        dataset = dataset.repeat(count=num_epochs)
         iterator = dataset.make_one_shot_iterator()
         prepared_batch = iterator.get_next()
 
