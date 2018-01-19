@@ -5,9 +5,9 @@ import numpy as np
 
 
 class LoadedModel:
-    def __init__(self, model_base_dir, num_parallel_predictions=2):
+    def __init__(self, model_base_dir, input_dict_key='images', num_parallel_predictions=2):
         possible_dirs = os.listdir(model_base_dir)
-        model_dir = os.path.join(model_base_dir, max(possible_dirs))
+        model_dir = os.path.join(model_base_dir, max(possible_dirs))  # Take latest export
         print("Loading {}".format(model_dir))
 
         self.sess = tf.get_default_session()
@@ -15,17 +15,17 @@ class LoadedModel:
         assert 'serving_default' in list(loaded_model.signature_def)
 
         input_dict, output_dict = _signature_def_to_tensors(loaded_model.signature_def['serving_default'])
-        self._input_tensor = input_dict['images']
+        self._input_tensor = input_dict[input_dict_key]
         self._output_dict = output_dict
         self.sema = Semaphore(num_parallel_predictions)
 
-    def predict(self, image_tensor, prediction_key=None):
+    def predict(self, input_tensor, prediction_key=None):
         with self.sema:
             if prediction_key:
                 desired_output = self._output_dict[prediction_key]
             else:
                 desired_output = self._output_dict
-            return self.sess.run(desired_output, feed_dict={self._input_tensor: image_tensor})
+            return self.sess.run(desired_output, feed_dict={self._input_tensor: input_tensor})
 
     def predict_with_tiles(self, image_tensor, tile_size=500, min_overlap=0.2, linear_interpolation=True):
         b, h, w = image_tensor.shape[:3]

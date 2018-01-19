@@ -243,3 +243,40 @@ def extract_patches_fn(image: tf.Tensor, patch_shape: list, offsets) -> tf.Tenso
                                            rates=[1, 1, 1, 1], padding='VALID')
         patches_shape = tf.shape(patches)
         return tf.reshape(patches, [tf.reduce_prod(patches_shape[0:3]), h, w, int(c)])  # returns [batch_patches, h, w, c]
+
+
+def serving_input_filename():
+
+    def serving_input_fn():
+        # define placeholder for filename
+        filename = tf.placeholder(dtype=tf.string)
+
+        # TODO : make it batch-compatible (with Dataset or string input producer)
+        with tf.name_scope('load_img'):
+            image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=3,
+                                                     try_recover_truncated=True))
+
+        features = {'images': image[None]}
+
+        receiver_inputs = {'filenames': filename}
+
+        return tf.estimator.export.ServingInputReceiver(features, receiver_inputs)
+
+    return serving_input_fn
+
+
+def serving_input_image():
+    dic_input_serving = {'images': tf.placeholder(tf.float32, [None, None, None, 3])}
+    return tf.estimator.export.build_raw_serving_input_receiver_fn(dic_input_serving)
+
+
+def prediction_input_filename(filename):
+
+    def fn():
+        with tf.name_scope('load_img'):
+            image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=3,
+                                                     try_recover_truncated=True))
+        features = {'images': image[None]}
+        return features
+
+    return fn

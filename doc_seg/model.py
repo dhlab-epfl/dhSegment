@@ -2,13 +2,15 @@ import tensorflow as tf
 from tensorflow.contrib import layers  # TODO migration to tf.layers ?
 from .utils import PredictionType, class_to_label_image, ModelParams, TrainingParams
 from .pretrained_models import vgg_16_fn, resnet_v1_50_fn
+from . import input
 from doc_seg import utils
 import numpy as np
+from glob import glob
+import os
 
 
 def model_fn(mode, features, labels, params):
 
-    # model_params = ModelParams.from_dict(params['model_params'])
     model_params = ModelParams(**params['model_params'])
     training_params = TrainingParams.from_dict(params['training_params'])
     prediction_type = params['prediction_type']
@@ -18,7 +20,7 @@ def model_fn(mode, features, labels, params):
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         margin = training_params.training_margin
-        input_images = tf.pad(input_images, [[0,0], [margin, margin], [margin, margin], [0,0]],
+        input_images = tf.pad(input_images, [[0, 0], [margin, margin], [margin, margin], [0, 0]],
                               mode='SYMMETRIC', name='mirror_padding')
 
     if model_params.pretrained_model_name == 'vgg16':
@@ -40,6 +42,8 @@ def model_fn(mode, features, labels, params):
                                                 is_training=(mode == tf.estimator.ModeKeys.TRAIN)
                                                 )
         key_restore_model = 'resnet_v1_50'
+    else:
+        raise NotImplementedError
 
     if mode == tf.estimator.ModeKeys.TRAIN:
         # Pretrained weights as initialization
@@ -52,6 +56,7 @@ def model_fn(mode, features, labels, params):
         init_fn = None
 
     if mode == tf.estimator.ModeKeys.PREDICT:
+        margin = training_params.training_margin
         # Crop padding
         if margin > 0:
             network_output = network_output[:, margin:-margin, margin:-margin, :]
@@ -70,6 +75,8 @@ def model_fn(mode, features, labels, params):
             prediction_probs = tf.nn.sigmoid(network_output, name='sigmoid')  # [B,H,W,C]
             prediction_labels = tf.greater_equal(prediction_probs, 0.5, name='labels')  # [B,H,W,C]
             predictions = {'probs': prediction_probs, 'labels': prediction_labels}
+    else:
+        raise NotImplementedError
 
     # Loss
     # ----
@@ -89,8 +96,10 @@ def model_fn(mode, features, labels, params):
                 labels_floats = tf.cast(labels, tf.float32)
                 per_pixel_loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels_floats,
                                                                          logits=network_output, name='per_pixel_loss')
-                weight_mask = tf.maximum(tf.reduce_max(
-                    tf.constant(np.array(training_params.weights_labels, dtype=np.float32)[None, None, None]) * labels_floats, axis=-1), 1.0)
+                weight_mask = tf.maximum(
+                    tf.reduce_max(tf.constant(
+                        np.array(training_params.weights_labels, dtype=np.float32)[None, None, None])
+                                  * labels_floats, axis=-1), 1.0)
 
                 per_pixel_loss = per_pixel_loss*weight_mask[:, :, :, None]
         else:
@@ -107,7 +116,7 @@ def model_fn(mode, features, labels, params):
 
         loss += regularized_loss
     else:
-        loss = None
+        loss, regularized_loss = None, None
 
     # Train
     # -----
@@ -179,7 +188,8 @@ def model_fn(mode, features, labels, params):
         elif prediction_type == PredictionType.REGRESSION:
             metrics = {'accuracy': tf.metrics.mean_squared_error(labels, predictions=prediction_labels)}
         elif prediction_type == PredictionType.MULTILABEL:
-            metrics = {'eval/MSE': tf.metrics.mean_squared_error(tf.cast(labels, tf.float32), predictions=prediction_probs),
+            metrics = {'eval/MSE': tf.metrics.mean_squared_error(tf.cast(labels, tf.float32),
+                                                                 predictions=prediction_probs),
                        'eval/accuracy': tf.metrics.accuracy(tf.cast(labels, tf.bool),
                                                             predictions=tf.cast(prediction_labels, tf.bool))
                        }
@@ -243,12 +253,12 @@ def inference_vgg16(images: tf.Tensor, params: ModelParams, num_classes: int, us
         if params.intermediate_conv is not None:
             with tf.name_scope('intermediate_convs'):
                 for layer_params in params.intermediate_conv:
-                    for i, (nb_filters, filter_size) in enumerate(layer_params):
+                    for k, (nb_filters, filter_size) in enumerate(layer_params):
                         out_tensor = layers.conv2d(inputs=out_tensor,
                                                    num_outputs=nb_filters,
                                                    kernel_size=[filter_size, filter_size],
                                                    normalizer_fn=batch_norm_fn,
-                                                   scope='conv_{}'.format(i + 1))
+                                                   scope='conv_{}'.format(k + 1))
 
         # Upsampling :
         with tf.name_scope('upsampling'):
@@ -297,7 +307,8 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
 
         def upsample_conv(input_tensor, previous_intermediate_layer, layer_params, number):
             with tf.name_scope('deconv_{}'.format(number)):
-                if previous_intermediate_layer.get_shape()[1].value and previous_intermediate_layer.get_shape()[2].value:
+                if previous_intermediate_layer.get_shape()[1].value and \
+                        previous_intermediate_layer.get_shape()[2].value:
                     target_shape = previous_intermediate_layer.get_shape()[1:3]
                 else:
                     target_shape = tf.shape(previous_intermediate_layer)[1:3]
@@ -354,3 +365,18 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
                                    scope="conv{}-logits".format(n_layer))
 
         return logits
+
+
+# Where to put this ?
+def validation(estimator, validation_image_dir, output_dir, n_epoch):
+    filenames_evaluation = glob(os.path.join(validation_image_dir, '*.jpg'))
+    # Estimator.predict + TODO : evaluate on predictions (python)
+
+    exported_files_eval_dir = os.path.join(output_dir, 'exported_eval_files', 'epoch_{}'.format(n_epoch))
+    os.makedirs(exported_files_eval_dir, exist_ok=True)
+
+    # Predict and save probs
+    for filename in filenames_evaluation:  #tqdm(filenames_evaluation):
+        predicted_probs = estimator.predict(input.prediction_input_filename(filename), predict_keys=['probs'])
+        np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
+                np.uint8(255 * next(predicted_probs)['probs']))
