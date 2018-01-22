@@ -1,8 +1,10 @@
-import argparse
 import tensorflow as tf
-from doc_seg import model, input, utils
+from doc_seg import model, input, utils, loader
 import os
 import json
+from glob import glob
+from tqdm import tqdm
+import numpy as np
 try:
     import better_exceptions
 except:
@@ -71,17 +73,10 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
                                        make_patches=training_params.make_patches,
                                        image_summaries=True,
                                        params=_config))
-        # Evaluate
-        estimator.evaluate(input.input_fn(input_image_dir=eval_images_dir,
-                                          input_label_dir=eval_labels_dir,
-                                          num_epochs=1,
-                                          batch_size=training_params.batch_size,
-                                          data_augmentation=False,
-                                          make_patches=training_params.make_patches,
-                                          params=_config))
+
+        # Export model (filename, batch_size = 1) and evaluate
+        estimator.export_savedmodel(os.path.join(model_output_dir, 'export'), input.serving_input_filename())
+        model.validation(estimator, eval_images_dir, eval_labels_dir, model_output_dir, i)
 
     # Exporting model
-    export_input_fn = tf.estimator.export.build_raw_serving_input_receiver_fn({
-        'images': tf.placeholder(tf.float32, [None, None, None, 3])
-    })
-    estimator.export_savedmodel(os.path.join(model_output_dir, 'export'), export_input_fn)
+    estimator.export_savedmodel(os.path.join(model_output_dir, 'export'), input.serving_input_filename())

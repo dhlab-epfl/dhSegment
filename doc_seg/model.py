@@ -7,6 +7,8 @@ from doc_seg import utils
 import numpy as np
 from glob import glob
 import os
+import cv2
+from scipy.misc import imread
 
 
 def model_fn(mode, features, labels, params):
@@ -368,7 +370,7 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
 
 
 # Where to put this ?
-def validation(estimator, validation_image_dir, output_dir, n_epoch):
+def validation(estimator, validation_image_dir, validation_labels_dir, output_dir, n_epoch):
     filenames_evaluation = glob(os.path.join(validation_image_dir, '*.jpg'))
     # Estimator.predict + TODO : evaluate on predictions (python)
 
@@ -380,3 +382,62 @@ def validation(estimator, validation_image_dir, output_dir, n_epoch):
         predicted_probs = estimator.predict(input.prediction_input_filename(filename), predict_keys=['probs'])
         np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
                 np.uint8(255 * next(predicted_probs)['probs']))
+
+    # Evaluate
+    psnr, f_measure = evaluate(exported_files_eval_dir, validation_labels_dir)
+    # tf.summary.scalar('eval/psnr', [psnr])
+    # tf.summary.scalar('eval/FM', [f_measure])
+
+    # TODO output results in some format to be abel to compare them
+
+
+def evaluate(exported_files_dir: str, validation_labels_dir: str) -> (float, float):
+    filenames_exported_predictions = glob(os.path.join(exported_files_dir, '*.npy'))
+    MSE_probs = list()
+    MSE_bin = list()
+    n_pixels = 0
+    true_positives = 0
+    false_positives = 0
+    false_negatives = 0
+
+    for filename in filenames_exported_predictions:
+        basename = os.path.basename(filename).split('.')[0]
+        predictions = np.load(filename)[:, :, 1]
+        predictions_normalized = predictions / 255
+
+        # TODO : Write a proper binarization fn
+        bin_image_normalized = probs2bool(predictions_normalized)
+
+        label_image = imread(os.path.join(validation_labels_dir, '{}.png'.format(basename)), mode='L')
+        label_image_normalized = label_image / np.max(label_image)
+
+        MSE_probs.append(np.sum((label_image_normalized - predictions_normalized) ** 2))
+        MSE_bin.append(np.sum((label_image_normalized - bin_image_normalized) ** 2))
+        n_pixels += np.size(predictions)
+
+        true_positives += np.sum(np.logical_and(label_image_normalized, bin_image_normalized))
+        false_positives += np.sum(np.logical_and(np.logical_xor(label_image_normalized, bin_image_normalized),
+                                                 bin_image_normalized))
+        false_negatives += np.sum(np.logical_and(np.logical_xor(label_image_normalized, bin_image_normalized),
+                                                 label_image_normalized))
+
+    # MSE_probs = np.sum(MSE_probs) / n_pixels
+    # PSNR_probs = 10 * np.log10((1 ** 2) / MSE_probs)
+    MSE_bin = np.sum(MSE_bin) / n_pixels
+    PSNR_bin = 10 * np.log10((1 ** 2) / MSE_bin)
+    recall = true_positives / (true_positives + false_negatives)
+    precision = true_positives / (true_positives + false_positives)
+    f_measure = (2 * recall * precision) / (recall + precision)
+
+    print('EVAL --- PSNR : {}, R : {}, P : {}, FM : {}'.format(PSNR_bin, recall, precision, f_measure))
+
+    return PSNR_bin, f_measure
+
+
+def probs2bool(probabilities_mask):
+    # # Otsu's thresholding
+    # blur = cv2.GaussianBlur(probabilities_mask, (5, 5), 0)
+    # thresh_val, bin_img = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # return bin_img
+
+    return probabilities_mask > 0.5
