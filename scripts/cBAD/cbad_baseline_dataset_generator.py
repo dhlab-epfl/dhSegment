@@ -11,33 +11,35 @@ import argparse
 TARGET_HEIGHT = 1100
 DRAWING_COLOR_BASELINES = (255, 0, 0)
 DRAWING_COLOR_POINTS = (0, 255, 0)
-# LINE_THICKNESS = 10  # 3e-3
-# DIAMETER_ENDPOINT = 20
 
 RANDOM_SEED = 0
 np.random.seed(RANDOM_SEED)
 
 
-def get_page_filename(image_filename):
+def get_page_filename(image_filename: str) -> str:
     return os.path.join(os.path.dirname(image_filename),
                         'page',
                         '{}.xml'.format(os.path.basename(image_filename)[:-4]))
 
 
-def get_image_label_basename(image_filename):
+def get_image_label_basename(image_filename: str) -> str:
     # Get acronym followed by name of file
     directory, basename = os.path.split(image_filename)
     acronym = directory.split(os.path.sep)[-1].split('_')[0]
     return '{}_{}'.format(acronym, basename.split('.')[0])
 
 
-def save_and_resize(img, filename, nearest=False):
-    resized = cv2.resize(img, ((img.shape[1]*TARGET_HEIGHT)//img.shape[0], TARGET_HEIGHT),
-                         interpolation=cv2.INTER_NEAREST if nearest else cv2.INTER_LINEAR)
-    imsave(filename, resized)
+def save_and_resize(img: np.array, filename: str, resize: bool=False, nearest: bool=False) -> None:
+    if resize:
+        resized = cv2.resize(img, ((img.shape[1]*TARGET_HEIGHT)//img.shape[0], TARGET_HEIGHT),
+                             interpolation=cv2.INTER_NEAREST if nearest else cv2.INTER_LINEAR)
+        imsave(filename, resized)
+    else:
+        imsave(filename, img)
 
 
-def process_one(image_filename, output_dir, endpoints=False, line_thickness=10, diameter_endpoint=20):
+def process_one(image_filename: str, output_dir: str, endpoints: bool=False,
+                line_thickness: int=10, diameter_endpoint: int=20) -> None:
     page = PAGE.parse_file(get_page_filename(image_filename))
     text_lines = [tl for tr in page.text_regions for tl in tr.text_lines]
     img = imread(image_filename, mode='RGB')
@@ -86,6 +88,8 @@ if __name__ == '__main__':
                         help='Predict beginning and end of baselines')
     parser.add_argument('-l', '--line_thickness', type=int, default=10, help='Thickness of annotated baseline')
     parser.add_argument('-c', '--circle_thickness', type=int, default=20, help='Diameter of annotated start/end points')
+    parser.add_argument('-s', '--size', type=int, default=72e4,
+                        help='Size of the resized image (# pixels)')
     args = vars(parser.parse_args())
 
     # Get image filenames to process
