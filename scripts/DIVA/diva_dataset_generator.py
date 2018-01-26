@@ -54,16 +54,16 @@ if __name__ == '__main__':
         imsave(os.path.join(output_img_dir, '{}.jpg'.format(basename)), img)
         imsave(os.path.join(output_label_dir, '{}.png'.format(basename)), label_image)
 
-    # Class file
-    classes = np.array([0, 0, 0])
-    for c in MAP_COLORS.values():
-        classes = np.vstack([classes, np.array(c[1])])
-
-    codes_list = list()
-    n_bits = len('{:b}'.format(classes.shape[0]))
-    for i in range(classes.shape[0]):
-        codes_list.append('{:08b}'.format(i)[-n_bits:])
-    codes_ints = [[int(char) for char in code] for code in codes_list]
-    classes = np.hstack((classes, np.array(codes_ints)))
-
-    np.savetxt(os.path.join(args.get('output_dir'), 'classes.txt'), classes, fmt='%d')
+    # # Class file
+    # classes = np.array([0, 0, 0])
+    # for c in MAP_COLORS.values():
+    #     classes = np.vstack([classes, np.array(c[1])])
+    #
+    # codes_list = list()
+    # n_bits = len('{:b}'.format(classes.shape[0]))
+    # for i in range(classes.shape[0]):
+    #     codes_list.append('{:08b}'.format(i)[-n_bits:])
+    # codes_ints = [[int(char) for char in code] for code in codes_list]
+    # classes = np.hstack((classes, np.array(codes_ints)))
+    #
+    # np.savetxt(os.path.join(args.get('output_dir'), 'classes.txt'), classes, fmt='%d')

@@ -116,17 +116,17 @@ if __name__ == '__main__':
         process_one(image_filename, '{}/validation'.format(args.get('output_dir')), args.get('endpoints'),
                     args.get('line_thickness'), args.get('circle_thickness'))
 
-    # Classes file
-    classes = np.stack([(0, 0, 0), DRAWING_COLOR_BASELINES])
-    if args.get('endpoints'):
-        classes = np.vstack((classes, DRAWING_COLOR_POINTS))
-        classes = np.vstack((classes, np.array(DRAWING_COLOR_BASELINES) + np.array(DRAWING_COLOR_POINTS)))
-        # For multilabels, we should add the code for each color after the RGB values (R G B Code)
-        codes_list = list()
-        n_bits = len('{:b}'.format(classes.shape[0] - 1))
-        for i in range(classes.shape[0]):
-            codes_list.append('{:08b}'.format(i)[-n_bits:])
-        codes_ints = [[int(char) for char in code] for code in codes_list]
-        classes = np.hstack((classes, np.array(codes_ints)))
-
-    np.savetxt(os.path.join(args.get('output_dir'), 'classes.txt'), classes, fmt='%d')
+    # # Classes file
+    # classes = np.stack([(0, 0, 0), DRAWING_COLOR_BASELINES])
+    # if args.get('endpoints'):
+    #     classes = np.vstack((classes, DRAWING_COLOR_POINTS))
+    #     classes = np.vstack((classes, np.array(DRAWING_COLOR_BASELINES) + np.array(DRAWING_COLOR_POINTS)))
+    #     # For multilabels, we should add the code for each color after the RGB values (R G B Code)
+    #     codes_list = list()
+    #     n_bits = len('{:b}'.format(classes.shape[0] - 1))
+    #     for i in range(classes.shape[0]):
+    #         codes_list.append('{:08b}'.format(i)[-n_bits:])
+    #     codes_ints = [[int(char) for char in code] for code in codes_list]
+    #     classes = np.hstack((classes, np.array(codes_ints)))
+    #
+    # np.savetxt(os.path.join(args.get('output_dir'), 'classes.txt'), classes, fmt='%d')
