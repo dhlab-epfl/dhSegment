@@ -109,3 +109,12 @@ def upscale_coordinates(list_points: List[np.array], ratio: Tuple[float, float])
     return np.array(
         [(round(p[0, 0]*ratio[1]), round(p[0, 1]*ratio[0])) for p in list_points]
     )[:, None, :].astype(int)
+
+
+def dibco_binarization(probabilities_mask):
+    # # Otsu's thresholding
+    # blur = cv2.GaussianBlur(probabilities_mask, (5, 5), 0)
+    # thresh_val, bin_img = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # return bin_img
+
+    return probabilities_mask > 0.5
