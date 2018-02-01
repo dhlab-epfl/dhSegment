@@ -8,6 +8,8 @@ from skimage.morphology import skeletonize
 from sklearn.metrics.pairwise import euclidean_distances
 from collections import defaultdict
 import cv2
+import os
+from . import PAGE
 
 
 def vertical_local_maxima(probs):
@@ -111,10 +113,40 @@ def upscale_coordinates(list_points: List[np.array], ratio: Tuple[float, float])
     )[:, None, :].astype(int)
 
 
-def dibco_binarization(probabilities_mask):
-    # # Otsu's thresholding
-    # blur = cv2.GaussianBlur(probabilities_mask, (5, 5), 0)
-    # thresh_val, bin_img = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    # return bin_img
+def get_image_label_basename(image_filename):
+    # Get acronym followed by name of file
+    directory, basename = os.path.split(image_filename)
+    acronym = directory.split(os.path.sep)[-1].split('_')[0]
+    return '{}_{}'.format(acronym, basename.split('.')[0])
 
-    return probabilities_mask > 0.5
+
+def get_page_filename(image_filename):
+    return os.path.dirname(image_filename)+'/page/{}.xml'.format(os.path.basename(image_filename)[:-4])
+
+
+def dibco_binarization_fn(probabilities_mask, threshold=0.5):
+    if threshold < 0:
+        # Otsu's thresholding
+        blur = cv2.GaussianBlur(probabilities_mask, (5, 5), 0)
+        thresh_val, bin_img = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        return bin_img
+    else:
+        return probabilities_mask > threshold
+
+
+def cbad_post_processing_fn(predictions: np.array, filename: str, xml_output_dir: str, sigma: float=2.5,
+                            low_threshold: float=0.8, high_threshold: float=0.9) -> (str, str):
+    contours, lines_mask = line_extraction_v0(predictions, sigma, low_threshold, high_threshold)
+    output_filename = os.path.join(xml_output_dir, '{}.xml'.format(get_image_label_basename(filename)))
+    PAGE.save_baselines(output_filename, contours)
+    return get_page_filename(filename), output_filename
+
+
+def page_post_processing_fn(predictions, pixel_wise):
+    # TODO
+    return None
+
+
+def diva_post_processing_fn(predictions):
+    # TODO
+    return None
