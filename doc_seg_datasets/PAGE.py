@@ -262,7 +262,7 @@ def parse_file(filename: str) -> Page:
     return Page.from_xml(page_elements[0])
 
 
-def save_baselines(filename, baselines, ratio):
+def save_baselines(filename, baselines, ratio=(1, 1)):
     txt_lines = [TextLine.from_array(baseline_coords=b, id='line_{}'.format(i)) for i, b in enumerate(baselines)]
     for l in txt_lines:
         l.scale_baseline_points((ratio, ratio))

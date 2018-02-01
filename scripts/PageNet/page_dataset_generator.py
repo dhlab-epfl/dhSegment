@@ -34,7 +34,11 @@ if __name__ == '__main__':
             coords_double = np.reshape(np.array(splits[-4:], dtype=int), (2, 2))
             coords = (coords_simple, coords_double)
 
-        img = imread(os.path.join(args.get('input_dir'), full_filename))
+        try:
+            img = imread(os.path.join(args.get('input_dir'), full_filename))
+        except FileNotFoundError:
+            print('File {} not found'.format(full_filename))
+            continue
         label_img = np.zeros((img.shape[0], img.shape[1], 3))
 
         label_img = cv2.fillPoly(label_img, [coords_simple], (255, 0, 0))

@@ -2,13 +2,8 @@ import tensorflow as tf
 from tensorflow.contrib import layers  # TODO migration to tf.layers ?
 from .utils import PredictionType, class_to_label_image, ModelParams, TrainingParams
 from .pretrained_models import vgg_16_fn, resnet_v1_50_fn
-from . import input
 from doc_seg import utils
 import numpy as np
-from glob import glob
-import os
-import cv2
-from scipy.misc import imread
 
 
 def model_fn(mode, features, labels, params):
@@ -130,7 +125,8 @@ def model_fn(mode, features, labels, params):
 
         if training_params.exponential_learning:
             global_step = tf.train.get_or_create_global_step()
-            learning_rate = tf.train.exponential_decay(training_params.learning_rate, global_step, 200, 0.95, staircase=False)
+            learning_rate = tf.train.exponential_decay(training_params.learning_rate, global_step, decay_steps=200,
+                                                       decay_rate=0.95, staircase=False)
         else:
             learning_rate = training_params.learning_rate
         tf.summary.scalar('learning_rate', learning_rate)
@@ -143,7 +139,7 @@ def model_fn(mode, features, labels, params):
     # Summaries
     # ---------
     if mode == tf.estimator.ModeKeys.TRAIN:
-        # tf.summary.scalar('losses/loss', ema_loss)
+        tf.summary.scalar('losses/loss', loss)
         tf.summary.scalar('losses/loss_per_batch', loss)
         tf.summary.scalar('losses/regularized_loss', regularized_loss)
         if prediction_type == PredictionType.CLASSIFICATION:
@@ -172,15 +168,11 @@ def model_fn(mode, features, labels, params):
                                                     tf.cast(tf.shape(labels_visualization)[1:3] / 3, tf.int32)),
                              max_outputs=1)
             class_dim = prediction_probs.get_shape().as_list()[-1]
-            for c in range(1, class_dim):
-                tf.summary.image('output/prediction_probs_{}'.format(c-1),
-                                 tf.image.resize_images(prediction_probs[:, :, :, c-1:c],
+            for c in range(0, class_dim):
+                tf.summary.image('output/prediction_probs_{}'.format(c),
+                                 tf.image.resize_images(prediction_probs[:, :, :, c:c+1],
                                                         tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
                                  max_outputs=1)
-            tf.summary.image('output/prediction_probs_{}'.format(class_dim),
-                             tf.image.resize_images(prediction_probs[:, :, :, -1:],
-                                                    tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
-                             max_outputs=1)
 
     # Evaluation
     # ----------
@@ -367,77 +359,3 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
                                    scope="conv{}-logits".format(n_layer))
 
         return logits
-
-
-# Where to put this ?
-def validation(estimator, validation_image_dir, validation_labels_dir, output_dir, n_epoch):
-    filenames_evaluation = glob(os.path.join(validation_image_dir, '*.jpg'))
-    # Estimator.predict + TODO : evaluate on predictions (python)
-
-    exported_files_eval_dir = os.path.join(output_dir, 'exported_eval_files', 'epoch_{}'.format(n_epoch))
-    os.makedirs(exported_files_eval_dir, exist_ok=True)
-
-    # Predict and save probs
-    for filename in filenames_evaluation:  #tqdm(filenames_evaluation):
-        predicted_probs = estimator.predict(input.prediction_input_filename(filename), predict_keys=['probs'])
-        np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
-                np.uint8(255 * next(predicted_probs)['probs']))
-
-    # Evaluate
-    psnr, f_measure = evaluate(exported_files_eval_dir, validation_labels_dir)
-    # tf.summary.scalar('eval/psnr', [psnr])
-    # tf.summary.scalar('eval/FM', [f_measure])
-
-    # TODO output results in some format to be abel to compare them
-
-
-def evaluate(exported_files_dir: str, validation_labels_dir: str) -> (float, float):
-    filenames_exported_predictions = glob(os.path.join(exported_files_dir, '*.npy'))
-    MSE_probs = list()
-    MSE_bin = list()
-    n_pixels = 0
-    true_positives = 0
-    false_positives = 0
-    false_negatives = 0
-
-    for filename in filenames_exported_predictions:
-        basename = os.path.basename(filename).split('.')[0]
-        predictions = np.load(filename)[:, :, 1]
-        predictions_normalized = predictions / 255
-
-        # TODO : Write a proper binarization fn
-        bin_image_normalized = probs2bool(predictions_normalized)
-
-        label_image = imread(os.path.join(validation_labels_dir, '{}.png'.format(basename)), mode='L')
-        label_image_normalized = label_image / np.max(label_image)
-
-        MSE_probs.append(np.sum((label_image_normalized - predictions_normalized) ** 2))
-        MSE_bin.append(np.sum((label_image_normalized - bin_image_normalized) ** 2))
-        n_pixels += np.size(predictions)
-
-        true_positives += np.sum(np.logical_and(label_image_normalized, bin_image_normalized))
-        false_positives += np.sum(np.logical_and(np.logical_xor(label_image_normalized, bin_image_normalized),
-                                                 bin_image_normalized))
-        false_negatives += np.sum(np.logical_and(np.logical_xor(label_image_normalized, bin_image_normalized),
-                                                 label_image_normalized))
-
-    # MSE_probs = np.sum(MSE_probs) / n_pixels
-    # PSNR_probs = 10 * np.log10((1 ** 2) / MSE_probs)
-    MSE_bin = np.sum(MSE_bin) / n_pixels
-    PSNR_bin = 10 * np.log10((1 ** 2) / MSE_bin)
-    recall = true_positives / (true_positives + false_negatives)
-    precision = true_positives / (true_positives + false_positives)
-    f_measure = (2 * recall * precision) / (recall + precision)
-
-    print('EVAL --- PSNR : {}, R : {}, P : {}, FM : {}'.format(PSNR_bin, recall, precision, f_measure))
-
-    return PSNR_bin, f_measure
-
-
-def probs2bool(probabilities_mask):
-    # # Otsu's thresholding
-    # blur = cv2.GaussianBlur(probabilities_mask, (5, 5), 0)
-    # thresh_val, bin_img = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    # return bin_img
-
-    return probabilities_mask > 0.5

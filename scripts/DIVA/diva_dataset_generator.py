@@ -16,10 +16,6 @@ MAP_COLORS = OrderedDict([('comment', ((0, 0, 2), (0, 0, 255))),
                           ('text_comment', ((0, 0, 10), (255, 0, 255))),
                           ('text_deco', ((0, 0, 12), (255, 255, 0)))])
 
-# root_dir = '/scratch/dataset/DIVA/GT/'
-# output_dir = '/scratch/dataset/DIVA/generated_diva/'
-# dset = 'training'
-
 
 def annotate_one(gt_image: np.array, map_colors: dict):
     label_img = np.zeros_like(gt_image)

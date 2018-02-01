@@ -9,7 +9,7 @@ Available pretrained implementations :
 
 ### Usage
 #### Training
-* You need to have your training data in a folder containing `images` folder and `labels` folder. The pairs (images, labels) need to have the same name (it is however not mandatory to have the same extension file). 
+* You need to have your training data in a folder containing `images` folder and `labels` folder. The pairs (images, labels) need to have the same name (it is however not mandatory to have the same extension file, however we recommend having the label images as `.png` files). 
 * The annotated images in `label` folder are (usually) RGB images with the regions to segment annotated with a specific color
 * The file containing the classes has the format show below, where each row corresponds to one class (including 'negative' or 'background' class) and each row has 3 values for the 3 RGB values. Of course each class needs to have a different code.
 ``` class.txt
