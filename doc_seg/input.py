@@ -34,16 +34,21 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
 
             label_images.append(label_image_filename)
 
-    def load_and_resize_image(filename, channels, interpolation='BILINEAR'):
+    def load_and_resize_image(filename, channels, size=None, interpolation='BILINEAR'):
         with tf.name_scope('load_img'):
             decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=channels,
                                                              try_recover_truncated=True))
+            # TODO : if one side is smaller than size of patches (and make patches == true), force the image to have at least patch size
             if training_params.input_resized_size > 0:
                 with tf.name_scope('ImageRescaling'):
                     input_shape = tf.cast(tf.shape(decoded_image)[:2], tf.float32)
-                    ratio_size = tf.div(training_params.input_resized_size,
-                                        tf.reduce_prod(input_shape))
-                    new_shape = tf.cast(tf.round(tf.multiply(ratio_size, input_shape)), tf.int32)
+
+                    # Compute new shape
+                    # We want X/Y = x/y and we have size = x*y so :
+                    ratio = tf.div(input_shape[0], input_shape[1])
+                    new_height = tf.sqrt(tf.div(size, ratio))
+                    new_width = tf.div(size, new_height)
+                    new_shape = tf.cast([new_height, new_width], tf.int32)
                     resize_method = {
                         'NEAREST': tf.image.ResizeMethod.NEAREST_NEIGHBOR,
                         'BILINEAR': tf.image.ResizeMethod.BILINEAR
@@ -76,13 +81,21 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
 
             # Load and resize images
             def _map_fn_1(image_filename, label_filename):
+                if training_params.data_augmentation:
+                    random_scaling = tf.random_uniform([],
+                                                       np.maximum(1 - training_params.data_augmentation_max_scaling, 0),
+                                                       1 + training_params.data_augmentation_max_scaling)
+                    new_size = training_params.input_resized_size * random_scaling
+                else:
+                    new_size = training_params.input_resized_size
+
                 if prediction_type in [utils.PredictionType.CLASSIFICATION, utils.PredictionType.MULTILABEL]:
-                    label_image = load_and_resize_image(label_filename, 3, interpolation='NEAREST')
+                    label_image = load_and_resize_image(label_filename, 3, new_size, interpolation='NEAREST')
                 elif prediction_type == utils.PredictionType.REGRESSION:
-                    label_image = load_and_resize_image(label_filename, 1, interpolation='NEAREST')
+                    label_image = load_and_resize_image(label_filename, 1, new_size, interpolation='NEAREST')
                 else:
                     raise NotImplementedError
-                input_image = load_and_resize_image(image_filename, 3)
+                input_image = load_and_resize_image(image_filename, 3, new_size)
                 return input_image, label_image
 
             dataset = dataset.map(_map_fn_1, num_threads)
@@ -149,6 +162,7 @@ def input_fn(input_image_dir, params: dict, input_label_dir=None, data_augmentat
             padded_shapes['labels'] = [-1, -1] + list(output_shapes_label[2:])
         dataset = dataset.padded_batch(batch_size=batch_size, padded_shapes=padded_shapes)
 
+        # dataset = dataset.shuffle(50)  # -> This is very time expensive...
         dataset = dataset.prefetch(4)
         dataset = dataset.repeat(count=num_epochs)
         iterator = dataset.make_one_shot_iterator()
@@ -242,7 +256,7 @@ def extract_patches_fn(image: tf.Tensor, patch_shape: list, offsets) -> tf.Tenso
         patches = tf.extract_image_patches(offset_img, ksizes=[1, h, w, 1], strides=[1, h // 2, w // 2, 1],
                                            rates=[1, 1, 1, 1], padding='VALID')
         patches_shape = tf.shape(patches)
-        return tf.reshape(patches, [tf.reduce_prod(patches_shape[0:3]), h, w, int(c)])  # returns [batch_patches, h, w, c]
+        return tf.reshape(patches, [tf.reduce_prod(patches_shape[:3]), h, w, int(c)])  # returns [batch_patches, h, w, c]
 
 
 def serving_input_filename():

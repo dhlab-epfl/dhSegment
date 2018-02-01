@@ -123,6 +123,7 @@ class TrainingParams(BaseParams):
         self.data_augmentation_flip_lr = True
         self.data_augmentation_flip_ud = True
         self.data_augmentation_max_rotation = 0.2
+        self.data_augmentation_max_scaling = 0.05  # range : [0, 1]
         self.make_patches = False
         self.patch_shape = (300, 300)
         self.input_resized_shape = (480, 320)
