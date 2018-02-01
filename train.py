@@ -74,9 +74,18 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
                                        image_summaries=True,
                                        params=_config))
 
-        # Export model (filename, batch_size = 1) and evaluate
-        estimator.export_savedmodel(os.path.join(model_output_dir, 'export'), input.serving_input_filename())
-        model.validation(estimator, eval_images_dir, eval_labels_dir, model_output_dir, i)
+        # Export model (filename, batch_size = 1) and predictions
+        _ = estimator.export_savedmodel(os.path.join(model_output_dir, 'export'), input.serving_input_filename())
+
+        # Save predictions
+        filenames_evaluation = glob(os.path.join(eval_images_dir, '*.jpg'))
+        exported_files_eval_dir = os.path.join(model_output_dir, 'exported_eval_files', 'epoch_{}'.format(i))
+        os.makedirs(exported_files_eval_dir, exist_ok=True)
+        # Predict and save probs
+        for filename in filenames_evaluation:  # tqdm(filenames_evaluation):
+            predicted_probs = estimator.predict(input.prediction_input_filename(filename), predict_keys=['probs'])
+            np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
+                    np.uint8(255 * next(predicted_probs)['probs']))
 
     # Exporting model
     estimator.export_savedmodel(os.path.join(model_output_dir, 'export'), input.serving_input_filename())
