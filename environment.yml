@@ -105,7 +105,9 @@ dependencies:
 - zlib=1.2.11=ha838bed_2
 - pip:
   - absl-py==0.1.10
+  - better-exceptions==0.2.1
   - docopt==0.6.2
+  - enum34==1.1.6
   - futures==3.1.1
   - ipython-genutils==0.2.0
   - jsonpickle==0.9.5
@@ -117,8 +119,8 @@ dependencies:
   - prompt-toolkit==1.0.15
   - protobuf==3.5.1
   - sacred==0.7.2
-  - tensorflow-gpu==1.5.0
-  - tensorflow-tensorboard==1.5.0
+  - tensorflow-gpu==1.4.1
+  - tensorflow-tensorboard==0.4.0
   - werkzeug==0.14.1
   - wrapt==1.10.11
 prefix: /home/seguin/miniconda3/envs/doc_seg
