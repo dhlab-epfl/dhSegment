@@ -1,0 +1,6 @@
+{
+"train_dir" : "/scratch/dataset/PageNet_data/generated_pages/train/",
+"eval_dir" : "/scratch/dataset/PageNet_data/generated_pages/val_a1",
+"classes_file" : "/scratch/dataset/PageNet_data/generated_pages/classes.txt",
+"model_output_dir" : "/scratch/docseg_models/PAGE/pagenet_test"
+}
