@@ -1,0 +1,7 @@
+{
+"train_dir" : "/scratch/dataset/cBAD/Baseline_Competition_Simple_Documents/generated_baseline_endpoint_dataset/train/",
+"eval_dir" : "/scratch/dataset/cBAD/Baseline_Competition_Simple_Documents/generated_baseline_endpoint_dataset/validation/",
+"classes_file" : "/scratch/dataset/cBAD/Baseline_Competition_Simple_Documents/generated_baseline_endpoint_dataset/classes.txt",
+"model_output_dir" : "/scratch/docseg_models/baseline_endpoint_simple",
+"prediction_type" : "MULTILABEL"
+}
