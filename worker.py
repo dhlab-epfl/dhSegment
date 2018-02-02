@@ -35,7 +35,9 @@ if __name__ == '__main__':
         print("Running config")
         try:
             res = ex.run(config_updates=config)
-        except Exception:
-            print('Experiment failed')
+        except Exception as e:
+            print('Experiment failed : {}'.format(e))
+            if res:
+                print(res.fail_trace)
         #TODO check experiment result and if failed save config file to failed_configs_dir
         print("Running Done")

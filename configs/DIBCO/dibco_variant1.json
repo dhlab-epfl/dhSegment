@@ -2,5 +2,5 @@
 "train_dir" : "/scratch/dataset/dibco/generated_dibco/train/",
 "eval_dir" : "/scratch/dataset/dibco/generated_dibco/validation",
 "classes_file" : "/scratch/dataset/dibco/generated_dibco/classes.txt",
-"model_output_dir" : "/scratch/docseg_models/DIBCO/dibco_validation"
+"model_output_dir" : "/scratch/docseg_models/DIBCO/dibco_test"
 }

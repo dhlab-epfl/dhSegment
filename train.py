@@ -65,7 +65,7 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
 
     for i in trange(0, training_params.n_epochs, training_params.evaluate_every_epoch):
         # Train for one epoch
-        estimator.train(input.input_fn(input_image_dir=train_images_dir,
+        estimator.train(input.input_fn(train_images_dir,
                                        input_label_dir=train_labels_dir,
                                        num_epochs=training_params.evaluate_every_epoch,
                                        batch_size=training_params.batch_size,
@@ -75,17 +75,21 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
                                        params=_config))
 
         # Export model (filename, batch_size = 1) and predictions
-        _ = estimator.export_savedmodel(os.path.join(model_output_dir, 'export'), input.serving_input_filename())
+        exported_path = estimator.export_savedmodel(os.path.join(model_output_dir, 'export'),
+                                                    input.serving_input_filename(training_params.input_resized_size))
+        exported_path = exported_path.decode()
+        timestamp_exported = exported_path.split('/')[-1]
 
         # Save predictions
         filenames_evaluation = glob(os.path.join(eval_images_dir, '*.jpg'))
-        exported_files_eval_dir = os.path.join(model_output_dir, 'exported_eval_files', 'epoch_{}'.format(i))
+        exported_files_eval_dir = os.path.join(model_output_dir, 'eval',
+                                               'epoch_{:03d}_{}'.format(i+training_params.evaluate_every_epoch,
+                                                                        timestamp_exported))
         os.makedirs(exported_files_eval_dir, exist_ok=True)
         # Predict and save probs
-        for filename in filenames_evaluation:  # tqdm(filenames_evaluation):
-            predicted_probs = estimator.predict(input.prediction_input_filename(filename), predict_keys=['probs'])
+        prediction_input_fn = input.input_fn(filenames_evaluation, num_epochs=1, batch_size=1,
+                                             data_augmentation=False, make_patches=False, params=_config)
+        for filename, predicted_probs in zip(filenames_evaluation,
+                                             estimator.predict(prediction_input_fn, predict_keys=['probs'])):  # tqdm(filenames_evaluation):
             np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
-                    np.uint8(255 * next(predicted_probs)['probs']))
-
-    # Exporting model
-    estimator.export_savedmodel(os.path.join(model_output_dir, 'export'), input.serving_input_filename())
+                    np.uint8(255 * predicted_probs['probs']))
