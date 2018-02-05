@@ -9,7 +9,6 @@ import argparse
 from hashlib import sha1
 from tqdm import tqdm
 
-
 PARAMS_POST_PROCESSING_LIST = [
     {'threshold': -1},
     {'threshold': 0.4},
@@ -25,7 +24,6 @@ def _hash_dict(params):
 
 
 def evaluate_one_dibco_model(model_dir, labels_dir, post_processing_params, verbose=False, save_params=True):
-
     eval_outputs_dir = os.path.join(model_dir, 'eval', 'epoch_*')
     list_saved_epochs = glob(eval_outputs_dir)
     if len(list_saved_epochs) == 0:
@@ -38,10 +36,13 @@ def evaluate_one_dibco_model(model_dir, labels_dir, post_processing_params, verb
     validation_scores = dict()
     for saved_epoch in list_saved_epochs:
         epoch_dir_name = saved_epoch.split(os.path.sep)[-1]
-        validation_scores.update({
-            int(epoch_dir_name.split('_')[1]): dibco_evaluate_epoch(saved_epoch, labels_dir, verbose=verbose,
-                                                                    threshold=post_processing_params['threshold'])
-        })
+        epoch, timestamp = (int(s) for s in epoch_dir_name.split('_')[1:3])
+        validation_scores[epoch_dir_name] = {**dibco_evaluate_epoch(saved_epoch, labels_dir,
+                                                                    verbose=verbose,
+                                                                    threshold=post_processing_params['threshold']),
+                                             "epoch": epoch,
+                                             "timestamp": timestamp
+                                             }
 
     with open(os.path.join(post_process_dir, 'validation_scores.json'), 'w') as f:
         json.dump(validation_scores, f)
@@ -72,4 +73,3 @@ if __name__ == '__main__':
         for model_dir in tqdm(model_dirs):
             evaluate_one_dibco_model(model_dir, args.get('labels_dir'), params,
                                      args.get('verbose'))
-
