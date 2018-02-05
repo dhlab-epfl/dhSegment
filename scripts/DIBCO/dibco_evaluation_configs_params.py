@@ -6,7 +6,6 @@ from glob import glob
 import json
 from doc_seg_datasets.evaluation import dibco_evaluate_epoch
 import argparse
-import sys
 from hashlib import sha1
 from tqdm import tqdm
 
@@ -36,16 +35,13 @@ def evaluate_one_dibco_model(model_dir, labels_dir, post_processing_params, verb
     post_process_dir = os.path.join(model_dir, POST_PROCESSING_DIR_NAME, _hash_dict(post_processing_params))
     os.makedirs(post_process_dir, exist_ok=True)
 
-    measures = list()
+    validation_scores = dict()
     for saved_epoch in list_saved_epochs:
         epoch_dir_name = saved_epoch.split(os.path.sep)[-1]
-        measures.append((int(epoch_dir_name.split('_')[1]),
-                         dibco_evaluate_epoch(saved_epoch, labels_dir,
-                                              verbose=verbose, threshold=post_processing_params['threshold'])))
-
-    validation_scores = {epoch: {k: v for k, v in vars(metric).items()
-                                 if k in ['MSE', 'PSNR', 'precision', 'recall', 'f_measure']}
-                         for (epoch, metric) in measures}
+        validation_scores.update({
+            int(epoch_dir_name.split('_')[1]): dibco_evaluate_epoch(saved_epoch, labels_dir, verbose=verbose,
+                                                                    threshold=post_processing_params['threshold'])
+        })
 
     with open(os.path.join(post_process_dir, 'validation_scores.json'), 'w') as f:
         json.dump(validation_scores, f)

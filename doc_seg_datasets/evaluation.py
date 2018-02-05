@@ -13,9 +13,7 @@ from .post_processing import cbad_post_processing_fn, dibco_binarization_fn, pag
 
 CBAD_JAR = '/scratch/dataset/TranskribusBaseLineEvaluationScheme_v0.1.3/' \
            'TranskribusBaseLineEvaluationScheme-0.1.3-jar-with-dependencies.jar'
-# INTERPOLATION_DICT = {'BILINEAR': cv2.INTER_LINEAR,
-#                       'NEAREST': cv2.INTER_NEAREST,
-#                       'CUBIC': cv2.INTER_CUBIC}
+
 
 class Metrics:
     def __init__(self):
@@ -121,11 +119,13 @@ def find_box_prediction(predictions, min_rect=True):
             list_boxes.append(box)
 
 
-def dibco_evaluate_epoch(exported_eval_files_dir: str, validation_labels_dir: str, verbose:bool=False, **kwargs):
+def dibco_evaluate_epoch(exported_eval_files_dir: str, validation_labels_dir: str,
+                         verbose: bool=False, **kwargs) -> dict:
     """
 
     :param exported_eval_files_dir:
     :param validation_labels_dir:
+    :param verbose:
     :param kwargs:
     :return:
     """
@@ -146,10 +146,10 @@ def dibco_evaluate_epoch(exported_eval_files_dir: str, validation_labels_dir: st
         # Post processing (results should be in range [0, 255]!)
         processed_bin = dibco_binarization_fn(predictions_normalized, **kwargs)
         target_shape = (label_image.shape[1], label_image.shape[0])
-        bin_normalized = cv2.resize(np.uint8(processed_bin), target_shape, interpolation=cv2.INTER_NEAREST)
+        bin_upscaled = cv2.resize(np.uint8(processed_bin), target_shape, interpolation=cv2.INTER_NEAREST)
 
         # Compute errors
-        metric = compare_bin_prediction_to_label(bin_normalized, label_image_normalized)
+        metric = compare_bin_prediction_to_label(bin_upscaled, label_image_normalized)
         global_metrics += metric
 
     global_metrics.compute_mse()
@@ -160,8 +160,7 @@ def dibco_evaluate_epoch(exported_eval_files_dir: str, validation_labels_dir: st
         print('EVAL --- PSNR : {}, R : {}, P : {}, FM : {}'.format(global_metrics.PSNR, global_metrics.recall,
                                                                    global_metrics.precision, global_metrics.f_measure))
 
-    # save_metrics_to_json(global_metrics, os.path.join(exported_files_dir, 'validation_scores.json'))
-    return global_metrics
+    return {k: v for k, v in vars(global_metrics).items() if k in ['MSE', 'PSNR', 'precision', 'recall', 'f_measure']}
 
 
 def evaluate_cbad(exported_files_dir: str, validation_labels_dir: str, jar_path: str=CBAD_JAR, **kwargs) -> None:
