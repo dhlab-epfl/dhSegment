@@ -56,7 +56,8 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
     session_config.gpu_options.visible_device_list = str(gpu)
     session_config.gpu_options.per_process_gpu_memory_fraction = 0.9
     estimator_config = tf.estimator.RunConfig().replace(session_config=session_config,
-                                                        save_summary_steps=10)
+                                                        save_summary_steps=10,
+                                                        keep_checkpoint_max=1)
     estimator = tf.estimator.Estimator(model.model_fn, model_dir=model_output_dir,
                                        params=_config, config=estimator_config)
 
@@ -78,7 +79,7 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
         exported_path = estimator.export_savedmodel(os.path.join(model_output_dir, 'export'),
                                                     input.serving_input_filename(training_params.input_resized_size))
         exported_path = exported_path.decode()
-        timestamp_exported = exported_path.split(os.path.sep)[-1]
+        timestamp_exported = os.path.split(exported_path)[-1]
 
         # Save predictions
         filenames_evaluation = glob(os.path.join(eval_images_dir, '*.jpg'))

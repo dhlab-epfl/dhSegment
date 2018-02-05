@@ -5,6 +5,7 @@ import os
 import sys
 import time
 import json
+import better_exceptions
 
 
 if __name__ == '__main__':
@@ -12,11 +13,11 @@ if __name__ == '__main__':
 
     ap = argparse.ArgumentParser()
     ap.add_argument("-c", "--configs-dir", required=True, help="Folder with configs file")
-    #ap.add_argument("-f", "--failed-configs-dir", required=True, help="Folder with failed experiments")
+    ap.add_argument("-f", "--failed-configs-dir", required=True, help="Folder with failed experiments")
     args = ap.parse_args()
 
     while True:
-        config_files = glob.glob(os.path.join(args.configs_dir, '*.json'))
+        config_files = glob.glob(os.path.join(args.configs_dir, '**/*.json'), recursive=True)
         if len(config_files) == 0:
             time.sleep(3)
             continue
@@ -33,11 +34,13 @@ if __name__ == '__main__':
             continue
 
         print("Running config")
-        try:
-            res = ex.run(config_updates=config)
-        except Exception as e:
-            print('Experiment failed : {}'.format(e))
-            if res:
-                print(res.fail_trace)
-        #TODO check experiment result and if failed save config file to failed_configs_dir
+        #try:
+        res = ex.run(config_updates=config)
+        #except Exception as e:
+        #    filename = os.path.relpath(config_file, args.configs_dir)
+        #    print('Experiment {} failed : {}'.format(filename, e))
+        #    output_file = os.path.join(args.failed_configs_dir, filename)
+        #    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        #    with open(output_file, 'w') as f:
+        #        json.dump(config, f)
         print("Running Done")

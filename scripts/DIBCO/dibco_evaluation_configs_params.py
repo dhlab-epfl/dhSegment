@@ -6,27 +6,40 @@ from glob import glob
 import json
 from doc_seg_datasets.evaluation import dibco_evaluate_epoch
 import argparse
-import time
+import sys
+from hashlib import sha1
+from tqdm import tqdm
 
 
-PARAMS_POST_PROCESSING = {'threshold': -1}
-POST_PROCESSING_DIR_NAME = os.path.join('post_processing', '{}'.format(int(time.time())))
+PARAMS_POST_PROCESSING_LIST = [
+    {'threshold': -1},
+    {'threshold': 0.4},
+    {'threshold': 0.5},
+    {'threshold': 0.6},
+    {'threshold': 0.7}
+]
+POST_PROCESSING_DIR_NAME = 'post_processing'
+
+
+def _hash_dict(params):
+    return sha1(json.dumps(params, sort_keys=True).encode()).hexdigest()
 
 
 def evaluate_one_dibco_model(model_dir, labels_dir, post_processing_params, verbose=False, save_params=True):
 
-    list_saved_epochs = glob(os.path.join(model_dir, 'exported_eval_files', '*'))
+    eval_outputs_dir = os.path.join(model_dir, 'eval', 'epoch_*')
+    list_saved_epochs = glob(eval_outputs_dir)
     if len(list_saved_epochs) == 0:
-        print('No file found in : {}'.format(os.path.join(model_dir, 'exported_eval_files')))
+        print('No file found in : {}'.format(eval_outputs_dir))
         return
 
-    post_process_dir = os.path.join(model_dir, POST_PROCESSING_DIR_NAME)
+    post_process_dir = os.path.join(model_dir, POST_PROCESSING_DIR_NAME, _hash_dict(post_processing_params))
     os.makedirs(post_process_dir, exist_ok=True)
 
     measures = list()
     for saved_epoch in list_saved_epochs:
         epoch_dir_name = saved_epoch.split(os.path.sep)[-1]
-        measures.append((epoch_dir_name,
+        measures.append((int(epoch_dir_name.split('_')[1]),
                          dibco_evaluate_epoch(saved_epoch, labels_dir,
                                               verbose=verbose, threshold=post_processing_params['threshold'])))
 
@@ -41,25 +54,26 @@ def evaluate_one_dibco_model(model_dir, labels_dir, post_processing_params, verb
         with open(os.path.join(post_process_dir, 'post_process_params.json'), 'w') as f:
             json.dump(post_processing_params, f)
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-m', '--model_dir', type=str, required=True)
-    parser.add_argument('-v', '--labels_dir', type=str, required=True)
-    parser.add_argument('-p', '--params_json_file', type=str, default=None)
+    parser.add_argument('-m', '--model-dir', type=str, required=True, nargs='+')
+    parser.add_argument('-l', '--labels-dir', type=str, required=True)
+    parser.add_argument('-p', '--params-json-file', type=str, default=None)
     parser.add_argument('-v', '--verbose', type=bool, default=False)
     args = vars(parser.parse_args())
 
-    post_process_dir = os.path.join(args.get('model_dir'), POST_PROCESSING_DIR_NAME)
-
     if args.get('params_json_file') is None:
-        os.makedirs(post_process_dir, exist_ok=True)
-        params = PARAMS_POST_PROCESSING
-        with open(os.path.join(post_process_dir, 'post_process_params.json'), 'w') as f:
-            json.dump(PARAMS_POST_PROCESSING, f)
+        params_list = PARAMS_POST_PROCESSING_LIST
     else:
         with open(args.get('params_json_file'), 'r') as f:
-            params = json.load(f)
+            params_list = [json.load(f)]
 
-    evaluate_one_dibco_model(args.get('model_dir'), args.get('labels_dir'), params,
-                             args.get('verbose'), save_params=False)
+    model_dirs = args.get('model_dir')
+    print('Found {} configs and {} model directories'.format(len(params_list), len(model_dirs)))
+
+    for params in tqdm(params_list):
+        for model_dir in tqdm(model_dirs):
+            evaluate_one_dibco_model(model_dir, args.get('labels_dir'), params,
+                                     args.get('verbose'))
 

@@ -1,7 +1,7 @@
 {
   "training_params" : {
       "learning_rate": 5e-5,
-      "batch_size": 32,
+      "batch_size": 16,
       "make_patches": true,
       "n_epochs": 30,
       "input_resized_size" : 70e4,
