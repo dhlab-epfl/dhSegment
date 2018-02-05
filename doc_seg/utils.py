@@ -126,7 +126,7 @@ class TrainingParams(BaseParams):
         self.data_augmentation_max_scaling = 0.05  # range : [0, 1]
         self.make_patches = True
         self.patch_shape = (300, 300)
-        self.input_resized_shape = (480, 320)
+        self.input_resized_shape = (480, 320)  # Deprecated
         # If input_resized_size == -1, no resizing is done
         self.input_resized_size = int(72e4)  # (600*1200) # type: int
         self.weights_labels = 1.0

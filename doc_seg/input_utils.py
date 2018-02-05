@@ -66,7 +66,7 @@ def load_and_resize_image(filename, channels, size=None, interpolation='BILINEAR
         if size is not None:
             with tf.name_scope('ImageRescaling'):
                 input_shape = tf.cast(tf.shape(decoded_image)[:2], tf.float32)
-
+                size = tf.cast(size, tf.float32)
                 # Compute new shape
                 # We want X/Y = x/y and we have size = x*y so :
                 ratio = tf.div(input_shape[1], input_shape[0])
