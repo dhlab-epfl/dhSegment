@@ -60,6 +60,7 @@ dependencies:
 - ncurses=6.0=h9df7e31_2
 - notebook=5.3.1=py35_2
 - numpy=1.14.0=py35h3dfced4_1
+- olefile=0.45.1=py35_0
 - opencv=3.3.1=py35h6cbbc71_1
 - openssl=1.0.2n=hb7f436b_0
 - pandoc=1.19.2.1=hea2e7c5_1
@@ -68,6 +69,7 @@ dependencies:
 - pcre=8.41=hc27e229_1
 - pexpect=4.3.1=py35_0
 - pickleshare=0.7.4=py35hd57304d_0
+- pillow=5.0.0=py35h3deb7b8_0
 - pip=9.0.1=py35h7e7da9d_4
 - pixman=0.34.0=hceecf20_3
 - prompt_toolkit=1.0.15=py35hc09de7a_0
