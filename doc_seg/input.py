@@ -99,13 +99,11 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
                                                       minimum_shape=[2 * i for i in training_params.patch_shape],
                                                       interpolation='BILINEAR')
 
+                if make_patches:
                     # Offsets for patch extraction
                     offsets = (tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32),
                                tf.random_uniform(shape=[], minval=0, maxval=1, dtype=tf.float32))
-                else:
-                    offsets = (0, 0)
-
-                if make_patches:
+                    # offsets = (0, 0)
                     batch_image, batch_label = make_patches_fn(input_image, label_image, offsets)
                 else:
                     with tf.name_scope('formatting'):
@@ -119,7 +117,8 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
                 dataset = dataset.map(lambda input_image, label_image: data_augmentation_fn(input_image,
                                                                                             label_image,
                                                                                             training_params.data_augmentation_flip_lr,
-                                                                                            training_params.data_augmentation_flip_ud))
+                                                                                            training_params.data_augmentation_flip_ud,
+                                                                                            training_params.data_augmentation_color))
 
             # Assign color to class id
             def _map_fn_3(input_image, label_image):

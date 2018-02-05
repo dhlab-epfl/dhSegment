@@ -4,7 +4,7 @@ from tensorflow.contrib.image import rotate as tf_rotate
 
 
 def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor,
-                         flip_lr: bool=True, flip_ud: bool=True) -> (tf.Tensor, tf.Tensor):
+                         flip_lr: bool=True, flip_ud: bool=True, color: bool=True) -> (tf.Tensor, tf.Tensor):
     with tf.name_scope('DataAugmentation'):
         if flip_lr:
             with tf.name_scope('random_flip_lr'):
@@ -18,10 +18,11 @@ def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor,
                 input_image = tf.cond(sample > 0.5, lambda: tf.image.flip_up_down(input_image), lambda: input_image)
 
         chanels = input_image.get_shape()[-1]
-        input_image = tf.image.random_contrast(input_image, lower=0.8, upper=1.0)
-        if chanels == 3:
-            input_image = tf.image.random_hue(input_image, max_delta=0.1)
-            input_image = tf.image.random_saturation(input_image, lower=0.8, upper=1.2)
+        if color:
+            input_image = tf.image.random_contrast(input_image, lower=0.8, upper=1.0)
+            if chanels == 3:
+                input_image = tf.image.random_hue(input_image, max_delta=0.1)
+                input_image = tf.image.random_saturation(input_image, lower=0.8, upper=1.2)
         return input_image, label_image
 
 

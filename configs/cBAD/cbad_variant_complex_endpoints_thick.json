@@ -1,7 +1,0 @@
-{
-"train_dir" : "/scratch/dataset/cBAD/Baseline_Competition_Complex_Documents/generated_baseline_endpoints_thick_multi/train/",
-"eval_dir" : "/scratch/dataset/cBAD/Baseline_Competition_Complex_Documents/generated_baseline_endpoints_thick_multi/validation/",
-"classes_file" : "/scratch/dataset/cBAD/Baseline_Competition_Complex_Documents/generated_baseline_endpoints_thick_multi/classes.txt",
-"model_output_dir" : "/scratch/docseg_models/baseline_complex_endpoint_thick_multi",
-"prediction_type" : "MULTILABEL"
-}

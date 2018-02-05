@@ -2,10 +2,10 @@
   "training_params" : {
       "learning_rate": 5e-5,
       "batch_size": 32,
-      "data_augmentation_flip_ud" : false,
+      "data_augmentation" : false,
       "make_patches": true,
       "n_epochs": 30,
-      "input_resized_size" : [960, 576],
+      "input_resized_size" : 70e4,
       "patch_shape": [300, 300],
       "weights_labels": [5.0, 20.0]
   },
