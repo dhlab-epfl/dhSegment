@@ -94,7 +94,7 @@ def extract_line_polygons(lines_mask):
     return [c[:, None, :] for c in connections.values()]
 
 
-def line_extraction_v0(probs, sigma, low_threshold, high_threshold):
+def line_extraction_v0(probs, sigma, low_threshold, high_threshold, upsample_shape=None):
     probs_line = probs[:, :, 1]
     # smooth
     probs2 = cv2.GaussianBlur(probs_line, (int(3*sigma)*2+1,int(3*sigma)*2+1), sigma)
@@ -102,6 +102,9 @@ def line_extraction_v0(probs, sigma, low_threshold, high_threshold):
     lines_mask = hysteresis_thresholding(probs2, local_maxima, low_threshold, high_threshold)
     # Remove lines touching border
     lines_mask = remove_borders(lines_mask)
+    # TODO Upsample
+    if upsample_shape is not None:
+        pass
     # Extract polygons from line mask
     contours = extract_line_polygons(lines_mask)
     return contours, lines_mask
@@ -126,25 +129,32 @@ def get_page_filename(image_filename):
 
 def dibco_binarization_fn(probabilities_mask, threshold=0.5):
     if threshold < 0:
+        probabilities_mask = np.uint8(probabilities_mask*255)
         # Otsu's thresholding
         blur = cv2.GaussianBlur(probabilities_mask, (5, 5), 0)
         thresh_val, bin_img = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        return bin_img
+        return np.uint8(bin_img / 255)
     else:
         return probabilities_mask > threshold
 
 
-def cbad_post_processing_fn(predictions: np.array, filename: str, xml_output_dir: str, sigma: float=2.5,
-                            low_threshold: float=0.8, high_threshold: float=0.9) -> (str, str):
-    contours, lines_mask = line_extraction_v0(predictions, sigma, low_threshold, high_threshold)
+def cbad_post_processing_fn(predictions: np.array, filename: str, xml_output_dir: str, upsampled_shape=None,
+                            sigma: float=2.5, low_threshold: float=0.8, high_threshold: float=0.9) -> (str, str):
+
+    contours, lines_mask = line_extraction_v0(predictions, sigma, low_threshold, high_threshold, upsampled_shape)
     output_filename = os.path.join(xml_output_dir, '{}.xml'.format(get_image_label_basename(filename)))
     PAGE.save_baselines(output_filename, contours)
     return get_page_filename(filename), output_filename
 
 
-def page_post_processing_fn(predictions, pixel_wise):
-    # TODO
-    return None
+def page_post_processing_fn(predictions, threshold=0.5):
+
+    predictions = predictions > threshold
+
+    predictions = cv2.morphologyEx((predictions.astype(np.uint8)*255), cv2.MORPH_OPEN, kernel=np.ones((7, 7)))
+    predictions = cv2.morphologyEx(predictions, cv2.MORPH_CLOSE, kernel=np.ones((9, 9)))
+
+    return predictions/255
 
 
 def diva_post_processing_fn(predictions):
