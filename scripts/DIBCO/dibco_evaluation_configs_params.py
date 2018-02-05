@@ -15,10 +15,13 @@ POST_PROCESSING_DIR_NAME = os.path.join('post_processing', '{}'.format(int(time.
 
 def evaluate_one_dibco_model(model_dir, labels_dir, post_processing_params, verbose=False, save_params=True):
 
+    list_saved_epochs = glob(os.path.join(model_dir, 'exported_eval_files', '*'))
+    if len(list_saved_epochs) == 0:
+        print('No file found in : {}'.format(os.path.join(model_dir, 'exported_eval_files')))
+        return
+
     post_process_dir = os.path.join(model_dir, POST_PROCESSING_DIR_NAME)
     os.makedirs(post_process_dir, exist_ok=True)
-
-    list_saved_epochs = glob(os.path.join(model_dir, 'exported_eval_files', '*'))
 
     measures = list()
     for saved_epoch in list_saved_epochs:
