@@ -94,17 +94,15 @@ def extract_line_polygons(lines_mask):
     return [c[:, None, :] for c in connections.values()]
 
 
-def line_extraction_v0(probs, sigma, low_threshold, high_threshold, upsample_shape=None):
-    probs_line = probs[:, :, 1]
-    # smooth
-    probs2 = cv2.GaussianBlur(probs_line, (int(3*sigma)*2+1,int(3*sigma)*2+1), sigma)
+def line_extraction_v0(probs, sigma, low_threshold, high_threshold):
+    # probs_line = probs[:, :, 1]
+    probs_line = probs
+    # Smooth
+    probs2 = cv2.GaussianBlur(probs_line, (int(3*sigma)*2+1, int(3*sigma)*2+1), sigma)
     local_maxima = vertical_local_maxima(probs2)
     lines_mask = hysteresis_thresholding(probs2, local_maxima, low_threshold, high_threshold)
     # Remove lines touching border
     lines_mask = remove_borders(lines_mask)
-    # TODO Upsample
-    if upsample_shape is not None:
-        pass
     # Extract polygons from line mask
     contours = extract_line_polygons(lines_mask)
     return contours, lines_mask
@@ -116,15 +114,18 @@ def upscale_coordinates(list_points: List[np.array], ratio: Tuple[float, float])
     )[:, None, :].astype(int)
 
 
-def get_image_label_basename(image_filename):
+def get_image_basename(image_filename: str, with_acronym: bool=False):
     # Get acronym followed by name of file
     directory, basename = os.path.split(image_filename)
-    acronym = directory.split(os.path.sep)[-1].split('_')[0]
-    return '{}_{}'.format(acronym, basename.split('.')[0])
+    if with_acronym:
+        acronym = directory.split(os.path.sep)[-1].split('_')[0]
+        return '{}_{}'.format(acronym, basename.split('.')[0])
+    else:
+        return '{}'.format(basename.split('.')[0])
 
 
 def get_page_filename(image_filename):
-    return os.path.dirname(image_filename)+'/page/{}.xml'.format(os.path.basename(image_filename)[:-4])
+    return os.path.join(os.path.dirname(image_filename), 'page', '{}.xml'.format(os.path.basename(image_filename)[:-4]))
 
 
 def dibco_binarization_fn(probabilities_mask, threshold=0.5):
@@ -140,11 +141,26 @@ def dibco_binarization_fn(probabilities_mask, threshold=0.5):
 
 def cbad_post_processing_fn(predictions: np.array, filename: str, xml_output_dir: str, upsampled_shape=None,
                             sigma: float=2.5, low_threshold: float=0.8, high_threshold: float=0.9) -> (str, str):
+    """
 
-    contours, lines_mask = line_extraction_v0(predictions, sigma, low_threshold, high_threshold, upsampled_shape)
-    output_filename = os.path.join(xml_output_dir, '{}.xml'.format(get_image_label_basename(filename)))
-    PAGE.save_baselines(output_filename, contours)
-    return get_page_filename(filename), output_filename
+    :param predictions: output of the model (probabilities) in range [0, 255]
+    :param filename: filename of the image processed
+    :param xml_output_dir: directory to export the resulting PAGE XML
+    :param upsampled_shape: shape of the original image
+    :param sigma:
+    :param low_threshold:
+    :param high_threshold:
+    :return:
+    """
+
+    contours, lines_mask = line_extraction_v0(predictions, sigma, low_threshold, high_threshold)
+    output_filename = os.path.join(xml_output_dir, '{}.xml'.format(get_image_basename(filename)))
+    if upsampled_shape is not None:
+        ratio = (upsampled_shape[0]/lines_mask.shape[0], upsampled_shape[1]/lines_mask.shape[1])
+    else:
+        ratio = (1, 1)
+    PAGE.save_baselines(output_filename, contours, ratio)
+    return output_filename
 
 
 def page_post_processing_fn(predictions, threshold=0.5):

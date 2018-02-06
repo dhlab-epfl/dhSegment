@@ -7,12 +7,13 @@ import numpy as np
 import os
 import cv2
 import json
-import sklearn.metrics as skmetrics
 from .post_processing import cbad_post_processing_fn, dibco_binarization_fn, page_post_processing_fn
+from . import PAGE
 
 
 CBAD_JAR = '/scratch/dataset/TranskribusBaseLineEvaluationScheme_v0.1.3/' \
            'TranskribusBaseLineEvaluationScheme-0.1.3-jar-with-dependencies.jar'
+COPIED_GT_PAGE_DIR_NAME = 'gt_page'
 
 
 class Metrics:
@@ -126,7 +127,7 @@ def dibco_evaluate_epoch(exported_eval_files_dir: str, validation_labels_dir: st
     :param exported_eval_files_dir:
     :param validation_labels_dir:
     :param verbose:
-    :param kwargs:
+    :param kwargs: 'threshold'
     :return:
     """
 
@@ -163,40 +164,75 @@ def dibco_evaluate_epoch(exported_eval_files_dir: str, validation_labels_dir: st
     return {k: v for k, v in vars(global_metrics).items() if k in ['MSE', 'PSNR', 'precision', 'recall', 'f_measure']}
 
 
-def evaluate_cbad(exported_files_dir: str, validation_labels_dir: str, jar_path: str=CBAD_JAR, **kwargs) -> None:
+def get_gt_page_filename(exported_xml):
+    return os.path.join(os.path.dirname(exported_xml), COPIED_GT_PAGE_DIR_NAME,
+                        '{}.xml'.format(os.path.basename(exported_xml).split('.')[0]))
+
+
+def copy_gt_page_to_exp_directory(target_page_dir: str, gt_dir: str) -> None:
+    """
+    Copies the original gt PAGE xml file to the postprocessing directory to be able to launch the
+    java tool for evaluation
+    :param target_page_dir: postprocessing dir
+    :param gt_dir: original PAGE directories (usually organized this way : gt_dir/<collection_id>/page/*.xml)
+    :return:
+    """
+    os.makedirs(target_page_dir, exist_ok=True)
+    if len(glob(os.path.join(target_page_dir, '*'))) > 0:
+        print('Already copied PAGE files.')
+        return
+
+    xml_filenames_list = glob(os.path.join(gt_dir, '**', 'page', '*.xml'))
+
+    for filename in xml_filenames_list:
+        directory, basename = os.path.split(filename)
+        acronym = directory.split(os.path.sep)[-2].split('_')[0]
+        new_filenname = '{}_{}.xml'.format(acronym, basename.split('.')[0])
+        os.system('cp {} {}'.format(filename, os.path.join(target_page_dir, new_filenname)))
+
+
+def cbad_evaluate_epoch(exported_files_dir: str, output_dir: str, gt_dir: str,
+                        jar_path: str=CBAD_JAR, **kwargs) -> None:
     """
 
     :param exported_files_dir:
-    :param validation_labels_dir:
+    :param output_dir: xml files and lst
+    :param gt_dir:
     :param jar_path:
-    :param kwargs: 'xml_output_dir', 'sigma', 'low_threshold', 'high_threshold'
+    :param kwargs: 'sigma', 'low_threshold', 'high_threshold'
     :return:
     """
+
+    # Copy xml gt PAGE to output directory in order to use java evaluation tool
+    target_page_dir = os.path.abspath(os.path.join(output_dir, COPIED_GT_PAGE_DIR_NAME))
+    copy_gt_page_to_exp_directory(target_page_dir, gt_dir)
 
     filenames_exported_predictions = glob(os.path.join(exported_files_dir, '*.npy'))
 
     xml_filenames_list = list()
     for filename in filenames_exported_predictions:
-        # Open label image
-        label_image = imread(os.path.join(validation_labels_dir,
-                                          '{}.png'.format(os.path.basename(filename).split('.')[0])), mode='L')
+        gt_page = PAGE.parse_file(os.path.join(target_page_dir,
+                                               '{}.xml'.format(os.path.basename(filename).split('.')[0])))
+        gt_img_shape = (gt_page.image_height, gt_page.image_width)
 
         predictions = np.load(filename)[:, :, 1]
-        predictions_normalized = predictions / 255
 
-        xml_filenames = cbad_post_processing_fn(predictions_normalized, filename,
-                                                upsampled_shape=label_image.shape[:2] **kwargs)
-        xml_filenames_list.append(xml_filenames)
+        output_xml_filename = cbad_post_processing_fn(predictions, filename, output_dir,
+                                                      upsampled_shape=gt_img_shape, **kwargs)
+        xml_filenames_list.append((get_gt_page_filename(output_xml_filename), output_xml_filename))
 
-    gt_pages_list_filename = os.path.join(exported_files_dir, 'gt_pages.lst')
-    genereated_pages_list_filename = os.path.join(exported_files_dir, 'generated_pages.lst')
+    gt_pages_list_filename = os.path.join(output_dir, 'gt_pages.lst')
+    generated_pages_list_filename = os.path.join(output_dir, 'generated_pages.lst')
     with open(gt_pages_list_filename, 'w') as f:
         f.writelines('\n'.join([s[0] for s in xml_filenames_list]))
-    with open(genereated_pages_list_filename, 'w') as f:
+    with open(generated_pages_list_filename, 'w') as f:
         f.writelines('\n'.join([s[1] for s in xml_filenames_list]))
 
     # Run command line evaluation tool
-    os.system('java -jar {} {} {}'.format(jar_path, gt_pages_list_filename, genereated_pages_list_filename))
+    cwd = os.getcwd()
+    os.chdir(os.path.dirname(gt_pages_list_filename))
+    os.system('java -jar {} {} {}'.format(jar_path, gt_pages_list_filename, generated_pages_list_filename))
+    os.chdir(cwd)
 
 
 def evaluate_diva():

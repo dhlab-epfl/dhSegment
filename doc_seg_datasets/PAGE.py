@@ -34,7 +34,7 @@ class Point:
     @classmethod
     def list_from_xml(cls, e: ET.Element) -> List['Point']:
         if e is None:
-            #print('warning, trying to construct list of points from None, defaulting to []')
+            # print('warning, trying to construct list of points from None, defaulting to []')
             return []
         t = e.attrib['points']
         result = []
@@ -263,9 +263,10 @@ def parse_file(filename: str) -> Page:
 
 
 def save_baselines(filename, baselines, ratio=(1, 1)):
+    # Todo : maybe add image width and height when creating the PAGE xml
     txt_lines = [TextLine.from_array(baseline_coords=b, id='line_{}'.format(i)) for i, b in enumerate(baselines)]
     for l in txt_lines:
-        l.scale_baseline_points((ratio, ratio))
+        l.scale_baseline_points(ratio)
     txt_region = TextRegion(text_lines=txt_lines, id='region_0')
     page = Page(text_regions=[txt_region])
     page.write_to_file(filename)
