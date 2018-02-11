@@ -1,29 +1,30 @@
 #!/usr/bin/env python
 __author__ = 'solivr'
 
+import argparse
+import json
 import os
 from glob import glob
-import json
-from doc_seg_datasets.evaluation import dibco_evaluate_epoch
-import argparse
 from hashlib import sha1
+from doc_seg.evaluation import cbad_evaluate_epoch, dibco_evaluate_epoch, cini_evaluate_epoch
 from tqdm import tqdm
+import better_exceptions
 
-PARAMS_POST_PROCESSING_LIST = [
-    {'threshold': -1},
-    {'threshold': 0.4},
-    {'threshold': 0.5},
-    {'threshold': 0.6},
-    {'threshold': 0.7}
-]
 POST_PROCESSING_DIR_NAME = 'post_processing'
+
+POST_PROCESSING_EVAL_FN_DICT = {
+    'cbad': cbad_evaluate_epoch,
+    'dibco': dibco_evaluate_epoch,
+    'cini': cini_evaluate_epoch
+}
 
 
 def _hash_dict(params):
     return sha1(json.dumps(params, sort_keys=True).encode()).hexdigest()
 
 
-def evaluate_one_dibco_model(model_dir, labels_dir, post_processing_params, verbose=False, save_params=True):
+def evaluate_one_model(model_dir, labels_dir, post_processing_eval_fn, post_processing_params,
+                       verbose=False, save_params=True):
     eval_outputs_dir = os.path.join(model_dir, 'eval', 'epoch_*')
     list_saved_epochs = glob(eval_outputs_dir)
     if len(list_saved_epochs) == 0:
@@ -37,9 +38,9 @@ def evaluate_one_dibco_model(model_dir, labels_dir, post_processing_params, verb
     for saved_epoch in list_saved_epochs:
         epoch_dir_name = saved_epoch.split(os.path.sep)[-1]
         epoch, timestamp = (int(s) for s in epoch_dir_name.split('_')[1:3])
-        validation_scores[epoch_dir_name] = {**dibco_evaluate_epoch(saved_epoch, labels_dir,
-                                                                    verbose=verbose,
-                                                                    threshold=post_processing_params['threshold']),
+        validation_scores[epoch_dir_name] = {**post_processing_eval_fn(saved_epoch, labels_dir,
+                                                                       verbose=verbose,
+                                                                       **post_processing_params),
                                              "epoch": epoch,
                                              "timestamp": timestamp
                                              }
@@ -56,20 +57,28 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--model-dir', type=str, required=True, nargs='+')
     parser.add_argument('-l', '--labels-dir', type=str, required=True)
-    parser.add_argument('-p', '--params-json-file', type=str, default=None)
+    parser.add_argument('-p', '--params-json-file', type=str, required=True)
+    parser.add_argument('-t', '--task-type', type=str, required=True)
     parser.add_argument('-v', '--verbose', type=bool, default=False)
     args = vars(parser.parse_args())
 
-    if args.get('params_json_file') is None:
-        params_list = PARAMS_POST_PROCESSING_LIST
-    else:
-        with open(args.get('params_json_file'), 'r') as f:
-            params_list = [json.load(f)]
+    post_processing_eval_fn = POST_PROCESSING_EVAL_FN_DICT[args['task_type']]
+
+    with open(args.get('params_json_file'), 'r') as f:
+        configs_data = json.load(f)
+        # If the file contains a list of configurations
+        if 'configs' in configs_data.keys():
+            params_list = configs_data['configs']
+            assert isinstance(params_list, list)
+        # Or if there is a single configuration
+        else:
+            params_list = [configs_data]
 
     model_dirs = args.get('model_dir')
     print('Found {} configs and {} model directories'.format(len(params_list), len(model_dirs)))
 
     for params in tqdm(params_list):
         for model_dir in tqdm(model_dirs):
-            evaluate_one_dibco_model(model_dir, args.get('labels_dir'), params,
-                                     args.get('verbose'))
+            evaluate_one_model(model_dir, args.get('labels_dir'),
+                               post_processing_eval_fn,
+                               params, args.get('verbose'))

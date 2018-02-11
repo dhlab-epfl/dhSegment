@@ -1,0 +1,9 @@
+{
+  "configs" : [
+      {"threshold": -1},
+      {"threshold": 0.4},
+      {"threshold": 0.5},
+      {"threshold": 0.6},
+      {"threshold": 0.7}
+  ]
+}

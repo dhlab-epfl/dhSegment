@@ -3,15 +3,18 @@ import os
 import argparse
 import copy
 
-params_pretrained_model_name = ['resnet50', 'vgg16']
-params_model_selected_levels = [[True, True, True, True, False], [True, True, True, False, False],
-                                [True, True, False, False, False]]
-params_model_upsale_params = [[[(64, 3)], [(64, 3)], [(128, 3)], [(256, 3)], [(512, 3)]],
-                              [[(64, 3)], [(128, 3)], [(256, 3)], [(512, 3)], [(512, 3)]],
-                              [[(64, 1)], [(64, 1)], [(128, 1)], [(256, 1)], [(512, 1)]],
-                              [[(64, 1)], [(128, 1)], [(256, 1)], [(512, 1)], [(512, 1)]]]
+params_pretrained_model_name = ['resnet50']# , 'vgg16']
+params_model_selected_levels = [
+    [True, True, True, True, True, True],
+    [True, True, True, True, True, False],
+    [True, True, True, True, False, False],
+    [True, True, True, False, False, False]
+]
+params_model_upsale_params = [
+    [[(32, 3)], [(32, 3)], [(64, 3)], [(64, 1)], [(64, 1)], [(64, 1)]]
+]
 
-params_training_size = [600*1200, 400*800, 900*1600]
+params_training_size = [-1]
 
 
 if __name__ == '__main__':

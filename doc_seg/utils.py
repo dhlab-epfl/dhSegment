@@ -44,6 +44,7 @@ class VGG16ModelParams:
         [(256, 3)]
     ]
     UPSCALE_PARAMS = [
+        [(32, 3)],
         [(64, 3)],
         [(128, 3)],
         [(256, 3)],
@@ -51,6 +52,7 @@ class VGG16ModelParams:
         [(512, 3)]
     ]
     SELECTED_LAYERS_UPSCALING = [
+        True,
         True,  # Must have same length as vgg_upscale_params
         True,
         True,
@@ -63,6 +65,7 @@ class ResNetModelParams:
     PRETRAINED_MODEL_FILE = '/home/pretrained_models/resnet_v1_50.ckpt'
     INTERMEDIATE_CONV = None
     UPSCALE_PARAMS = [
+        [(32, 3)],
         [(64, 3)],
         [(64, 3)],
         [(128, 3)],
@@ -70,6 +73,7 @@ class ResNetModelParams:
         [(512, 3)]
     ]
     SELECTED_LAYERS_UPSCALING = [
+        True,
         True,  # Must have same length as resnet_upscale_params
         True,
         True,

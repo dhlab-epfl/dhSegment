@@ -3,15 +3,17 @@
       "learning_rate": 5e-5,
       "batch_size": 16,
       "make_patches": true,
-      "n_epochs": 30,
-      "input_resized_size" : 70e4,
-      "patch_shape": [300, 300]
+      "n_epochs": 60,
+      "input_resized_size" : -1,
+      "patch_shape": [300, 300],
+      "data_augmentation": false
   },
   "model_params": {
     "batch_norm": true,
     "batch_renorm": true,
     "weight_decay": 1e-4,
     "selected_levels_upscaling" : [
+        true,
         true,
         true,
         true,

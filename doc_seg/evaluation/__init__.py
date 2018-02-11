@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 __author__ = 'solivr'
 
-from glob import glob
-from scipy.misc import imread
-import numpy as np
-import os
-import cv2
 import json
-from .post_processing import cbad_post_processing_fn, dibco_binarization_fn, page_post_processing_fn
-from . import PAGE
+import os
+from glob import glob
 
+import cv2
+import numpy as np
+from scipy.misc import imread, imresize
+
+from ..post_processing import cbad_post_processing_fn, dibco_binarization_fn, cini_post_processing_fn
+from doc_seg_datasets import PAGE
 
 CBAD_JAR = '/scratch/dataset/TranskribusBaseLineEvaluationScheme_v0.1.3/' \
            'TranskribusBaseLineEvaluationScheme-0.1.3-jar-with-dependencies.jar'
@@ -67,9 +68,16 @@ class Metrics:
         # Todo use scikit learn
         self.recall = self.true_positives / (self.true_positives + self.false_negatives)
         self.precision = self.true_positives / (self.true_positives + self.false_positives)
-        self.f_measure = ((1 + beta**2) * self.recall * self.precision) / (self.recall + (beta**2)*self.precision)
+        self.f_measure = ((1 + beta ** 2) * self.recall * self.precision) / (self.recall + (beta ** 2) * self.precision)
 
         return self.recall, self.precision, self.f_measure
+
+    def save_to_json(self, json_filename: str) -> None:
+        export_dic = self.__dict__.copy()
+        del export_dic['MSE_list']
+
+        with open(json_filename, 'w') as outfile:
+            json.dump(export_dic, outfile)
 
 
 def compare_bin_prediction_to_label(prediction: np.array, gt_image: np.array):
@@ -93,14 +101,6 @@ def compare_bin_prediction_to_label(prediction: np.array, gt_image: np.array):
     return metrics
 
 
-def save_metrics_to_json(metric: Metrics, json_filename: str) -> None:
-    export_dic = metric.__dict__
-    del export_dic['MSE_list']
-
-    with open(json_filename, 'w') as outfile:
-        json.dump(export_dic, outfile)
-
-
 def find_box_prediction(predictions, min_rect=True):
     contours, hierarchy = cv2.findContours(predictions, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     list_boxes = list()
@@ -121,7 +121,7 @@ def find_box_prediction(predictions, min_rect=True):
 
 
 def dibco_evaluate_epoch(exported_eval_files_dir: str, validation_labels_dir: str,
-                         verbose: bool=False, **kwargs) -> dict:
+                         verbose: bool = False, **kwargs) -> dict:
     """
 
     :param exported_eval_files_dir:
@@ -164,6 +164,66 @@ def dibco_evaluate_epoch(exported_eval_files_dir: str, validation_labels_dir: st
     return {k: v for k, v in vars(global_metrics).items() if k in ['MSE', 'PSNR', 'precision', 'recall', 'f_measure']}
 
 
+def cini_evaluate_epoch(exported_eval_files_dir: str, validation_labels_dir: str,
+                        verbose: bool = False, **kwargs) -> dict:
+    """
+
+    :param exported_eval_files_dir:
+    :param validation_labels_dir:
+    :param verbose:
+    :param kwargs: 'threshold'
+    :return:
+    """
+
+    filenames_exported_predictions = glob(os.path.join(exported_eval_files_dir, '*.npy'))
+
+    iou_cardboards = []
+    iou_images = []
+    for filename in filenames_exported_predictions:
+        basename = os.path.splitext(os.path.basename(filename))[0]
+
+        # Perform post-process
+        predictions = np.load(filename)
+        predictions_normalized = predictions / 255  # type: np.ndarray
+        cardboard_coords, image_coords = cini_post_processing_fn(predictions_normalized, **kwargs)
+
+        # Open label image
+        label_path = os.path.join(validation_labels_dir, '{}.png'.format(basename))
+        if not os.path.exists(label_path):
+            label_path = label_path.replace('.png', '.jpg')
+        label_image = imread(label_path, mode='RGB')
+        label_image = imresize(label_image, predictions.shape[:2])
+        label_predictions = np.stack([
+            label_image[:, :, 0] > 250,
+            label_image[:, :, 1] > 250,
+            label_image[:, :, 2] > 250
+        ], axis=-1).astype(np.float32)
+        label_cardboard_coords, label_image_coords = cini_post_processing_fn(label_predictions, **kwargs)
+
+        # Compute errors
+        def intersection_over_union(cnt1, cnt2):
+            mask1 = np.zeros_like(predictions[:, :, 0])
+            cv2.fillConvexPoly(mask1, cv2.boxPoints(cnt1).astype(np.int32), 1)
+            mask2 = np.zeros_like(predictions[:, :, 0])
+            cv2.fillConvexPoly(mask2, cv2.boxPoints(cnt2).astype(np.int32), 1)
+            return np.sum(mask1 & mask2) / np.sum(mask1 | mask2)
+        iou_cardboard = intersection_over_union(label_cardboard_coords, cardboard_coords)
+        iou_image = intersection_over_union(label_image_coords, image_coords)
+
+        iou_cardboards.append(iou_cardboard)
+        iou_images.append(iou_image)
+
+    result = {
+        'cardboard_mean_iou': np.mean(iou_cardboards),
+        'image_mean_iou': np.mean(iou_images),
+    }
+
+    if verbose:
+        print(result)
+
+    return result
+
+
 def get_gt_page_filename(exported_xml):
     return os.path.join(os.path.dirname(exported_xml), COPIED_GT_PAGE_DIR_NAME,
                         '{}.xml'.format(os.path.basename(exported_xml).split('.')[0]))
@@ -192,7 +252,7 @@ def copy_gt_page_to_exp_directory(target_page_dir: str, gt_dir: str) -> None:
 
 
 def cbad_evaluate_epoch(exported_files_dir: str, output_dir: str, gt_dir: str,
-                        jar_path: str=CBAD_JAR, **kwargs) -> None:
+                        jar_path: str = CBAD_JAR, **kwargs) -> None:
     """
 
     :param exported_files_dir:
@@ -239,7 +299,6 @@ def evaluate_diva():
     # TODO (do not forget to take several classes into account)
     pass
     # There is also a command line tool...
-
 
 # def evaluate_page(exported_files_dir: str, validation_labels_dir: str, pixel_wise=True):
 #     # TODO

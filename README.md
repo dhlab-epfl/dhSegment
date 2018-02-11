@@ -23,8 +23,15 @@ Available pretrained implementations :
   * `MULTILABEL` : Segments with the possibility of one pixel belonging to multiple classes (so far only tested with 2 classes)
 * It is possible to choose the number of 'up-poolings' and the layers to use in the decoding network. Use `[pretrained_model_name]_selected_levels_upscaling` in `Params` initialization.
 
-* Train : `python train.py -t /path/to/train/dir -e path/to/eval/dir -o output/model/dir -c class_file.txt -p prediciton_type -g gpu`
 
-#### Processing documents (once you have trained a model)
-* Extract : `python extraction.py -i input/folder/ -o output/folder -m model/to/load -g gpu`
+
+## Method
+
+* Train : `python train.py with <config.json>`
+* Perform evaluation : `python post_process_evaluation.py -m <model-folders> -l <validation-label-folder> -p <post-process-configs.json> -t <TASK>`
+* Model Selection : `python model_selection.py -e <experiment-folders> -m <metric-to-be-used-for-selection>`
+
+
+
+
 

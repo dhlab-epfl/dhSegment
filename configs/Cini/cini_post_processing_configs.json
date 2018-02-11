@@ -1,0 +1,6 @@
+{
+    "configs" : [
+        {"clean_predictions": false},
+        {"clean_predictions": true}
+    ]
+}

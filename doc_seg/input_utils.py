@@ -64,7 +64,7 @@ def load_and_resize_image(filename, channels, size=None, interpolation='BILINEAR
         decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=channels,
                                                          try_recover_truncated=True))
         # TODO : if one side is smaller than size of patches (and make patches == true), force the image to have at least patch size
-        if size is not None:
+        if size is not None and not(isinstance(size, int) and size <= 0):
             with tf.name_scope('ImageRescaling'):
                 input_shape = tf.cast(tf.shape(decoded_image)[:2], tf.float32)
                 size = tf.cast(size, tf.float32)

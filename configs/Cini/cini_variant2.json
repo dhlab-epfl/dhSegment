@@ -1,0 +1,6 @@
+{
+"train_dir" : "/home/datasets/cini/train/",
+"eval_dir" : "/home/datasets/cini/eval/",
+"classes_file" : "/home/datasets/cini/train/labels/classes.txt",
+"model_output_dir" : "/home/docseg_models/cini/cini_test"
+}

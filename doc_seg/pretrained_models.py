@@ -18,6 +18,7 @@ def vgg_16_fn(input_tensor: tf.Tensor, scope='vgg_16', blocks=5, weight_decay=0.
     with slim.arg_scope(nets.vgg.vgg_arg_scope(weight_decay=weight_decay)):
         with tf.variable_scope(scope, 'vgg_16', [input_tensor]) as sc:
             input_tensor = mean_substraction(input_tensor)
+            intermediate_levels.append(input_tensor)
             end_points_collection = sc.original_name_scope + '_end_points'
             # Collect outputs for conv2d, fully_connected and max_pool2d.
             with slim.arg_scope(
@@ -76,6 +77,7 @@ def resnet_v1_50_fn(input_tensor: tf.Tensor, is_training=False, blocks=4, weight
                              ]
 
         intermediate_layers = list()
+        intermediate_layers.append(input_tensor)
         for d in desired_endpoints:
             intermediate_layers.append(endpoints[d])
 

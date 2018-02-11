@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 __author__ = 'solivr'
 
-from scipy.misc import imread, imresize
-from scipy.ndimage import label
-import tensorflow as tf
-from doc_seg_datasets import post_processing, PAGE
-from doc_seg.loader import LoadedModel
-import numpy as np
-import cv2
 import xml.etree.ElementTree as ET
 
+import cv2
+import numpy as np
+import tensorflow as tf
+from scipy.misc import imread, imresize
+from scipy.ndimage import label
+
+from doc_seg import post_processing
+from doc_seg.loader import LoadedModel
+from doc_seg_datasets import PAGE
 
 IMAGE_FILENAME = '/mnt/Garzoni/Garzoni/Giustizia-vecchia_Accordi-dei-garzoni-b-125-reg-179/Giustizia-vecchia_Accordi-dei-garzoni-b-125-reg-179_0014_007-v.tif'
 IMAGE_HEIGHT = 1500

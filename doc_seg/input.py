@@ -64,7 +64,7 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
 
             # Load and resize images
             def _map_fn_1(image_filename, label_filename):
-                if training_params.data_augmentation:
+                if training_params.data_augmentation and training_params.input_resized_size > 0:
                     random_scaling = tf.random_uniform([],
                                                        np.maximum(1 - training_params.data_augmentation_max_scaling, 0),
                                                        1 + training_params.data_augmentation_max_scaling)
