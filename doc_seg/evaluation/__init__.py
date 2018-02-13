@@ -141,7 +141,7 @@ def dibco_evaluate_epoch(exported_eval_files_dir: str, validation_labels_dir: st
         label_image = imread(os.path.join(validation_labels_dir, '{}.png'.format(basename)), mode='L')
         label_image_normalized = label_image / np.max(label_image)
 
-        predictions = np.load(filename)[:, :, 1]
+        predictions = np.load(filename)
         predictions_normalized = predictions / 255
 
         # Post processing (results should be in range [0, 255]!)

@@ -1,23 +1,18 @@
-import json
 import os
-
-
-def _parse_json(filename):
-    with open(filename, 'r') as f:
-        return json.load(f)
+from ..utils import parse_json
 
 
 class ExperimentResult:
     def __init__(self, base_post_process_folder: str, base_key: str):
         self.base_post_process_folder = base_post_process_folder
         validation_filename = os.path.join(base_post_process_folder, 'validation_scores.json')
-        self.validation_scores = _parse_json(validation_filename)
+        self.validation_scores = parse_json(validation_filename)
 
         post_process_config_filename = os.path.join(base_post_process_folder, 'post_process_params.json')
-        self.post_process_config = _parse_json(post_process_config_filename)
+        self.post_process_config = parse_json(post_process_config_filename)
         model_config_filename = os.path.join(os.path.dirname(os.path.dirname(self.base_post_process_folder)),
                                              'config.json')
-        self.model_config = _parse_json(model_config_filename)
+        self.model_config = parse_json(model_config_filename)
 
         self.base_key = base_key
 

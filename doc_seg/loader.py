@@ -5,7 +5,8 @@ import numpy as np
 
 
 class LoadedModel:
-    def __init__(self, model_base_dir, input_dict_key='images', num_parallel_predictions=2):
+    def __init__(self, model_base_dir, input_dict_key='images', signature_def_key='serving_default',
+                 num_parallel_predictions=2):
         if os.path.exists(os.path.join(model_base_dir, 'saved_model.pbtxt')) or \
                 os.path.exists(os.path.join(model_base_dir, 'saved_model.pb')):
             model_dir = model_base_dir
@@ -18,7 +19,7 @@ class LoadedModel:
         loaded_model = tf.saved_model.loader.load(self.sess, ['serve'], model_dir)
         assert 'serving_default' in list(loaded_model.signature_def)
 
-        input_dict, output_dict = _signature_def_to_tensors(loaded_model.signature_def['serving_default'])
+        input_dict, output_dict = _signature_def_to_tensors(loaded_model.signature_def[signature_def_key])
         self._input_tensor = input_dict[input_dict_key]
         self._output_dict = output_dict
         self.sema = Semaphore(num_parallel_predictions)

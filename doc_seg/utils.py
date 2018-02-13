@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import os
+import json
 
 
 class PredictionType:
@@ -218,3 +219,8 @@ def get_classes_color_from_file_multilabel(classes_file: str) -> np.ndarray:
 
 def get_n_classes_from_file_multilabel(classes_file: str) -> int:
     return get_classes_color_from_file_multilabel(classes_file)[1].shape[1]
+
+
+def parse_json(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)

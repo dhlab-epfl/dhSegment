@@ -28,7 +28,7 @@ Available pretrained implementations :
 ## Method
 
 * Train : `python train.py with <config.json>`
-* Perform evaluation : `python post_process_evaluation.py -m <model-folders> -l <validation-label-folder> -p <post-process-configs.json> -t <TASK>`
+* Perform evaluation : `python post_process_evaluation.py -m <model-folders> -p <post-process-configs.json> -t <TASK>`
 * Model Selection : `python model_selection.py -e <experiment-folders> -m <metric-to-be-used-for-selection>`
 
 

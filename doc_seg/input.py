@@ -180,11 +180,16 @@ def serving_input_filename(resized_size):
         # TODO : make it batch-compatible (with Dataset or string input producer)
         image = load_and_resize_image(filename, 3, resized_size)
 
-        features = {'images': image[None]}
+        image_batch = image[None]
+        features = {'images': image_batch}
 
-        receiver_inputs = {'filenames': filename}
+        receiver_inputs = {'filename': filename}
 
-        return tf.estimator.export.ServingInputReceiver(features, receiver_inputs)
+        input_from_resized_images = {'resized_images': image_batch}
+
+        return tf.estimator.export.ServingInputReceiver(features, receiver_inputs,
+                                                        receiver_tensors_alternatives={'from_resized_images':
+                                                                                           input_from_resized_images})
 
     return serving_input_fn
 

@@ -4,6 +4,7 @@ import cv2
 
 
 def dibco_binarization_fn(probs: np.ndarray, threshold=0.5):
+    probs = probs[:, :, 1]
     if threshold < 0:
         probs = np.uint8(probs * 255)
         # Otsu's thresholding
@@ -11,7 +12,7 @@ def dibco_binarization_fn(probs: np.ndarray, threshold=0.5):
         thresh_val, bin_img = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         return np.uint8(bin_img / 255)
     else:
-        return probs > threshold
+        return (probs > threshold).astype(np.uint8)
 
 
 def page_post_processing_fn(probs: np.ndarray, threshold=0.5):
