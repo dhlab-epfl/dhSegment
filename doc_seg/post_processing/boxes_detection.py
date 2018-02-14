@@ -21,7 +21,7 @@ def find_box_prediction(preds: np.ndarray, min_rect=True):
             list_boxes.append(box)
 
 
-def cini_post_processing_fn(preds: np.ndarray, clean_predictions=False):
+def cini_post_processing_fn(preds: np.ndarray, clean_predictions=False, output_basename=None):
     # class 0 -> cardboard
     # class 1 -> background
     # class 2 -> photograph
@@ -54,4 +54,7 @@ def cini_post_processing_fn(preds: np.ndarray, clean_predictions=False):
         else np.concatenate(contours[0:2])
     image_rectangle = cv2.minAreaRect(image_contour)
 
+    if output_basename is not None:
+        #TODO
+        pass
     return cardboard_rectangle, image_rectangle

@@ -7,17 +7,19 @@ import os
 from glob import glob
 from hashlib import sha1
 from doc_seg.post_processing import cbad_post_processing_fn, dibco_binarization_fn, cini_post_processing_fn
-from doc_seg.evaluation import cbad_evaluate_epoch, dibco_evaluate_epoch, cini_evaluate_epoch
+from doc_seg.evaluation import cbad_evaluate_folder, dibco_evaluate_folder, cini_evaluate_folder, evaluate_epoch
 from doc_seg.utils import parse_json
 from tqdm import tqdm
+from functools import partial
 import better_exceptions
+import tempfile
 
 POST_PROCESSING_DIR_NAME = 'post_processing'
 
 POST_PROCESSING_EVAL_FN_DICT = {
-    'cbad': (cbad_post_processing_fn, cbad_evaluate_epoch),
-    'dibco': (dibco_binarization_fn, dibco_evaluate_epoch),
-    'cini': (cini_post_processing_fn, cini_evaluate_epoch)
+    'cbad': (cbad_post_processing_fn, cbad_evaluate_folder),
+    'dibco': (dibco_binarization_fn, dibco_evaluate_folder),
+    'cini': (cini_post_processing_fn, cini_evaluate_folder)
 }
 
 
@@ -25,12 +27,12 @@ def _hash_dict(params):
     return sha1(json.dumps(params, sort_keys=True).encode()).hexdigest()
 
 
-def evaluate_one_model(model_dir, labels_dir, post_processing_pair, post_processing_params,
+def evaluate_one_model(model_dir, validation_dir, post_processing_pair, post_processing_params,
                        verbose=False, save_params=True) -> None:
     """
     Evaluate a combination model/post-process
     :param model_dir:
-    :param labels_dir:
+    :param validation_dir:
     :param post_processing_pair:
     :param post_processing_params:
     :param verbose:
@@ -50,9 +52,11 @@ def evaluate_one_model(model_dir, labels_dir, post_processing_pair, post_process
     for saved_epoch in list_saved_epochs:
         epoch_dir_name = saved_epoch.split(os.path.sep)[-1]
         epoch, timestamp = (int(s) for s in epoch_dir_name.split('_')[1:3])
-        validation_scores[epoch_dir_name] = {**post_processing_pair[1](saved_epoch, labels_dir,
-                                                                       verbose=verbose,
-                                                                       **post_processing_params),
+        validation_scores[epoch_dir_name] = {**evaluate_epoch(saved_epoch, validation_dir,
+                                                              post_process_fn=partial(post_processing_pair[0],
+                                                                                      **post_processing_params),
+                                                              evaluation_fn=post_processing_pair[1]
+                                                              ),
                                              "epoch": epoch,
                                              "timestamp": timestamp
                                              }
@@ -94,7 +98,6 @@ if __name__ == '__main__':
     for params in tqdm(params_list):
         for model_dir in tqdm(model_dirs):
             eval_data_dir = parse_json(os.path.join(model_dir, 'config.json'))['eval_dir']
-            labels_dir = os.path.join(eval_data_dir, 'labels')
-            evaluate_one_model(model_dir, labels_dir,
+            evaluate_one_model(model_dir, eval_data_dir,
                                post_processing_pair,
                                params, args.get('verbose'))

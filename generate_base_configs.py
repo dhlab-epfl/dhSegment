@@ -11,7 +11,7 @@ params_model_selected_levels = [
     [True, True, True, False, False, False]
 ]
 params_model_upsale_params = [
-    [[(32, 3)], [(32, 3)], [(64, 3)], [(64, 1)], [(64, 1)], [(64, 1)]]
+    [[(32, 3)], [(64, 3)], [(64, 3)], [(128, 1)], [(128, 1)], [(256, 1)]]
 ]
 
 params_training_size = [-1]
@@ -43,7 +43,8 @@ if __name__ == '__main__':
                 for size in params_training_size:
                     dic_params['training_params']['input_resized_size'] = size
 
-                    dic_params['model_output_dir'] = os.path.join(args.get('model_output_dir'), 'exp_{}'.format(id))
+                    dic_params['model_output_dir'] = os.path.join(args.get('model_output_dir'), 'exp_{:03d}'.format(id))
                     with open(os.path.join(args.get('config_output_dir'), 'variant_{:03d}.json'.format(id)), 'w') as f:
                         json.dump(dic_params, f)
                     id += 1
+    print('Generated {} configs'.format(id))

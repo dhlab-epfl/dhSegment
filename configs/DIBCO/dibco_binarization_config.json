@@ -6,7 +6,8 @@
       "n_epochs": 60,
       "input_resized_size" : -1,
       "patch_shape": [300, 300],
-      "data_augmentation": false
+      "data_augmentation": false,
+      "training_margin": 12
   },
   "model_params": {
     "batch_norm": true,

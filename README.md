@@ -33,5 +33,5 @@ Available pretrained implementations :
 
 
 
-
-
+* Generate configs : `python configs/generate_base_configs.py -co /home/docseg_models/generated_configs/DIBCO -mo /home/docseg_models/DIBCO/ -c configs/DIBCO/dibco_binarization_config.json configs/DIBCO/dibco_variant2.json`
+* Train them : 

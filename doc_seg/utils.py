@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import os
 import json
+import pickle
 
 
 class PredictionType:
@@ -224,3 +225,13 @@ def get_n_classes_from_file_multilabel(classes_file: str) -> int:
 def parse_json(filename):
     with open(filename, 'r') as f:
         return json.load(f)
+
+
+def load_pickle(filename):
+    with open(filename, 'rb') as f:
+        return pickle.load(f)
+
+
+def dump_pickle(filename, obj):
+    with open(filename, 'wb') as f:
+        return pickle.dump(obj, f)

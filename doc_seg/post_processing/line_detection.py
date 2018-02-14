@@ -10,11 +10,11 @@ from scipy.ndimage import label
 
 import cv2
 import os
-from doc_seg_datasets import PAGE
+from ..utils import dump_pickle
 
 
-def cbad_post_processing_fn(probs: np.array, filename: str, xml_output_dir: str, upsampled_shape=None,
-                            sigma: float=2.5, low_threshold: float=0.8, high_threshold: float=0.9) -> (str, str):
+def cbad_post_processing_fn(probs: np.array, sigma: float=2.5, low_threshold: float=0.8, high_threshold: float=0.9,
+                            output_basename=None):
     """
 
     :param probs: output of the model (probabilities) in range [0, 255]
@@ -27,14 +27,10 @@ def cbad_post_processing_fn(probs: np.array, filename: str, xml_output_dir: str,
     :return:
     """
 
-    contours, lines_mask = line_extraction_v0(probs, sigma, low_threshold, high_threshold)
-    output_filename = os.path.join(xml_output_dir, '{}.xml'.format(get_image_basename(filename)))
-    if upsampled_shape is not None:
-        ratio = (upsampled_shape[0]/lines_mask.shape[0], upsampled_shape[1]/lines_mask.shape[1])
-    else:
-        ratio = (1, 1)
-    PAGE.save_baselines(output_filename, contours, ratio)
-    return output_filename
+    contours, lines_mask = line_extraction_v0(probs[:, :, 0], sigma, low_threshold, high_threshold)
+    if output_basename is not None:
+        dump_pickle(output_basename+'.pkl', (contours, lines_mask))
+    return contours, lines_mask
 
 
 def line_extraction_v0(probs, sigma, low_threshold, high_threshold):
