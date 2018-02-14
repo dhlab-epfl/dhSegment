@@ -15,16 +15,13 @@ CBAD_JAR = '/home/datasets/TranskribusBaseLineEvaluationScheme_v0.1.3/' \
            'TranskribusBaseLineEvaluationScheme-0.1.3-jar-with-dependencies.jar'
 COPIED_GT_PAGE_DIR_NAME = 'gt_page'
 
-# TODO GT files should be moved to a standard folder during dataset generation
-GT_DIR = '/home/datasets/cBAD/Baseline_Competition_Simple_Documents/Train'
-
 
 def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
                         debug_folder=None, jar_path: str = CBAD_JAR) -> dict:
     """
 
     :param output_folder: contains the *.pkl output files of the post-processing
-    :param validation_labels_dir: xml files and lst
+    :param validation_dir: contains 'images' 'labels' and other folders
     :param jar_path:
     :return:
     """
@@ -34,23 +31,22 @@ def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
 
     # Copy xml gt PAGE to output directory in order to use java evaluation tool
     with tempfile.TemporaryDirectory() as tmpdirname:
-        target_page_dir = os.path.abspath(os.path.join(tmpdirname, COPIED_GT_PAGE_DIR_NAME))
-        copy_gt_page_to_exp_directory(target_page_dir, GT_DIR)
+        gt_dir = os.path.join(validation_dir, 'gt')
 
         filenames_processed = glob(os.path.join(output_folder, '*.pkl'))
 
         xml_filenames_list = list()
         for filename in filenames_processed:
             basename = os.path.basename(filename).split('.')[0]
-            gt_page = PAGE.parse_file(os.path.join(target_page_dir,
-                                                   '{}.xml'.format(os.path.basename(filename).split('.')[0])))
+            gt_page = PAGE.parse_file(os.path.join(gt_dir,
+                                                   '{}.xml'.format(basename)))
 
             contours, lines_mask = load_pickle(filename)
             ratio = (gt_page.image_height/lines_mask.shape[0], gt_page.image_width/lines_mask.shape[1])
             xml_filename = os.path.join(tmpdirname, basename + '.xml')
             PAGE.save_baselines(xml_filename, contours, ratio)
 
-            xml_filenames_list.append((get_gt_page_filename(xml_filename), xml_filename))
+            xml_filenames_list.append((os.path.join(gt_dir, basename + '.xml'), xml_filename))
 
             if debug_folder is not None:
                 img = imread(os.path.join(validation_dir, 'images', basename+'.jpg'))
