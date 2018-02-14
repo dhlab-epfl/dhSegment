@@ -136,7 +136,7 @@ class TrainingParams(BaseParams):
         self.input_resized_shape = (480, 320)  # Deprecated
         # If input_resized_size == -1, no resizing is done
         self.input_resized_size = int(72e4)  # (600*1200) # type: int
-        self.weights_labels = 1.0
+        self.weights_labels = None
         self.training_margin = 16
 
     def check_params(self):
