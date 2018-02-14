@@ -2,23 +2,34 @@ import cv2
 import numpy as np
 
 
-def find_box_prediction(preds: np.ndarray, min_rect=True):
-    contours, hierarchy = cv2.findContours(preds, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+def find_box(predictions, min_rect=True, min_area=0.25):
+    _, contours, hierarchy = cv2.findContours(predictions, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     list_boxes = list()
+
+    def validate_box(box):
+        # Aproximate area computation (TODO eventually make a proper area computation)
+        approx_area = (np.max(box[:, 0]) - np.min(box[:, 0])) * (np.max(box[:, 1] - np.min(box[:, 1])))
+        if approx_area > min_area * predictions.size:  # If box is bigger than 20% of the image size
+
+            # Correct out of range corners
+            box = np.maximum(box, 0)
+            box = np.stack((np.minimum(box[:, 0], predictions.shape[1]),
+                            np.minimum(box[:, 1], predictions.shape[0])), axis=1)
+
+            list_boxes.append(box)
+
     if min_rect:
         for c in contours:
             rect = cv2.minAreaRect(c)
-            box = cv2.boxPoints(rect)
-            # Todo : test if it seems a valid box
-
-            list_boxes.append(np.int0(box))
+            box = np.int0(cv2.boxPoints(rect))
+            validate_box(box)
     else:
         for c in contours:
             x, y, w, h = cv2.boundingRect(c)
             box = np.array([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], dtype=int)
-            # Todo : test if it seems a valid box
+            validate_box(box)
 
-            list_boxes.append(box)
+    return list_boxes
 
 
 def cini_post_processing_fn(preds: np.ndarray, clean_predictions=False, output_basename=None):

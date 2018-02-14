@@ -6,7 +6,7 @@ from glob import glob
 
 
 def evaluate_epoch(exported_eval_files_dir, validation_dir: str, post_process_fn, evaluation_fn,
-                   verbose: bool = False, debug_folder=None):
+                   verbose: bool=False, debug_folder=None):
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Process predicted probs
         filenames_exported_predictions = glob(os.path.join(exported_eval_files_dir, '*.npy'))
@@ -30,9 +30,11 @@ class Metrics:
         self.false_positives = 0
         self.false_negatives = 0
         self.SE_list = list()
+        self.IOU_list = list()
 
         self.MSE = 0
-        self.PSNR = 0
+        self.psnr = 0
+        self.mIOU = 0
         self.recall = 0
         self.precision = 0
         self.f_measure = 0
@@ -40,7 +42,7 @@ class Metrics:
     def __add__(self, other):
         if isinstance(other, self.__class__):
             summable_attr = ['total_elements', 'false_negatives', 'false_positives', 'true_positives']
-            addlist_attr = ['SE_list']
+            addlist_attr = ['SE_list', 'IOU_list']
             m = Metrics()
             for k, v in self.__dict__.items():
                 if k in summable_attr:
@@ -63,18 +65,21 @@ class Metrics:
 
     def compute_psnr(self):
         if self.MSE != 0:
-            self.PSNR = 10 * np.log10((1 ** 2) / self.MSE)
-            return self.PSNR
+            self.psnr = 10 * np.log10((1 ** 2) / self.MSE)
+            return self.psnr
         else:
             print('Cannot compute PSNR, MSE is 0.')
 
     def compute_prf(self, beta=1):
-        # Todo use scikit learn
         self.recall = self.true_positives / (self.true_positives + self.false_negatives)
         self.precision = self.true_positives / (self.true_positives + self.false_positives)
         self.f_measure = ((1 + beta ** 2) * self.recall * self.precision) / (self.recall + (beta ** 2) * self.precision)
 
         return self.recall, self.precision, self.f_measure
+
+    def compute_miou(self):
+        self.mIOU = np.mean(self.IOU_list)
+        return self.mIOU
 
     def save_to_json(self, json_filename: str) -> None:
         export_dic = self.__dict__.copy()
