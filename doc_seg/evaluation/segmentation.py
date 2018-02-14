@@ -9,7 +9,6 @@ import numpy as np
 def dibco_evaluate_folder(output_folder: str, validation_dir: str, verbose=False, debug_folder=None) -> dict:
     filenames_processed = glob(os.path.join(output_folder, '*.png'))
 
-    os.makedirs(output_folder, exist_ok=True)
     if debug_folder is not None:
         os.makedirs(debug_folder, exist_ok=True)
 

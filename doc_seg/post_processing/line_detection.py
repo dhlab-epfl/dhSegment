@@ -24,10 +24,11 @@ def cbad_post_processing_fn(probs: np.array, sigma: float=2.5, low_threshold: fl
     :param sigma:
     :param low_threshold:
     :param high_threshold:
-    :return:
+    :return: contours, mask
+     WARNING : contours IN OPENCV format List[np.ndarray(n_points, 1, (x,y))]
     """
 
-    contours, lines_mask = line_extraction_v0(probs[:, :, 0], sigma, low_threshold, high_threshold)
+    contours, lines_mask = line_extraction_v0(probs[:, :, 1], sigma, low_threshold, high_threshold)
     if output_basename is not None:
         dump_pickle(output_basename+'.pkl', (contours, lines_mask))
     return contours, lines_mask
@@ -77,6 +78,8 @@ def extract_line_polygons(lines_mask):
             else:
                 return 0
 
+    if np.sum(lines_mask) == 0:
+        return []
     # Find extremities points
     end_points_candidates = np.stack(np.where((convolve2d(lines_mask, np.ones((3, 3)), mode='same') == 2) & lines_mask)).T
     connected_components = skimage_label(lines_mask, connectivity=2)
@@ -97,7 +100,7 @@ def extract_line_polygons(lines_mask):
     connections = mcp.get_connections()
     if not np.all(np.array(sorted([i for k in connections.keys() for i in k])) == np.arange(len(end_points))):
         print('Warning : extract_line_polygons seems weird')
-    return [c[:, None, :] for c in connections.values()]
+    return [c[:, None, ::-1] for c in connections.values()]
 
 
 def vertical_local_maxima(probs):

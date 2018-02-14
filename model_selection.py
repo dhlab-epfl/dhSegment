@@ -3,7 +3,7 @@ import argparse
 import json
 from typing import List
 from doc_seg.evaluation.model_selection import ExperimentResult
-from doc_seg.evaluation import dibco_evaluate_folder
+from doc_seg.evaluation import dibco_evaluate_folder, cbad_evaluate_folder
 from doc_seg.loader import LoadedModel
 from doc_seg import post_processing
 import tensorflow as tf
@@ -42,7 +42,8 @@ if __name__ == '__main__':
 
     # Perform test prediction (is it the right place?)
     # TODO
-    test_folder = '/home/datasets/dibco/generated_dibco/test/'
+    #test_folder = '/home/datasets/dibco/generated_dibco/test/'
+    test_folder = '/home/datasets/cBAD/Baseline_Competition_Simple_Documents/generated_baseline_dataset/validation'
     for i, best_experiment in enumerate(sorted_experiments[:5]):
         print('Validation :')
         print(best_experiment.get_best_validated_epoch())
@@ -58,9 +59,11 @@ if __name__ == '__main__':
                 basename = os.path.basename(filename).split('.')[0]
                 probs = m.predict(filename, prediction_key='probs')[0]
                 output = post_process_fn(probs, **post_process_params,
-                                         output_basename=os.path.join(output_folder,
+                                         output_basename=os.path.join(output_folder_exp,
                                                                       os.path.splitext(os.path.basename(filename))[0]))
 
         print('Test :')
-        print(dibco_evaluate_folder(output_folder, test_folder,
+        #print(dibco_evaluate_folder(output_folder_exp, test_folder,
+        #                            debug_folder=os.path.join(output_folder_exp, 'debug')))
+        print(cbad_evaluate_folder(output_folder_exp, test_folder,
                                     debug_folder=os.path.join(output_folder_exp, 'debug')))

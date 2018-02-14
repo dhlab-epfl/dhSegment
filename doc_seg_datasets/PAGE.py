@@ -51,7 +51,7 @@ class Point:
 
     @classmethod
     def cv2_to_point_list(cls, cv2_array) -> List['Point']:
-        return [Point(p[0, 0], p[0, 1]) for p in cv2_array]
+        return [Point(p[0, 1], p[0, 0]) for p in cv2_array]
 
     @classmethod
     def list_point_to_string(cls, list_points: List['Point']):

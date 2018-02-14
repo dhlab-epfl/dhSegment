@@ -6,6 +6,8 @@ from ..utils import load_pickle
 import shutil
 import tempfile
 import subprocess
+from scipy.misc import imread, imresize, imsave
+import cv2
 
 
 CBAD_JAR = '/home/datasets/TranskribusBaseLineEvaluationScheme_v0.1.3/' \
@@ -26,6 +28,9 @@ def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
     :return:
     """
 
+    if debug_folder is not None:
+        os.makedirs(debug_folder, exist_ok=True)
+
     # Copy xml gt PAGE to output directory in order to use java evaluation tool
     with tempfile.TemporaryDirectory() as tmpdirname:
         target_page_dir = os.path.abspath(os.path.join(tmpdirname, COPIED_GT_PAGE_DIR_NAME))
@@ -40,11 +45,17 @@ def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
                                                    '{}.xml'.format(os.path.basename(filename).split('.')[0])))
 
             contours, lines_mask = load_pickle(filename)
-            ratio = (gt_page.image_height/lines_mask.shape[0], gt_page.image_height/lines_mask.shape[1])
+            ratio = (gt_page.image_height/lines_mask.shape[0], gt_page.image_width/lines_mask.shape[1])
             xml_filename = os.path.join(tmpdirname, basename + '.xml')
             PAGE.save_baselines(xml_filename, contours, ratio)
 
             xml_filenames_list.append((get_gt_page_filename(xml_filename), xml_filename))
+
+            if debug_folder is not None:
+                img = imread(os.path.join(validation_dir, 'images', basename+'.jpg'))
+                img = imresize(img, lines_mask.shape[:2])
+                img = cv2.polylines(img.copy(), contours, False, (255, 0, 0), thickness=5)
+                imsave(os.path.join(debug_folder, basename+'.jpg'), img)
 
         gt_pages_list_filename = os.path.join(tmpdirname, 'gt_pages.lst')
         generated_pages_list_filename = os.path.join(tmpdirname, 'generated_pages.lst')
@@ -58,11 +69,13 @@ def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
         os.chdir(os.path.dirname(gt_pages_list_filename))
         cmd = 'java -jar {} {} {}'.format(jar_path, gt_pages_list_filename, generated_pages_list_filename)
         result = subprocess.check_output(cmd, shell=True).decode()
+        if debug_folder is not None:
+            with open(os.path.join(debug_folder, 'scores.txt'), 'w') as f:
+                f.write(result)
         lines = result.splitlines()
         avg_precision = float(next(filter(lambda l: 'Avg (over pages) P value:' in l, lines)).split()[-1])
         avg_recall = float(next(filter(lambda l: 'Avg (over pages) R value:' in l, lines)).split()[-1])
         f_measure = float(next(filter(lambda l: 'Resulting F_1 value:' in l, lines)).split()[-1])
-        #os.system('java -jar {} {} {}'.format(jar_path, gt_pages_list_filename, generated_pages_list_filename))
         os.chdir(cwd)
         return {
             'avg_precision': avg_precision,
