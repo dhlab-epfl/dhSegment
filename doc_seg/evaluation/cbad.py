@@ -9,6 +9,8 @@ import subprocess
 from scipy.misc import imread, imresize, imsave
 import cv2
 import matplotlib.pyplot as plt
+import pandas as pd
+import io
 
 
 CBAD_JAR = '/home/datasets/TranskribusBaseLineEvaluationScheme_v0.1.3/' \
@@ -71,6 +73,8 @@ def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
         if debug_folder is not None:
             with open(os.path.join(debug_folder, 'scores.txt'), 'w') as f:
                 f.write(result)
+            parse_score_txt(result, os.path.join(debug_folder, 'scores.csv'))
+
         lines = result.splitlines()
         avg_precision = float(next(filter(lambda l: 'Avg (over pages) P value:' in l, lines)).split()[-1])
         avg_recall = float(next(filter(lambda l: 'Avg (over pages) R value:' in l, lines)).split()[-1])
@@ -81,6 +85,22 @@ def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
             'avg_recall': avg_recall,
             'f_measure': f_measure
         }
+
+
+def parse_score_txt(score_txt, output_csv):
+    lines = score_txt.splitlines()
+    header_ind = next((i for i, l in enumerate(lines)
+                       if l == '#P value, #R value, #F_1 value, #TruthFileName, #HypoFileName'))
+    final_line = next((i for i, l in enumerate(lines) if i > header_ind and l == ''))
+    csv_data = '\n'.join(lines[header_ind:final_line])
+    df = pd.read_csv(io.StringIO(csv_data))
+    df = df.rename(columns={k: k.strip() for k in df.columns})
+    df['#HypoFileName'] = [os.path.basename(f).split('.')[0] for f in df['#HypoFileName']]
+    del df['#TruthFileName']
+    df = df.rename(columns={'#P value': 'P', '#R value': 'R', '#F_1 value': 'F_1', '#HypoFileName': 'basename'})
+    df = df.reindex(columns=['basename', 'F_1', 'P', 'R'])
+    df = df.sort_values('F_1', ascending=True)
+    df.to_csv(output_csv, index=False)
 
 
 def get_gt_page_filename(exported_xml):
