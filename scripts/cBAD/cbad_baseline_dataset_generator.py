@@ -83,9 +83,11 @@ def process_one(image_filename: str, output_dir: str, endpoints: bool=False,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input_dir', required=True, type=str, default=None,
+    parser.add_argument('-i', '--input-train-dir', required=True, type=str,
                         help='Input directory containing images and PAGE files')
-    parser.add_argument('-o', '--output_dir', required=True, type=str, default=None,
+    parser.add_argument('-t', '--input-test-dir', required=True, type=str,
+                        help='Input directory containing images and PAGE files')
+    parser.add_argument('-o', '--output-dir', required=True, type=str,
                         help='Output directory to save images and labels')
     parser.add_argument('-e', '--endpoints', required=False, type=bool, default=False,
                         help='Predict beginning and end of baselines')
@@ -96,7 +98,8 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     # Get image filenames to process
-    image_filenames = glob('{}/**/*.jpg'.format(args.get('input_dir')))
+    image_filenames = glob('{}/**/*.jpg'.format(args.get('input_train_dir')))
+    image_filenames_test = glob('{}/**/*.jpg'.format(args.get('input_test_dir')))
 
     # Split data into training and validation set (0.9/0.1)
     train_inds = np.random.choice(len(image_filenames), size=int(0.9 * len(image_filenames)), replace=False)
@@ -120,6 +123,19 @@ if __name__ == '__main__':
     for image_filename in tqdm(image_filenames_eval):
         process_one(image_filename, '{}/validation'.format(args.get('output_dir')), args.get('endpoints'),
                     args.get('line_thickness'), args.get('circle_thickness'))
+
+    os.makedirs('{}/test/images'.format(args.get('output_dir')))
+    os.makedirs('{}/test/labels'.format(args.get('output_dir')))
+    os.makedirs('{}/test/gt'.format(args.get('output_dir')))
+    for image_filename in tqdm(image_filenames_test):
+        process_one(image_filename, '{}/test'.format(args.get('output_dir')), args.get('endpoints'),
+                    args.get('line_thickness'), args.get('circle_thickness'))
+
+    if args.get('endpoints'):
+        raise NotImplementedError
+    else:
+        classes = np.stack([(0, 0, 0), DRAWING_COLOR_BASELINES])
+        np.savetxt(os.path.join(args.get('output_dir'), 'classes.txt'), classes, fmt='%d')
 
     # # Classes file
     # classes = np.stack([(0, 0, 0), DRAWING_COLOR_BASELINES])
