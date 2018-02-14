@@ -89,7 +89,7 @@ def model_fn(mode, features, labels, params):
                     weight_mask = tf.reduce_max(
                         tf.constant(np.array(training_params.weights_labels, dtype=np.float32)[None, None, None]) *
                         onehot_labels, axis=-1)
-                    per_pixel_loss = per_pixel_loss*weight_mask[:, :, :, None]
+                    per_pixel_loss = per_pixel_loss*weight_mask
 
         elif prediction_type == PredictionType.REGRESSION:
             per_pixel_loss = tf.squared_difference(labels, network_output, name='per_pixel_loss')
