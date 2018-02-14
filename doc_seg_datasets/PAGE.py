@@ -2,6 +2,7 @@ from xml.etree import ElementTree as ET
 from typing import List, Optional, Union, Tuple
 import numpy as np
 import datetime
+import cv2
 
 _ns = {'p': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'}
 _attribs = {'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
@@ -253,6 +254,24 @@ class Page(BaseElement):
             root.attrib[k] = v
         ET.ElementTree(element=root).write(filename)
 
+    def draw_baselines(self, img_canvas, color=(255, 0, 0), thickness=2, endpoint_radius=4, autoscale=True):
+        text_lines = [tl for tr in self.text_regions for tl in tr.text_lines]
+        if autoscale:
+            assert self.image_height is not None
+            assert self.image_width is not None
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
+        else:
+            ratio = (1, 1)
+
+        tl_coords = [(Point.list_to_cv2poly(tl.baseline)*ratio).astype(np.int32) for tl in text_lines]
+        cv2.polylines(img_canvas, tl_coords,
+                      False, color, thickness=thickness)
+        for coords in tl_coords:
+            cv2.circle(img_canvas, (coords[0, 0, 0], coords[0, 0, 1]),
+                       radius=endpoint_radius, color=color, thickness=-1)
+            cv2.circle(img_canvas, (coords[-1, 0, 0], coords[-1, 0, 1]),
+                       radius=endpoint_radius, color=color, thickness=-1)
+
 
 def parse_file(filename: str) -> Page:
     xml_page = ET.parse(filename)
@@ -262,13 +281,15 @@ def parse_file(filename: str) -> Page:
     return Page.from_xml(page_elements[0])
 
 
-def save_baselines(filename, baselines, ratio=(1, 1)):
+def save_baselines(filename, baselines, ratio=(1, 1), initial_shape=None):
     # Todo : maybe add image width and height when creating the PAGE xml
     txt_lines = [TextLine.from_array(baseline_coords=b, id='line_{}'.format(i)) for i, b in enumerate(baselines)]
     for l in txt_lines:
         l.scale_baseline_points(ratio)
     txt_region = TextRegion(text_lines=txt_lines, id='region_0')
-    page = Page(text_regions=[txt_region])
+    page = Page(text_regions=[txt_region],
+                image_height=int(initial_shape[0]*ratio[0]) if initial_shape is not None else None,
+                image_width=int(initial_shape[1]*ratio[1]) if initial_shape is not None else None)
     page.write_to_file(filename)
 
 

@@ -46,16 +46,17 @@ def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
             contours, lines_mask = load_pickle(filename)
             ratio = (gt_page.image_height/lines_mask.shape[0], gt_page.image_width/lines_mask.shape[1])
             xml_filename = os.path.join(tmpdirname, basename + '.xml')
-            PAGE.save_baselines(xml_filename, contours, ratio)
+            PAGE.save_baselines(xml_filename, contours, ratio, initial_shape=lines_mask.shape[:2])
 
-            xml_filenames_list.append((os.path.join(gt_dir, basename + '.xml'), xml_filename))
+            gt_xml_file = os.path.join(gt_dir, basename + '.xml')
+            xml_filenames_list.append((gt_xml_file, xml_filename))
 
             if debug_folder is not None:
                 img = imread(os.path.join(validation_dir, 'images', basename+'.jpg'))
                 img = imresize(img, lines_mask.shape[:2])
-                for i, (cnt, color) in enumerate(zip(contours, plt.cm.prism(np.arange(len(contours))))):
-                    cv2.polylines(img, [cnt], False, color[:3]*255, thickness=3)
-                #img = cv2.polylines(img.copy(), contours, False, (255, 0, 0), thickness=5)
+                gt_page.draw_baselines(img, color=(0, 255, 0))
+                generated_page = PAGE.parse_file(xml_filename)
+                generated_page.draw_baselines(img, color=(255, 0, 0))
                 imsave(os.path.join(debug_folder, basename+'.jpg'), img)
 
         gt_pages_list_filename = os.path.join(tmpdirname, 'gt_pages.lst')

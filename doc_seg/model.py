@@ -85,7 +85,12 @@ def model_fn(mode, features, labels, params):
                 per_pixel_loss = tf.nn.softmax_cross_entropy_with_logits(logits=network_output,
                                                                          labels=onehot_labels, name='per_pixel_loss')
 
-                # TODO : weight mask
+                if training_params.weights_labels is not None:
+                    weight_mask = tf.reduce_max(
+                        tf.constant(np.array(training_params.weights_labels, dtype=np.float32)[None, None, None]) *
+                        onehot_labels, axis=-1)
+                    per_pixel_loss = per_pixel_loss*weight_mask[:, :, :, None]
+
         elif prediction_type == PredictionType.REGRESSION:
             per_pixel_loss = tf.squared_difference(labels, network_output, name='per_pixel_loss')
         elif prediction_type == PredictionType.MULTILABEL:
@@ -93,12 +98,12 @@ def model_fn(mode, features, labels, params):
                 labels_floats = tf.cast(labels, tf.float32)
                 per_pixel_loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels_floats,
                                                                          logits=network_output, name='per_pixel_loss')
-                weight_mask = tf.maximum(
-                    tf.reduce_max(tf.constant(
-                        np.array(training_params.weights_labels, dtype=np.float32)[None, None, None])
-                                  * labels_floats, axis=-1), 1.0)
-
-                per_pixel_loss = per_pixel_loss*weight_mask[:, :, :, None]
+                if training_params.weights_labels is not None:
+                    weight_mask = tf.maximum(
+                        tf.reduce_max(tf.constant(
+                            np.array(training_params.weights_labels, dtype=np.float32)[None, None, None])
+                                      * labels_floats, axis=-1), 1.0)
+                    per_pixel_loss = per_pixel_loss*weight_mask[:, :, :, None]
         else:
             raise NotImplementedError
 
