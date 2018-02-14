@@ -8,6 +8,7 @@ import tempfile
 import subprocess
 from scipy.misc import imread, imresize, imsave
 import cv2
+import matplotlib.pyplot as plt
 
 
 CBAD_JAR = '/home/datasets/TranskribusBaseLineEvaluationScheme_v0.1.3/' \
@@ -54,7 +55,9 @@ def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
             if debug_folder is not None:
                 img = imread(os.path.join(validation_dir, 'images', basename+'.jpg'))
                 img = imresize(img, lines_mask.shape[:2])
-                img = cv2.polylines(img.copy(), contours, False, (255, 0, 0), thickness=5)
+                for i, (cnt, color) in enumerate(zip(contours, plt.cm.prism(np.arange(len(contours))))):
+                    cv2.polylines(img, [cnt], False, color[:3]*255, thickness=3)
+                #img = cv2.polylines(img.copy(), contours, False, (255, 0, 0), thickness=5)
                 imsave(os.path.join(debug_folder, basename+'.jpg'), img)
 
         gt_pages_list_filename = os.path.join(tmpdirname, 'gt_pages.lst')

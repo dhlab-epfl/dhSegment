@@ -42,10 +42,17 @@ def line_extraction_v0(probs, sigma, low_threshold, high_threshold):
     local_maxima = vertical_local_maxima(probs2)
     lines_mask = hysteresis_thresholding(probs2, local_maxima, low_threshold, high_threshold)
     # Remove lines touching border
-    lines_mask = remove_borders(lines_mask)
+    #lines_mask = remove_borders(lines_mask)
     # Extract polygons from line mask
     contours = extract_line_polygons(lines_mask)
-    return contours, lines_mask
+
+    filtered_contours = []
+    page_width = probs.shape[1]
+    for cnt in contours:
+        if cv2.arcLength(cnt, False) > 0.05*page_width:
+            filtered_contours.append(cnt)
+
+    return filtered_contours, lines_mask
 
 
 def extract_line_polygons(lines_mask):
@@ -148,5 +155,6 @@ def remove_borders(mask, margin=5):
     tmp[:, -margin:] = 1
     label_components, count = label(tmp, np.ones((3, 3)))
     result = mask.copy()
-    result[label_components == label_components[0, 0]] = 0
+    border_component = label_components[0, 0]
+    result[label_components == border_component] = 0
     return result
