@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 from scipy.misc import imread, imsave
 import argparse
+import shutil
 
 
 TARGET_HEIGHT = 1100
@@ -40,7 +41,8 @@ def save_and_resize(img: np.array, filename: str, resize: bool=False, nearest: b
 
 def process_one(image_filename: str, output_dir: str, endpoints: bool=False,
                 line_thickness: int=10, diameter_endpoint: int=20) -> None:
-    page = PAGE.parse_file(get_page_filename(image_filename))
+    page_filename = get_page_filename(image_filename)
+    page = PAGE.parse_file(page_filename)
     text_lines = [tl for tr in page.text_regions for tl in tr.text_lines]
     img = imread(image_filename, mode='RGB')
     gt = np.zeros_like(img)
@@ -76,6 +78,7 @@ def process_one(image_filename: str, output_dir: str, endpoints: bool=False,
     save_and_resize(img, os.path.join(output_dir, 'images', '{}.jpg'.format(get_image_label_basename(image_filename))))
     save_and_resize(gt, os.path.join(output_dir, 'labels', '{}.png'.format(get_image_label_basename(image_filename))),
                     nearest=True)
+    shutil.copy(page_filename, os.path.join(output_dir, 'gt', '{}.xml'.format(get_image_label_basename(image_filename))))
 
 
 if __name__ == '__main__':
@@ -105,6 +108,7 @@ if __name__ == '__main__':
     # Train set
     os.makedirs('{}/train/images'.format(args.get('output_dir')))
     os.makedirs('{}/train/labels'.format(args.get('output_dir')))
+    os.makedirs('{}/train/gt'.format(args.get('output_dir')))
     for image_filename in tqdm(image_filenames_train):
         process_one(image_filename, '{}/train'.format(args.get('output_dir')), args.get('endpoints'),
                     args.get('line_thickness'), args.get('circle_thickness'))
@@ -112,6 +116,7 @@ if __name__ == '__main__':
     # Validation set
     os.makedirs('{}/validation/images'.format(args.get('output_dir')))
     os.makedirs('{}/validation/labels'.format(args.get('output_dir')))
+    os.makedirs('{}/validation/gt'.format(args.get('output_dir')))
     for image_filename in tqdm(image_filenames_eval):
         process_one(image_filename, '{}/validation'.format(args.get('output_dir')), args.get('endpoints'),
                     args.get('line_thickness'), args.get('circle_thickness'))
