@@ -1,6 +1,8 @@
 {
     "configs" : [
-        {"clean_predictions": false},
-        {"clean_predictions": true}
+        {"clean_predictions": false, "advanced": false},
+        {"clean_predictions": true, "advanced": false},
+        {"clean_predictions": false, "advanced": true},
+        {"clean_predictions": true, "advanced": true}
     ]
 }

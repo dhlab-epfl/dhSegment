@@ -263,7 +263,8 @@ class Page(BaseElement):
         else:
             ratio = (1, 1)
 
-        tl_coords = [(Point.list_to_cv2poly(tl.baseline)*ratio).astype(np.int32) for tl in text_lines]
+        tl_coords = [(Point.list_to_cv2poly(tl.baseline)*ratio).astype(np.int32) for tl in text_lines
+                     if len(tl.baseline) > 0]
         cv2.polylines(img_canvas, tl_coords,
                       False, color, thickness=thickness)
         for coords in tl_coords:

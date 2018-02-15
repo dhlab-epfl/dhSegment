@@ -30,7 +30,7 @@ def cbad_post_processing_fn(probs: np.array, sigma: float=2.5, low_threshold: fl
 
     contours, lines_mask = line_extraction_v0(probs[:, :, 1], sigma, low_threshold, high_threshold)
     if output_basename is not None:
-        dump_pickle(output_basename+'.pkl', (contours, lines_mask))
+        dump_pickle(output_basename+'.pkl', (contours, lines_mask.shape))
     return contours, lines_mask
 
 
@@ -49,8 +49,12 @@ def line_extraction_v0(probs, sigma, low_threshold, high_threshold):
     filtered_contours = []
     page_width = probs.shape[1]
     for cnt in contours:
-        if cv2.arcLength(cnt, False) > 0.05*page_width:
-            filtered_contours.append(cnt)
+        if cv2.arcLength(cnt, False) < 0.05*page_width:
+            continue
+        if cv2.arcLength(cnt, False) < 0.05*page_width:
+            continue
+        filtered_contours.append(cnt)
+
 
     return filtered_contours, lines_mask
 

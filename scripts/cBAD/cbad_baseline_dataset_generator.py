@@ -93,7 +93,7 @@ if __name__ == '__main__':
                         help='Predict beginning and end of baselines')
     parser.add_argument('-l', '--line_thickness', type=int, default=10, help='Thickness of annotated baseline')
     parser.add_argument('-c', '--circle_thickness', type=int, default=20, help='Diameter of annotated start/end points')
-    parser.add_argument('-s', '--size', type=int, default=72e4,
+    parser.add_argument('-s', '--size', type=int, default=140e4,
                         help='Size of the resized image (# pixels)')
     args = vars(parser.parse_args())
 
