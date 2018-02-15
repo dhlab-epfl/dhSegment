@@ -3,7 +3,7 @@ import numpy as np
 import math
 
 
-def find_box(predictions: np.array, mode: str='min_rectangle', min_area: float=0.25):
+def find_box(predictions: np.array, mode: str='min_rectangle', min_area: float=0.2, p_arc_length: float=0.01):
     """
 
     :param predictions: Uint8 binary 2D array
@@ -31,9 +31,9 @@ def find_box(predictions: np.array, mode: str='min_rectangle', min_area: float=0
         raise NotImplementedError
     if mode == 'quadrilateral':
         for c in contours:
-            epsilon = 0.01 * cv2.arcLength(c, True)
+            epsilon = p_arc_length * cv2.arcLength(c, True)
             cnt = cv2.approxPolyDP(c, epsilon, True)
-            box = np.vstack(simplify_douglas_peucker(cnt[:, 0, :], 4))[:, None, :]
+            box = np.vstack(simplify_douglas_peucker(cnt[:, 0, :], 4))
             if len(box) != 4:
                 mode = 'min_rectangle'
                 print('Quadrilateral has {} points. Switching to minimal rectangle mode'.format(len(box)))

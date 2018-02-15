@@ -1,7 +1,7 @@
 import os
 from .base import Metrics
 from glob import glob
-from scipy.misc import imread, imsave, imresize
+from scipy.misc import imread, imresize
 import cv2
 import numpy as np
 from .segmentation import compare_bin_prediction_to_label
@@ -58,7 +58,7 @@ def cini_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
         print(result)
 
 
-def page_evaluate(output_folder: str, validation_dir: str, pixel_wise=True, debug_folder=None):
+def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise=True, debug_folder=None):
     """
 
     :param output_folder: contains the *.png files from the post_processing
@@ -92,8 +92,8 @@ def page_evaluate(output_folder: str, validation_dir: str, pixel_wise=True, debu
             metric = compare_bin_prediction_to_label(bin_upscaled, label_image)
             global_metrics += metric
 
-        pred_box = find_box(np.uint8(bin_upscaled))
-        label_box = find_box(np.uint8(label_image))
+        pred_box = find_box(np.uint8(bin_upscaled), mode='min_rectangle')
+        label_box = find_box(np.uint8(label_image), mode='min_rectangle')
 
         def intersection_over_union(cnt1, cnt2):
             mask1 = np.zeros_like(label_image)
@@ -101,9 +101,12 @@ def page_evaluate(output_folder: str, validation_dir: str, pixel_wise=True, debu
             mask2 = np.zeros_like(label_image)
             mask2 = cv2.fillConvexPoly(mask2, cnt2.astype(np.int32), 1).astype(np.int8)
             return np.sum(mask1 & mask2) / np.sum(mask1 | mask2)
-
-        iou = intersection_over_union(label_box[:, None, :], pred_box[:, None, :])
-        global_metrics.IOU_list.append(iou)
+        if pred_box is not None:
+            iou = intersection_over_union(label_box[:, None, :], pred_box[:, None, :])
+            global_metrics.IOU_list.append(iou)
+        else:
+            global_metrics.IOU_list.append(0)
+            print('No box found for {}'.format(basename))
 
     if pixel_wise:
         global_metrics.compute_mse()
