@@ -20,17 +20,18 @@ def dibco_binarization_fn(probs: np.ndarray, threshold=0.5, output_basename=None
     return result
 
 
-def page_post_processing_fn(probs: np.ndarray, threshold=0.5, output_basename=None):
+def page_post_processing_fn(probs: np.ndarray, threshold=0.5, output_basename=None,
+                            ksize_open: tuple=(7, 7), ksize_close: tuple=(9, 9)):
 
-    mask = probs > threshold
+    mask = probs[:, :, 1] > threshold
     # TODO : adaptive kernel (not hard-coded)
-    mask = cv2.morphologyEx((mask.astype(np.uint8) * 255), cv2.MORPH_OPEN, kernel=np.ones((7, 7)))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel=np.ones((9, 9)))
+    mask = cv2.morphologyEx((mask.astype(np.uint8) * 255), cv2.MORPH_OPEN, kernel=np.ones(ksize_open))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel=np.ones(ksize_close))
 
     result = mask / 255
 
     if output_basename is not None:
-        imsave(output_basename + '.png', result*255)
+        imsave('{}.png'.format(output_basename), result*255)
     return result
 
 

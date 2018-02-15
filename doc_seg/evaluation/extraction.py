@@ -1,7 +1,7 @@
 import os
 from .base import Metrics
 from glob import glob
-from scipy.misc import imread, imsave, imresize
+from scipy.misc import imread, imresize
 import cv2
 import numpy as np
 from .segmentation import compare_bin_prediction_to_label
@@ -78,12 +78,13 @@ def cini_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
     return result
 
 
-def page_evaluate(output_folder: str, validation_dir: str, pixel_wise=True, debug_folder=None):
+def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise=True, debug_folder=None):
     """
 
     :param output_folder: contains the *.png files from the post_processing
     :param validation_dir: Directory contianing the gt label images
     :param pixel_wise: if True computes pixel-wise accuracy, if False computes IOU accuracy
+    :param debug_folder:
     :return:
     """
 
@@ -98,10 +99,10 @@ def page_evaluate(output_folder: str, validation_dir: str, pixel_wise=True, debu
 
         # Open post_processed and label image
         post_processed_img = imread(filename)
-        post_processed_img /= np.max(post_processed_img)
+        post_processed_img = post_processed_img / np.max(post_processed_img)
 
-        label_image = imread(os.path.join(validation_dir, '{}.png'.format(basename)), mode='L')
-        label_image /= np.max(label_image)
+        label_image = imread(os.path.join(validation_dir, 'labels', '{}.png'.format(basename)), mode='L')
+        label_image = label_image / np.max(label_image)
 
         # Upsample processed image to compare it to original image
         target_shape = (label_image.shape[1], label_image.shape[0])
@@ -111,20 +112,21 @@ def page_evaluate(output_folder: str, validation_dir: str, pixel_wise=True, debu
             metric = compare_bin_prediction_to_label(bin_upscaled, label_image)
             global_metrics += metric
 
-        list_boxes = find_box(bin_upscaled)
-        label_boxes = find_box(label_image)
+        pred_box = find_box(np.uint8(bin_upscaled), mode='min_rectangle')
+        label_box = find_box(np.uint8(label_image), mode='min_rectangle')
 
         def intersection_over_union(cnt1, cnt2):
-            mask1 = np.zeros_like(label_image[:, :, 0])
-            cv2.fillConvexPoly(mask1, cv2.boxPoints(cnt1).astype(np.int32), 1)
-            mask2 = np.zeros_like(label_image[:, :, 0])
-            cv2.fillConvexPoly(mask2, cv2.boxPoints(cnt2).astype(np.int32), 1)
+            mask1 = np.zeros_like(label_image)
+            mask1 = cv2.fillConvexPoly(mask1, cnt1.astype(np.int32), 1).astype(np.int8)
+            mask2 = np.zeros_like(label_image)
+            mask2 = cv2.fillConvexPoly(mask2, cnt2.astype(np.int32), 1).astype(np.int8)
             return np.sum(mask1 & mask2) / np.sum(mask1 | mask2)
-
-        for label_box in label_boxes:
-            for pred_box in list_boxes:
-                iou = intersection_over_union(label_box[:, None, :], pred_box[:, None, :])
-                global_metrics.IOU_list.append(iou)
+        if pred_box is not None:
+            iou = intersection_over_union(label_box[:, None, :], pred_box[:, None, :])
+            global_metrics.IOU_list.append(iou)
+        else:
+            global_metrics.IOU_list.append(0)
+            print('No box found for {}'.format(basename))
 
     if pixel_wise:
         global_metrics.compute_mse()

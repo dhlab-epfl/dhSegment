@@ -18,7 +18,7 @@ def evaluate_epoch(exported_eval_files_dir, validation_dir: str, post_process_fn
 
             post_process_fn(predictions_normalized, output_basename=os.path.join(tmpdirname, basename))
 
-        return evaluation_fn(tmpdirname, validation_dir, debug_folder)
+        return evaluation_fn(tmpdirname, validation_dir, debug_folder=debug_folder)
 
 
 class Metrics:
