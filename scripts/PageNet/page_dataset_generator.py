@@ -27,12 +27,13 @@ if __name__ == '__main__':
         splits = splits[1:]
         if splits[-1] in ['SINGLE', 'ABNORMAL']:
             coords_simple = np.reshape(np.array(splits[:-1], dtype=int), (4, 2))
-            coords_double = None
+            # coords_double = None
             coords = coords_simple
         else:
             coords_simple = np.reshape(np.array(splits[:8], dtype=int), (4, 2))
-            coords_double = np.reshape(np.array(splits[-4:], dtype=int), (2, 2))
-            coords = (coords_simple, coords_double)
+            # coords_double = np.reshape(np.array(splits[-4:], dtype=int), (2, 2))
+            # coords = (coords_simple, coords_double)
+            coords = coords_simple
 
         try:
             img = imread(os.path.join(args.get('input_dir'), full_filename))
@@ -42,8 +43,8 @@ if __name__ == '__main__':
         label_img = np.zeros((img.shape[0], img.shape[1], 3))
 
         label_img = cv2.fillPoly(label_img, [coords_simple], (255, 0, 0))
-        if coords_double is not None:
-            label_img = cv2.polylines(label_img, [coords_double], False, color=(0, 0, 0), thickness=50)
+        # if coords_double is not None:
+        #     label_img = cv2.polylines(label_img, [coords_double], False, color=(0, 0, 0), thickness=50)
 
         col, filename = full_filename.split(os.path.sep)[-2:]
 
