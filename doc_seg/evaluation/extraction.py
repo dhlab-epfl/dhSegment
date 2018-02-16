@@ -117,7 +117,7 @@ def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise=Tru
                                                         global_metrics.precision, global_metrics.f_measure))
 
     global_metrics.compute_miou()
-
+    print('EVAL --- mIOU : {}'.format(global_metrics.mIOU))
     # Export txt similar to test txt ?
 
     return {

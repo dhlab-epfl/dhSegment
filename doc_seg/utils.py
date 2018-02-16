@@ -125,7 +125,7 @@ class TrainingParams(BaseParams):
         self.learning_rate = 1e-5
         self.exponential_learning = True
         self.batch_size = 5
-        self.data_augmentation = True
+        self.data_augmentation = False
         self.data_augmentation_flip_lr = True
         self.data_augmentation_flip_ud = True
         self.data_augmentation_color = True
