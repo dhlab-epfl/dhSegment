@@ -1,0 +1,8 @@
+{
+"train_dir" : "/home/datasets/cBAD/Baseline_Competition_Complex_Documents/baseline_dataset/train",
+"eval_dir" : "/home/datasets/cBAD/Baseline_Competition_Complex_Documents/baseline_dataset/validation",
+"classes_file" : "/home/datasets/cBAD/Baseline_Competition_Complex_Documents/baseline_dataset/classes.txt",
+"model_output_dir" : "/home/docseg_models/cBAD/test_complex",
+  "prediction_type" : "CLASSIFICATION"
+
+}

@@ -6,11 +6,11 @@ from . import utils
 from tqdm import tqdm
 from random import shuffle
 from .input_utils import data_augmentation_fn, extract_patches_fn, load_and_resize_image, rotate_crop
+from scipy import ndimage
 
 
 def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, data_augmentation=False,
              batch_size=5, make_patches=False, num_epochs=None, num_threads=4, image_summaries=False):
-
     training_params = utils.TrainingParams.from_dict(params['training_params'])
     prediction_type = params['prediction_type']
     classes_file = params['classes_file']
@@ -127,7 +127,12 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
                     label_image = utils.label_image_to_class(label_image, classes_file)
                 elif prediction_type == utils.PredictionType.MULTILABEL:
                     label_image = utils.multilabel_image_to_class(label_image, classes_file)
-                return {'images': input_image, 'labels': label_image}
+                output = {'images': input_image, 'labels': label_image}
+
+                if training_params.local_entropy_ratio > 0 and prediction_type == utils.PredictionType.CLASSIFICATION:
+                    output['weight_maps'] = local_entropy(tf.equal(label_image, 1),
+                                                          sigma=training_params.local_entropy_sigma)
+                return output
 
             dataset = dataset.map(_map_fn_3, num_threads)
 
@@ -144,6 +149,8 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
         if 'labels' in dataset.output_shapes.keys():
             output_shapes_label = dataset.output_shapes['labels']
             padded_shapes['labels'] = [-1, -1] + list(output_shapes_label[2:])
+        if 'weight_maps' in dataset.output_shapes.keys():
+            padded_shapes['weight_maps'] = [-1, -1]
         dataset = dataset.padded_batch(batch_size=batch_size, padded_shapes=padded_shapes)
         dataset = dataset.prefetch(4)
         iterator = dataset.make_one_shot_iterator()
@@ -151,9 +158,9 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
 
         # Summaries for checking that the loading and data augmentation goes fine
         if image_summaries:
-            shape_summary_img = training_params.patch_shape if make_patches else training_params.input_resized_shape
+            shape_summary_img = tf.cast(tf.shape(prepared_batch['images'])[1:3]/3, tf.int32)
             tf.summary.image('input/image',
-                             tf.image.resize_images(prepared_batch['images'], np.array(shape_summary_img) / 3),
+                             tf.image.resize_images(prepared_batch['images'], shape_summary_img),
                              max_outputs=1)
             if 'labels' in prepared_batch:
                 label_export = prepared_batch['labels']
@@ -164,7 +171,11 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
                     label_export.set_shape((batch_size, *shape_summary_img, None))
                     label_export = utils.multiclass_to_label_image(label_export, classes_file)
                 tf.summary.image('input/label',
-                                 tf.image.resize_images(label_export, np.array(shape_summary_img) / 3), max_outputs=1)
+                                 tf.image.resize_images(label_export, shape_summary_img), max_outputs=1)
+            if 'weight_maps' in prepared_batch:
+                tf.summary.image('input/weight_map',
+                                 tf.image.resize_images(prepared_batch['weight_maps'][:, :, :, None], shape_summary_img),
+                                 max_outputs=1)
 
         return prepared_batch, prepared_batch.get('labels')
 
@@ -172,7 +183,6 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
 
 
 def serving_input_filename(resized_size):
-
     def serving_input_fn():
         # define placeholder for filename
         filename = tf.placeholder(dtype=tf.string)
@@ -198,3 +208,33 @@ def serving_input_image():
     dic_input_serving = {'images': tf.placeholder(tf.float32, [None, None, None, 3])}
     return tf.estimator.export.build_raw_serving_input_receiver_fn(dic_input_serving)
 
+
+def local_entropy(tf_binary_img: tf.Tensor, sigma=3):
+    tf_binary_img.get_shape().assert_has_rank(2)
+    def get_gaussian_filter_1d(sigma):
+        sigma_r = int(np.round(sigma))
+        x = np.zeros(6 * sigma_r + 1, dtype=np.float32)
+        x[3 * sigma_r] = 1
+        return ndimage.filters.gaussian_filter(x, sigma=sigma)
+
+    def _fn(img):
+        labelled, nb_components = ndimage.measurements.label(img)
+        lut = np.concatenate(
+            [np.array([0], np.int32), np.random.randint(20, size=nb_components + 1, dtype=np.int32) + 1])
+        output = lut[labelled]
+        return output
+
+    label_components = tf.py_func(_fn, [tf_binary_img], tf.int32)
+    label_components.set_shape([None, None])
+    one_hot_components = tf.one_hot(label_components, tf.reduce_max(label_components))
+    one_hot_components = tf.transpose(one_hot_components, [2, 0, 1])
+
+    local_components_avg = tf.nn.conv2d(one_hot_components[:, :, :, None],
+                                        get_gaussian_filter_1d(sigma)[None, :, None, None], (1, 1, 1, 1),
+                                        padding='SAME')
+    local_components_avg = tf.nn.conv2d(local_components_avg, get_gaussian_filter_1d(sigma)[:, None, None, None],
+                                        (1, 1, 1, 1), padding='SAME')
+    local_components_avg = tf.transpose(local_components_avg[:, :, :, 0], [1, 2, 0])
+    local_components_avg = tf.pow(local_components_avg, 1 / 1.4)
+    local_components_avg = local_components_avg/(tf.reduce_sum(local_components_avg, axis=2, keep_dims=True)+1e-6)
+    return -tf.reduce_sum(local_components_avg * tf.log(local_components_avg + 1e-6), axis=2)

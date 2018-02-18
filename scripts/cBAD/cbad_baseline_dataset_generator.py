@@ -30,16 +30,18 @@ def get_image_label_basename(image_filename: str) -> str:
     return '{}_{}'.format(acronym, basename.split('.')[0])
 
 
-def save_and_resize(img: np.array, filename: str, resize: bool=False, nearest: bool=False) -> None:
-    if resize:
-        resized = cv2.resize(img, ((img.shape[1]*TARGET_HEIGHT)//img.shape[0], TARGET_HEIGHT),
+def save_and_resize(img: np.array, filename: str, size=None, nearest: bool=False) -> None:
+    if size is not None:
+        h, w = img.shape[:2]
+        ratio = float(np.sqrt(size/(h*w)))
+        resized = cv2.resize(img, (int(w*ratio), int(h*ratio)),
                              interpolation=cv2.INTER_NEAREST if nearest else cv2.INTER_LINEAR)
         imsave(filename, resized)
     else:
         imsave(filename, img)
 
 
-def process_one(image_filename: str, output_dir: str, endpoints: bool=False,
+def process_one(image_filename: str, output_dir: str, size: int, endpoints: bool=False,
                 line_thickness: int=10, diameter_endpoint: int=20) -> None:
     page_filename = get_page_filename(image_filename)
     page = PAGE.parse_file(page_filename)
@@ -75,9 +77,10 @@ def process_one(image_filename: str, output_dir: str, endpoints: bool=False,
         gt[:, :, np.argmax(DRAWING_COLOR_BASELINES)] = gt_lines
         gt[:, :, np.argmax(DRAWING_COLOR_POINTS)] = gt_points
 
-    save_and_resize(img, os.path.join(output_dir, 'images', '{}.jpg'.format(get_image_label_basename(image_filename))))
+    save_and_resize(img, os.path.join(output_dir, 'images', '{}.jpg'.format(get_image_label_basename(image_filename))),
+                    size=size)
     save_and_resize(gt, os.path.join(output_dir, 'labels', '{}.png'.format(get_image_label_basename(image_filename))),
-                    nearest=True)
+                    size=size, nearest=True)
     shutil.copy(page_filename, os.path.join(output_dir, 'gt', '{}.xml'.format(get_image_label_basename(image_filename))))
 
 
@@ -91,9 +94,9 @@ if __name__ == '__main__':
                         help='Output directory to save images and labels')
     parser.add_argument('-e', '--endpoints', required=False, type=bool, default=False,
                         help='Predict beginning and end of baselines')
-    parser.add_argument('-l', '--line_thickness', type=int, default=10, help='Thickness of annotated baseline')
+    parser.add_argument('-l', '--line_thickness', type=int, default=4, help='Thickness of annotated baseline')
     parser.add_argument('-c', '--circle_thickness', type=int, default=20, help='Diameter of annotated start/end points')
-    parser.add_argument('-s', '--size', type=int, default=140e4,
+    parser.add_argument('-s', '--size', type=int, default=int(2.0e6),
                         help='Size of the resized image (# pixels)')
     args = vars(parser.parse_args())
 
@@ -113,7 +116,8 @@ if __name__ == '__main__':
     os.makedirs('{}/train/labels'.format(args.get('output_dir')))
     os.makedirs('{}/train/gt'.format(args.get('output_dir')))
     for image_filename in tqdm(image_filenames_train):
-        process_one(image_filename, '{}/train'.format(args.get('output_dir')), args.get('endpoints'),
+        process_one(image_filename, '{}/train'.format(args.get('output_dir')), args.get('size'),
+                    args.get('endpoints'),
                     args.get('line_thickness'), args.get('circle_thickness'))
 
     # Validation set
@@ -121,14 +125,16 @@ if __name__ == '__main__':
     os.makedirs('{}/validation/labels'.format(args.get('output_dir')))
     os.makedirs('{}/validation/gt'.format(args.get('output_dir')))
     for image_filename in tqdm(image_filenames_eval):
-        process_one(image_filename, '{}/validation'.format(args.get('output_dir')), args.get('endpoints'),
+        process_one(image_filename, '{}/validation'.format(args.get('output_dir')), args.get('size'),
+                    args.get('endpoints'),
                     args.get('line_thickness'), args.get('circle_thickness'))
 
     os.makedirs('{}/test/images'.format(args.get('output_dir')))
     os.makedirs('{}/test/labels'.format(args.get('output_dir')))
     os.makedirs('{}/test/gt'.format(args.get('output_dir')))
     for image_filename in tqdm(image_filenames_test):
-        process_one(image_filename, '{}/test'.format(args.get('output_dir')), args.get('endpoints'),
+        process_one(image_filename, '{}/test'.format(args.get('output_dir')), args.get('size'),
+                    args.get('endpoints'),
                     args.get('line_thickness'), args.get('circle_thickness'))
 
     if args.get('endpoints'):
