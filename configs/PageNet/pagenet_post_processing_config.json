@@ -1,0 +1,10 @@
+{
+  "configs" : [
+    {"threshold": -1, "ksize_open": [7, 7], "ksize_close" : [9, 9]},
+    {"threshold": 0.4, "ksize_open": [7, 7], "ksize_close" : [9, 9]},
+    {"threshold": 0.6, "ksize_open": [7, 7], "ksize_close" : [9, 9]},
+    {"threshold": 0.7, "ksize_open": [7, 7], "ksize_close" : [9, 9]},
+    {"threshold": 0.8, "ksize_open": [7, 7], "ksize_close" : [9, 9]},
+    {"threshold": 0.9, "ksize_open": [7, 7], "ksize_close" : [9, 9]}
+  ]
+}

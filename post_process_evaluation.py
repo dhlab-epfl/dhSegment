@@ -6,20 +6,21 @@ import json
 import os
 from glob import glob
 from hashlib import sha1
-from doc_seg.post_processing import cbad_post_processing_fn, dibco_binarization_fn, cini_post_processing_fn
-from doc_seg.evaluation import cbad_evaluate_folder, dibco_evaluate_folder, cini_evaluate_folder, evaluate_epoch
+from doc_seg.post_processing import cbad_post_processing_fn, dibco_binarization_fn, cini_post_processing_fn, \
+    page_post_processing_fn
+from doc_seg.evaluation import cbad_evaluate_folder, dibco_evaluate_folder, cini_evaluate_folder, \
+    page_evaluate_folder, evaluate_epoch
 from doc_seg.utils import parse_json
 from tqdm import tqdm
 from functools import partial
-import better_exceptions
-import tempfile
 
 POST_PROCESSING_DIR_NAME = 'post_processing'
 
 POST_PROCESSING_EVAL_FN_DICT = {
     'cbad': (cbad_post_processing_fn, cbad_evaluate_folder),
     'dibco': (dibco_binarization_fn, dibco_evaluate_folder),
-    'cini': (cini_post_processing_fn, cini_evaluate_folder)
+    'cini': (cini_post_processing_fn, cini_evaluate_folder),
+    'page': (page_post_processing_fn, page_evaluate_folder)
 }
 
 
@@ -73,7 +74,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--model-dir', type=str, required=True, nargs='+')
     parser.add_argument('-p', '--params-json-file', type=str, required=True)
-    parser.add_argument('-t', '--task-type', type=str, required=True)
+    parser.add_argument('-t', '--task-type', type=str, required=True,
+                        help="Choose among : 'cbad', 'dibco', 'page', 'cini'")
     parser.add_argument('-v', '--verbose', type=bool, default=False)
     # Labels dir is not necessary anymore, can be obtained directly from model config
     # parser.add_argument('-l', '--labels-dir', type=str, required=True)

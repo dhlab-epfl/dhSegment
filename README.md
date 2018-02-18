@@ -33,7 +33,7 @@ Available pretrained implementations :
 
 
 
-* Generate configs : `python configs/generate_base_configs.py -co /home/docseg_models/generated_configs/ -mo /home/docseg_models/DIBCO/ -c configs/DIBCO/dibco_binarization_config.json configs/DIBCO/dibco_variant2.json`
+* Generate configs : `python generate_base_configs.py -co /home/docseg_models/generated_configs/ -mo /home/docseg_models/DIBCO/ -c configs/DIBCO/dibco_binarization_config.json configs/DIBCO/dibco_variant2.json`
 * Train them : `python worker.py -c /home/docseg_models/generated_configs -f /home/docseg_models/failed_configs`
 * Evaluate on validation : `python post_process_evaluation.py -m /home/docseg_models/DIBCO/* -p configs/DIBCO/dibco_post_processing_configs.json -t dibco`
 * Find best on validation and apply to test : `python model_selection.py -e /home/docseg_models/DIBCO/*/post_processing/* -m f_measure`
