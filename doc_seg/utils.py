@@ -138,6 +138,8 @@ class TrainingParams(BaseParams):
         self.input_resized_size = int(72e4)  # (600*1200) # type: int
         self.weights_labels = None
         self.training_margin = 16
+        self.local_entropy_ratio = 0.0
+        self.local_entropy_sigma = 3
 
     def check_params(self):
         assert self.training_margin*2 < min(self.patch_shape)
@@ -225,6 +227,11 @@ def get_n_classes_from_file_multilabel(classes_file: str) -> int:
 def parse_json(filename):
     with open(filename, 'r') as f:
         return json.load(f)
+
+
+def dump_json(filename, dict):
+    with open(filename, 'w') as f:
+        json.dump(dict, f, indent=4, sort_keys=True)
 
 
 def load_pickle(filename):

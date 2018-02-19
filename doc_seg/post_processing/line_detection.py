@@ -28,13 +28,26 @@ def cbad_post_processing_fn(probs: np.array, sigma: float=2.5, low_threshold: fl
      WARNING : contours IN OPENCV format List[np.ndarray(n_points, 1, (x,y))]
     """
 
-    contours, lines_mask = line_extraction_v0(probs[:, :, 1], sigma, low_threshold, high_threshold)
+    contours, lines_mask = line_extraction_v1(probs[:, :, 1], sigma, low_threshold, high_threshold)
     if output_basename is not None:
-        dump_pickle(output_basename+'.pkl', (contours, lines_mask))
+        dump_pickle(output_basename+'.pkl', (contours, lines_mask.shape))
     return contours, lines_mask
 
 
-def line_extraction_v0(probs, sigma, low_threshold, high_threshold):
+def line_extraction_v0(probs, sigma, threshold):
+    # probs_line = probs[:, :, 1]
+    probs_line = probs
+    # Smooth
+    probs2 = cv2.GaussianBlur(probs_line, (int(3*sigma)*2+1, int(3*sigma)*2+1), sigma)
+
+    lines_mask = probs2 >= threshold
+    # Extract polygons from line mask
+    contours = extract_line_polygons(lines_mask)
+
+    return contours, lines_mask
+
+
+def line_extraction_v1(probs, sigma, low_threshold, high_threshold):
     # probs_line = probs[:, :, 1]
     probs_line = probs
     # Smooth
@@ -49,8 +62,36 @@ def line_extraction_v0(probs, sigma, low_threshold, high_threshold):
     filtered_contours = []
     page_width = probs.shape[1]
     for cnt in contours:
-        if cv2.arcLength(cnt, False) > 0.05*page_width:
-            filtered_contours.append(cnt)
+        if cv2.arcLength(cnt, False) < 0.05*page_width:
+            continue
+        if cv2.arcLength(cnt, False) < 0.05*page_width:
+            continue
+        filtered_contours.append(cnt)
+
+    return filtered_contours, lines_mask
+
+
+def line_extraction_v2(probs, sigma, low_threshold, high_threshold):
+    probs_line = probs
+    # Smooth
+    probs2 = cv2.GaussianBlur(probs_line, (int(3*sigma)*2+1, int(3*sigma)*2+1), sigma)
+    seeds = probs2 > high_threshold
+    labelled_components, nb_components = label(seeds)
+
+    lines_mask = hysteresis_thresholding(probs2, local_maxima, low_threshold, high_threshold)
+    # Remove lines touching border
+    #lines_mask = remove_borders(lines_mask)
+    # Extract polygons from line mask
+    contours = extract_line_polygons(lines_mask)
+
+    filtered_contours = []
+    page_width = probs.shape[1]
+    for cnt in contours:
+        if cv2.arcLength(cnt, False) < 0.05*page_width:
+            continue
+        if cv2.arcLength(cnt, False) < 0.05*page_width:
+            continue
+        filtered_contours.append(cnt)
 
     return filtered_contours, lines_mask
 

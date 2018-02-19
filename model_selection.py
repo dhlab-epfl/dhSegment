@@ -5,7 +5,7 @@ from typing import List
 from doc_seg.evaluation.model_selection import ExperimentResult
 from doc_seg.evaluation import dibco_evaluate_folder, cbad_evaluate_folder, cini_evaluate_folder
 from doc_seg.loader import LoadedModel
-from doc_seg import post_processing
+from doc_seg import post_processing, utils
 import tensorflow as tf
 from glob import glob
 import os
@@ -24,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--experiment-dirs', type=str, required=True, nargs='+')
     parser.add_argument('-t', '--test-folder', type=str, required=True)
     parser.add_argument('-m', '--selection-metric', type=str, required=True)
-    parser.add_argument('-o', '--output-folder', type=str, required=True)
+    parser.add_argument('-o', '--output-folder', type=str, required=False)
     args = vars(parser.parse_args())
 
     experiment_dirs = args['experiment_dirs']
@@ -49,7 +49,9 @@ if __name__ == '__main__':
 
     # Perform test prediction (is it the right place?)
     test_folder = args.get('test_folder')
-    for i, best_experiment in enumerate(sorted_experiments[:5]):
+    #if test_folder is None:
+    for i, best_experiment in enumerate(sorted_experiments[:4]):
+        print(best_experiment)
         print('Validation :')
         print(best_experiment.get_best_validated_epoch())
         model_folder = best_experiment.get_best_model_folder()
@@ -70,5 +72,9 @@ if __name__ == '__main__':
         print('Test :')
         #print(dibco_evaluate_folder(output_folder_exp, test_folder,
         #                            debug_folder=os.path.join(output_folder_exp, 'debug')))
-        print(cbad_evaluate_folder(output_folder_exp, test_folder,
-                                    debug_folder=os.path.join(output_folder_exp, 'debug')))
+        #print(cbad_evaluate_folder(output_folder_exp, test_folder,
+        #                            debug_folder=os.path.join(output_folder_exp, 'debug')))
+        scores = cini_evaluate_folder(output_folder_exp, test_folder,
+                                    debug_folder=os.path.join(output_folder_exp, 'debug'))
+        utils.dump_json(os.path.join(output_folder_exp, 'scores.json'), scores)
+        print(scores)

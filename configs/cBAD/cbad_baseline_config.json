@@ -5,9 +5,9 @@
       "data_augmentation" : false,
       "make_patches": true,
       "n_epochs": 30,
-      "input_resized_size" : 70e4,
+      "input_resized_size" : 80e4,
       "patch_shape": [300, 300],
-      "weights_labels": [5.0, 20.0]
+      "weights_labels": null
   },
   "model_params": {
     "batch_norm": true,
@@ -23,5 +23,5 @@
     ]
   },
   "pretrained_model_name" : "resnet50",
-  "prediction_type" : "MULTILABEL"
+  "prediction_type" : "CLASSIFICATION"
 }

@@ -43,17 +43,17 @@ def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
             gt_page = PAGE.parse_file(os.path.join(gt_dir,
                                                    '{}.xml'.format(basename)))
 
-            contours, lines_mask = load_pickle(filename)
-            ratio = (gt_page.image_height/lines_mask.shape[0], gt_page.image_width/lines_mask.shape[1])
+            contours, img_shape = load_pickle(filename)
+            ratio = (gt_page.image_height/img_shape[0], gt_page.image_width/img_shape[1])
             xml_filename = os.path.join(tmpdirname, basename + '.xml')
-            PAGE.save_baselines(xml_filename, contours, ratio, initial_shape=lines_mask.shape[:2])
+            PAGE.save_baselines(xml_filename, contours, ratio, initial_shape=img_shape[:2])
 
             gt_xml_file = os.path.join(gt_dir, basename + '.xml')
             xml_filenames_list.append((gt_xml_file, xml_filename))
 
             if debug_folder is not None:
                 img = imread(os.path.join(validation_dir, 'images', basename+'.jpg'))
-                img = imresize(img, lines_mask.shape[:2])
+                img = imresize(img, img_shape[:2])
                 gt_page.draw_baselines(img, color=(0, 255, 0))
                 generated_page = PAGE.parse_file(xml_filename)
                 generated_page.draw_baselines(img, color=(255, 0, 0))

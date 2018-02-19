@@ -86,10 +86,14 @@ def model_fn(mode, features, labels, params):
                                                                          labels=onehot_labels, name='per_pixel_loss')
 
                 if training_params.weights_labels is not None:
-                    weight_mask = tf.reduce_max(
+                    weight_mask = tf.reduce_sum(
                         tf.constant(np.array(training_params.weights_labels, dtype=np.float32)[None, None, None]) *
                         onehot_labels, axis=-1)
                     per_pixel_loss = per_pixel_loss*weight_mask
+                if training_params.local_entropy_ratio > 0:
+                    assert 'weight_maps' in features
+                    r = training_params.local_entropy_ratio
+                    per_pixel_loss = per_pixel_loss* ( (1-r) + r * features['weight_maps'])
 
         elif prediction_type == PredictionType.REGRESSION:
             per_pixel_loss = tf.squared_difference(labels, network_output, name='per_pixel_loss')
