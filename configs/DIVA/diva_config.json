@@ -4,7 +4,7 @@
       "batch_size": 8,
       "make_patches": true,
       "n_epochs": 50,
-      "patch_shape": [600, 600],
+      "patch_shape": [300, 300],
       "input_resized_size" : -1
   },
   "model_params": {

@@ -50,7 +50,7 @@ def evaluate_one_model(model_dir, validation_dir, post_processing_pair, post_pro
     os.makedirs(post_process_dir, exist_ok=True)
 
     validation_scores = dict()
-    for saved_epoch in list_saved_epochs:
+    for saved_epoch in tqdm(list_saved_epochs, desc='Epoch dir'):
         epoch_dir_name = saved_epoch.split(os.path.sep)[-1]
         epoch, timestamp = (int(s) for s in epoch_dir_name.split('_')[1:3])
         validation_scores[epoch_dir_name] = {**evaluate_epoch(saved_epoch, validation_dir,
@@ -97,8 +97,8 @@ if __name__ == '__main__':
     model_dirs = args.get('model_dir')
     print('Found {} configs and {} model directories'.format(len(params_list), len(model_dirs)))
 
-    for params in tqdm(params_list):
-        for model_dir in tqdm(model_dirs):
+    for params in tqdm(params_list, desc='Params'):
+        for model_dir in tqdm(model_dirs, desc='Model directory'):
             eval_data_dir = parse_json(os.path.join(model_dir, 'config.json'))['eval_dir']
             evaluate_one_model(model_dir, eval_data_dir,
                                post_processing_pair,

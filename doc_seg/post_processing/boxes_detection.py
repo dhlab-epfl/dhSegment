@@ -34,6 +34,8 @@ def find_box(predictions: np.array, mode: str='min_rectangle', min_area: float=0
             epsilon = p_arc_length * cv2.arcLength(c, True)
             cnt = cv2.approxPolyDP(c, epsilon, True)
             box = np.vstack(simplify_douglas_peucker(cnt[:, 0, :], 4))
+            # Todo : test if it looks like a rectangle (2 sides must be more or less parallel)
+            # todo : (otherwise we may end with strange quadrilaterals)
             if len(box) != 4:
                 mode = 'min_rectangle'
                 print('Quadrilateral has {} points. Switching to minimal rectangle mode'.format(len(box)))

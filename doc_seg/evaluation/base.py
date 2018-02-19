@@ -3,6 +3,7 @@ import tempfile
 import os
 import numpy as np
 from glob import glob
+from tqdm import tqdm
 
 
 def evaluate_epoch(exported_eval_files_dir, validation_dir: str, post_process_fn, evaluation_fn,
@@ -10,7 +11,7 @@ def evaluate_epoch(exported_eval_files_dir, validation_dir: str, post_process_fn
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Process predicted probs
         filenames_exported_predictions = glob(os.path.join(exported_eval_files_dir, '*.npy'))
-        for filename in filenames_exported_predictions:
+        for filename in tqdm(filenames_exported_predictions, desc='Post-processing'):
             basename = os.path.basename(filename).split('.')[0]
 
             predictions = np.load(filename)
@@ -27,6 +28,7 @@ class Metrics:
         # TODO : or keep track of flatten stacked prediction with flatten stacked gt
         self.total_elements = 0
         self.true_positives = 0
+        self.true_negatives = 0
         self.false_positives = 0
         self.false_negatives = 0
         self.SE_list = list()
@@ -35,13 +37,14 @@ class Metrics:
         self.MSE = 0
         self.psnr = 0
         self.mIOU = 0
+        self.accuracy = 0
         self.recall = 0
         self.precision = 0
         self.f_measure = 0
 
     def __add__(self, other):
         if isinstance(other, self.__class__):
-            summable_attr = ['total_elements', 'false_negatives', 'false_positives', 'true_positives']
+            summable_attr = ['total_elements', 'false_negatives', 'false_positives', 'true_positives', 'true_negatives']
             addlist_attr = ['SE_list', 'IOU_list']
             m = Metrics()
             for k, v in self.__dict__.items():
@@ -80,6 +83,9 @@ class Metrics:
     def compute_miou(self):
         self.mIOU = np.mean(self.IOU_list)
         return self.mIOU
+
+    def compute_accuracy(self):
+        self.accuracy = (self.true_positives + self.true_negatives)/self.total_elements
 
     def save_to_json(self, json_filename: str) -> None:
         export_dic = self.__dict__.copy()

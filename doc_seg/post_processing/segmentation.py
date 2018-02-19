@@ -1,7 +1,7 @@
 import numpy as np
-
 import cv2
 from scipy.misc import imsave
+from typing import List
 
 
 def dibco_binarization_fn(probs: np.ndarray, threshold=0.5, output_basename=None):
@@ -24,7 +24,7 @@ def page_post_processing_fn(probs: np.ndarray, threshold: float=0.5, output_base
                             ksize_open: tuple=(7, 7), ksize_close: tuple=(9, 9)) -> np.ndarray:
     """
     Computes the binary mask of the detected Page from the probabilities outputed by network
-    :param probs: array in range [0, 1] of shape HxWxC
+    :param probs: array in range [0, 1] of shape HxWx2
     :param threshold: threshold between [0 and 1], if negative Otsu's adaptive threshold will be used
     :param output_basename:
     :param ksize_open: size of kernel for morphological opening
@@ -50,6 +50,33 @@ def page_post_processing_fn(probs: np.ndarray, threshold: float=0.5, output_base
     return result
 
 
-def diva_post_processing_fn(predictions):
-    # TODO
-    return None
+def diva_post_processing_fn(probs: np.ndarray, thresholds: List[float]=[0.5, 0.5, 0.5],
+                            output_basename: str=None) -> np.ndarray:
+    """
+
+    :param probs: array in range [0, 1] of shape HxWx3
+    :param thresholds: list of length 3 corresponding to the threshold for each channel
+    :param output_basename:
+    :return:
+    """
+
+    final_mask = np.zeros_like(probs, dtype=np.uint8)
+    # Compute binary mask for each class (each channel)
+    for ch in range(probs.shape[-1]):
+        probs_ch = probs[:, :, ch]
+        if thresholds[ch] < 0:  # Otsu thresholding
+            probs_ch = np.uint8(probs_ch * 255)
+            blur = cv2.GaussianBlur(probs_ch, (5, 5), 0)
+            thresh_val, bin_img = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            bin_img = bin_img / 255
+        else:
+            bin_img = probs_ch > thresholds[ch]
+
+        final_mask[:, :, ch] = bin_img
+
+    result = final_mask.astype(int)
+
+    if output_basename is not None:
+        imsave('{}.png'.format(output_basename), result*255)
+
+    return result

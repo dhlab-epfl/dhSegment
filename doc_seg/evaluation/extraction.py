@@ -1,9 +1,10 @@
 import os
 from .base import Metrics
 from glob import glob
-from scipy.misc import imread, imresize
+from scipy.misc import imread, imsave, imresize
 import cv2
 import numpy as np
+from tqdm import tqdm
 from .segmentation import compare_bin_prediction_to_label
 from ..post_processing.boxes_detection import find_box
 
@@ -58,28 +59,29 @@ def cini_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
         print(result)
 
 
-def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise=True, debug_folder=None):
+def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise: bool=True,
+                         debug_folder: str=None, verbose: bool=False) -> dict:
     """
 
     :param output_folder: contains the *.png files from the post_processing
     :param validation_dir: Directory contianing the gt label images
     :param pixel_wise: if True computes pixel-wise accuracy, if False computes IOU accuracy
     :param debug_folder:
+    :param verbose:
     :return:
     """
-
     if debug_folder is not None:
         os.makedirs(debug_folder, exist_ok=True)
 
     filenames_binary_masks = glob(os.path.join(output_folder, '*.png'))
 
     global_metrics = Metrics()
-    for filename in filenames_binary_masks:
+    for filename in tqdm(filenames_binary_masks, desc='Evaluation'):
         basename = os.path.basename(filename).split('.')[0]
 
         # Open post_processed and label image
         post_processed_img = imread(filename)
-        post_processed_img = post_processed_img / np.max(post_processed_img)
+        post_processed_img = post_processed_img / np.maximum(np.max(post_processed_img), 1)
 
         label_image = imread(os.path.join(validation_dir, 'labels', '{}.png'.format(basename)), mode='L')
         label_image = label_image / np.max(label_image)
@@ -95,6 +97,14 @@ def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise=Tru
         pred_box = find_box(np.uint8(bin_upscaled), mode='min_rectangle')
         label_box = find_box(np.uint8(label_image), mode='min_rectangle')
 
+        if debug_folder is not None:
+            imsave(os.path.join(debug_folder, '{}_bin.png'.format(basename)), np.uint8(bin_upscaled*255))
+            orig_img = imread(os.path.join(validation_dir, 'images', '{}.jpg'.format(basename)))
+            cv2.polylines(orig_img, [label_box[:, None, :]], True, (0, 255, 0), thickness=15)
+            if pred_box is not None:
+                cv2.polylines(orig_img, [pred_box[:, None, :]], True, (0, 0, 255), thickness=15)
+            imsave(os.path.join(debug_folder, '{}_boxes.jpg'.format(basename)), orig_img)
+
         def intersection_over_union(cnt1, cnt2):
             mask1 = np.zeros_like(label_image)
             mask1 = cv2.fillConvexPoly(mask1, cnt1.astype(np.int32), 1).astype(np.int8)
@@ -106,18 +116,19 @@ def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise=Tru
             global_metrics.IOU_list.append(iou)
         else:
             global_metrics.IOU_list.append(0)
-            print('No box found for {}'.format(basename))
+            if verbose:
+                print('No box found for {}'.format(basename))
 
     if pixel_wise:
-        global_metrics.compute_mse()
-        global_metrics.compute_psnr()
+        # global_metrics.compute_mse()
+        # global_metrics.compute_psnr()
         global_metrics.compute_prf()
 
-        print('EVAL --- R : {}, P : {}, FM : {}'.format(global_metrics.recall,
+        print('EVAL --- R : {}, P : {}, FM : {}\n'.format(global_metrics.recall,
                                                         global_metrics.precision, global_metrics.f_measure))
 
     global_metrics.compute_miou()
-    print('EVAL --- mIOU : {}'.format(global_metrics.mIOU))
+    print('EVAL --- mIOU : {}\n'.format(global_metrics.mIOU))
     # Export txt similar to test txt ?
 
     return {
