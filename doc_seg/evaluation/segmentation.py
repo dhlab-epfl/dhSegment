@@ -78,7 +78,7 @@ def compare_bin_prediction_to_label(prediction: np.array, gt_image: np.array):
 
 
 def diva_evaluate_folder(output_folder: str, validation_dir: str, command_line_tool=True,
-                         debug_folder: str = None, verbose: bool = False) -> dict:
+                         debug_folder: str = None, verbose: bool = False, return_global_metric_only=True) -> dict:
     # TODO (do not forget to take several classes into account)
     if debug_folder is not None:
         os.makedirs(debug_folder, exist_ok=True)
@@ -131,26 +131,35 @@ def diva_evaluate_folder(output_folder: str, validation_dir: str, command_line_t
     if command_line_tool:
         pass
 
-    # Todo : Not sure it is the best to have nested dictionnaries
-    return {
-        'precision': {
-            **{'global': global_metric_all_classes.precision},
-            **{key: global_metrics_per_class[key].precision for key in global_metrics_per_class.keys()}
-        },
-        'recall': {
-            **{'global': global_metric_all_classes.recall},
-            **{key: global_metrics_per_class[key].recall for key in global_metrics_per_class.keys()}
-        },
-        'f_measure': {
-            **{'global': global_metric_all_classes.f_measure},
-            **{key: global_metrics_per_class[key].f_measure for key in global_metrics_per_class.keys()}
-        },
-        'psnr': {
-            **{'global': global_metric_all_classes.psnr},
-            **{key: global_metrics_per_class[key].psnr for key in global_metrics_per_class.keys()}
-        },
-        'accuracy': {
-            **{'global': global_metric_all_classes.accuracy},
-            **{key: global_metrics_per_class[key].accuracy for key in global_metrics_per_class.keys()}
+    if return_global_metric_only:
+        # Todo : Not sure it is the best to have nested dictionnaries
+        return {
+            'precision': {
+                **{'global': global_metric_all_classes.precision},
+                **{key: global_metrics_per_class[key].precision for key in global_metrics_per_class.keys()}
+            },
+            'recall': {
+                **{'global': global_metric_all_classes.recall},
+                **{key: global_metrics_per_class[key].recall for key in global_metrics_per_class.keys()}
+            },
+            'f_measure': {
+                **{'global': global_metric_all_classes.f_measure},
+                **{key: global_metrics_per_class[key].f_measure for key in global_metrics_per_class.keys()}
+            },
+            'psnr': {
+                **{'global': global_metric_all_classes.psnr},
+                **{key: global_metrics_per_class[key].psnr for key in global_metrics_per_class.keys()}
+            },
+            'accuracy': {
+                **{'global': global_metric_all_classes.accuracy},
+                **{key: global_metrics_per_class[key].accuracy for key in global_metrics_per_class.keys()}
+            }
         }
-    }
+    else:
+        return {
+            'precision': global_metric_all_classes.precision,
+            'recall': global_metric_all_classes.recall,
+            'psnr': global_metric_all_classes.psnr,
+            'f_measure': global_metric_all_classes.f_measure,
+            'accuracy': global_metric_all_classes.accuracy
+        }
