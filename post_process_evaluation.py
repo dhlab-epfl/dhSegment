@@ -7,9 +7,9 @@ import os
 from glob import glob
 from hashlib import sha1
 from doc_seg.post_processing import cbad_post_processing_fn, dibco_binarization_fn, cini_post_processing_fn, \
-    page_post_processing_fn
+    page_post_processing_fn, diva_post_processing_fn, ornaments_post_processing_fn
 from doc_seg.evaluation import cbad_evaluate_folder, dibco_evaluate_folder, cini_evaluate_folder, \
-    page_evaluate_folder, evaluate_epoch
+    page_evaluate_folder, diva_evaluate_folder, ornament_evaluate_folder, evaluate_epoch
 from doc_seg.utils import parse_json
 from tqdm import tqdm
 from functools import partial
@@ -20,7 +20,9 @@ POST_PROCESSING_EVAL_FN_DICT = {
     'cbad': (cbad_post_processing_fn, cbad_evaluate_folder),
     'dibco': (dibco_binarization_fn, dibco_evaluate_folder),
     'cini': (cini_post_processing_fn, cini_evaluate_folder),
-    'page': (page_post_processing_fn, page_evaluate_folder)
+    'page': (page_post_processing_fn, page_evaluate_folder),
+    'diva': (diva_post_processing_fn, diva_evaluate_folder),
+    'ornaments': (ornaments_post_processing_fn, ornament_evaluate_folder)
 }
 
 

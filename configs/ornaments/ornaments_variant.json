@@ -1,2 +1,6 @@
-#!/usr/bin/env python
-__author__ = 'solivr'
+{
+  "train_dir" : "/home/datasets/ornaments/generated_ornaments/train/",
+  "eval_dir" : "/home/datasets/ornaments/generated_ornaments/val_a1",
+  "classes_file" : "/home/datasets/ornaments/generated_ornaments/train/classes.txt",
+  "model_output_dir" : "/home/docseg_models/ornaments/ornaments_t1"
+}

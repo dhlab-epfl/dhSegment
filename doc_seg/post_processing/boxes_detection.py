@@ -2,31 +2,40 @@ import cv2
 import numpy as np
 from ..utils import dump_pickle
 import math
+from scipy.misc import imsave
 
 
-def find_box(predictions: np.array, mode: str='min_rectangle', min_area: float=0.2, p_arc_length: float=0.01):
+def find_box(predictions: np.array, mode: str='min_rectangle', min_area: float=0.2,
+             p_arc_length: float=0.01, n_max_boxes=1):
     """
 
     :param predictions: Uint8 binary 2D array
     :param mode: 'min_rectangle', 'quadrilateral', rectangle
     :param min_area:
+    :param p_arc_length: when 'qualidrateral' mode is chosen
+    :param n_max_boxes:
     :return:
     """
     _, contours, _ = cv2.findContours(predictions, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    found_box = None
-    biggest_area = 0
+    if contours is None:
+        print('No contour found')
+        return None
+    # found_box = None
+    found_boxes = list()
 
-    def validate_box(box):
+    def validate_box(box: np.array) -> (np.array, float):
         # Aproximate area computation (TODO eventually make a proper area computation)
         approx_area = (np.max(box[:, 0]) - np.min(box[:, 0])) * (np.max(box[:, 1] - np.min(box[:, 1])))
-        if approx_area > min_area * predictions.size and approx_area > biggest_area:  # If box is bigger than 20% of the image size
+        # if approx_area > min_area * predictions.size and approx_area > biggest_area:
+        if approx_area > min_area * predictions.size:
 
             # Correct out of range corners
             box = np.maximum(box, 0)
             box = np.stack((np.minimum(box[:, 0], predictions.shape[1]),
                             np.minimum(box[:, 1], predictions.shape[0])), axis=1)
 
-            return box
+            # return box
+            return box, approx_area
 
     if mode not in ['quadrilateral', 'min_rectangle', 'rectangle']:
         raise NotImplementedError
@@ -41,19 +50,27 @@ def find_box(predictions: np.array, mode: str='min_rectangle', min_area: float=0
                 mode = 'min_rectangle'
                 print('Quadrilateral has {} points. Switching to minimal rectangle mode'.format(len(box)))
             else:
-                found_box = validate_box(box)
+                # found_box = validate_box(box)
+                found_boxes.append(validate_box(box))
     if mode == 'min_rectangle':
         for c in contours:
             rect = cv2.minAreaRect(c)
             box = np.int0(cv2.boxPoints(rect))
-            found_box = validate_box(box)
+            # found_box = validate_box(box)
+            found_boxes.append(validate_box(box))
     elif mode == 'rectangle':
         for c in contours:
             x, y, w, h = cv2.boundingRect(c)
             box = np.array([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], dtype=int)
-            found_box = validate_box(box)
+            # found_box = validate_box(box)
+            found_boxes.append(validate_box(box))
 
-    return found_box
+    # sort by area
+    found_boxes = sorted(found_boxes, key=lambda x: x[1], reverse=True)
+    if n_max_boxes == 1:
+        return found_boxes[0][0]
+    else:
+        return [fb[0] for i, fb in enumerate(found_boxes) if i <= n_max_boxes]
 
 
 def cini_post_processing_fn(preds: np.ndarray,
@@ -111,6 +128,27 @@ def cini_post_processing_fn(preds: np.ndarray,
         })
     return cardboard_rectangle, image_rectangle
 
+
+def ornaments_post_processing_fn(probs: np.ndarray, threshold: float=0.5, ksize_open: tuple=(5, 5),
+                                 ksize_close: tuple=(7, 7), output_basename: str=None) -> np.ndarray:
+    # todo
+    probs = probs[:, :, 1]
+    if threshold < 0:  # Otsu thresholding
+        probs_ch = np.uint8(probs * 255)
+        blur = cv2.GaussianBlur(probs_ch, (5, 5), 0)
+        thresh_val, bin_img = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        mask = bin_img / 255
+    else:
+        mask = probs > threshold
+        # TODO : adaptive kernel (not hard-coded)
+    mask = cv2.morphologyEx((mask.astype(np.uint8) * 255), cv2.MORPH_OPEN, kernel=np.ones(ksize_open))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel=np.ones(ksize_close))
+
+    result = mask / 255
+
+    if output_basename is not None:
+        imsave('{}.png'.format(output_basename), result*255)
+    return result
 
 # Ramer-Douglas-Peucker from :
 # https://stackoverflow.com/questions/37946754/python-ramer-douglas-peucker-rdp-algorithm-with-number-of-points-instead-of
