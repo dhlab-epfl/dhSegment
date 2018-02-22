@@ -74,9 +74,12 @@ class Metrics:
             print('Cannot compute PSNR, MSE is 0.')
 
     def compute_prf(self, beta=1):
-        self.recall = self.true_positives / (self.true_positives + self.false_negatives)
-        self.precision = self.true_positives / (self.true_positives + self.false_positives)
-        self.f_measure = ((1 + beta ** 2) * self.recall * self.precision) / (self.recall + (beta ** 2) * self.precision)
+        self.recall = self.true_positives / (self.true_positives + self.false_negatives) \
+            if (self.true_positives + self.false_negatives) > 0 else 0
+        self.precision = self.true_positives / (self.true_positives + self.false_positives) \
+            if (self.true_positives + self.false_negatives) > 0 else 0
+        self.f_measure = ((1 + beta ** 2) * self.recall * self.precision) / (self.recall + (beta ** 2) * self.precision) \
+            if (self.recall + self.precision) > 0 else 0
 
         return self.recall, self.precision, self.f_measure
 
@@ -85,7 +88,7 @@ class Metrics:
         return self.mIOU
 
     def compute_accuracy(self):
-        self.accuracy = (self.true_positives + self.true_negatives)/self.total_elements
+        self.accuracy = (self.true_positives + self.true_negatives)/self.total_elements if self.total_elements > 0 else 0
 
     def save_to_json(self, json_filename: str) -> None:
         export_dic = self.__dict__.copy()

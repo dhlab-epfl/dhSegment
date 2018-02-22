@@ -7,7 +7,7 @@ from tqdm import tqdm
 import numpy as np
 try:
     import better_exceptions
-except:
+except ImportError:
     print('/!\ W -- Not able to import package better_exceptions')
     pass
 from tqdm import trange
@@ -64,7 +64,7 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
     train_images_dir, train_labels_dir = os.path.join(train_dir, 'images'), os.path.join(train_dir, 'labels')
     eval_images_dir, eval_labels_dir = os.path.join(eval_dir, 'images'), os.path.join(eval_dir, 'labels')
 
-    for i in trange(0, training_params.n_epochs, training_params.evaluate_every_epoch):
+    for i in trange(0, training_params.n_epochs, training_params.evaluate_every_epoch, desc='Evaluated epochs'):
         # Train for one epoch
         estimator.train(input.input_fn(train_images_dir,
                                        input_label_dir=train_labels_dir,

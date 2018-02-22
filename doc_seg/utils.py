@@ -115,7 +115,8 @@ class ModelParams(BaseParams):
             '{} != {}'.format(len(self.upscale_params),
                               len(self.selected_levels_upscaling))
 
-        assert os.path.isfile(self.pretrained_model_file)
+        assert os.path.isfile(self.pretrained_model_file), \
+            'Pretrained weights file {} not found'.format(self.pretrained_model_file)
 
 
 class TrainingParams(BaseParams):

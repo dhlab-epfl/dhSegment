@@ -13,7 +13,7 @@ if __name__ == '__main__':
 
     ap = argparse.ArgumentParser()
     ap.add_argument("-c", "--configs-dir", required=True, help="Folder with configs file")
-    ap.add_argument("-f", "--failed-configs-dir", required=True, help="Folder with failed experiments")
+    ap.add_argument("-f", "--failed-configs-dir", required=False, help="Folder with failed experiments")
     args = ap.parse_args()
 
     while True:

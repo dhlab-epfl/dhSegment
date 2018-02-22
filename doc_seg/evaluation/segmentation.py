@@ -102,6 +102,10 @@ def diva_evaluate_folder(output_folder: str, validation_dir: str, command_line_t
         target_shape = (label_image.shape[1], label_image.shape[0])
         bin_upscaled = cv2.resize(np.uint8(post_processed_img), target_shape, interpolation=cv2.INTER_NEAREST)
 
+        if debug_folder is not None:
+            imsave(os.path.join(debug_folder, basename + '.png'), bin_upscaled)
+            # imsave(os.path.join(debug_folder, basename + '_label.png'), label_image)
+
         for ch in range(n_channels):
             metric = compare_bin_prediction_to_label(bin_upscaled[:, :, ch], label_image[:, :, ch])
             global_metrics_per_class[DIVA_CLASSES[ch]] += metric
@@ -131,7 +135,7 @@ def diva_evaluate_folder(output_folder: str, validation_dir: str, command_line_t
     if command_line_tool:
         pass
 
-    if return_global_metric_only:
+    if not return_global_metric_only:
         # Todo : Not sure it is the best to have nested dictionnaries
         return {
             'precision': {
