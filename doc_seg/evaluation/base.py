@@ -37,6 +37,7 @@ class Metrics:
         self.MSE = 0
         self.psnr = 0
         self.mIOU = 0
+        self.IU = 0
         self.accuracy = 0
         self.recall = 0
         self.precision = 0
@@ -86,6 +87,12 @@ class Metrics:
     def compute_miou(self):
         self.mIOU = np.mean(self.IOU_list)
         return self.mIOU
+
+    # See http://cdn.iiit.ac.in/cdn/cvit.iiit.ac.in/images/ConferencePapers/2017/DocUsingDeepFeatures.pdf
+    def compute_iu(self):
+        self.IU = self.true_positives / (self.true_positives + self.false_positives + self.false_negatives) \
+            if (self.true_positives + self.false_positives + self.false_negatives) > 0 else 0
+        return self.IU
 
     def compute_accuracy(self):
         self.accuracy = (self.true_positives + self.true_negatives)/self.total_elements if self.total_elements > 0 else 0

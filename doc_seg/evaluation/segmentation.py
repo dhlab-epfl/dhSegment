@@ -117,16 +117,18 @@ def diva_evaluate_folder(output_folder: str, validation_dir: str, command_line_t
         global_metrics_per_class[key].compute_psnr()
         global_metrics_per_class[key].compute_prf()
         global_metrics_per_class[key].compute_accuracy()
+        global_metrics_per_class[key].compute_iu()
         global_metric_all_classes += global_metrics_per_class[key]
 
     global_metric_all_classes.compute_mse()
     global_metric_all_classes.compute_psnr()
     global_metric_all_classes.compute_prf()
     global_metric_all_classes.compute_accuracy()
+    global_metric_all_classes.compute_iu()
 
-    print('EVAL --- Accuracy :  {}, PSNR : {}, R : {}, P : {}, FM : {}\n'.format(
+    print('EVAL --- Accuracy :  {}, IU : {}, R : {}, P : {}, FM : {}\n'.format(
         global_metric_all_classes.accuracy,
-        global_metric_all_classes.psnr,
+        global_metric_all_classes.IU,
         global_metric_all_classes.recall,
         global_metric_all_classes.precision,
         global_metric_all_classes.f_measure))
@@ -150,9 +152,9 @@ def diva_evaluate_folder(output_folder: str, validation_dir: str, command_line_t
                 **{'global': global_metric_all_classes.f_measure},
                 **{key: global_metrics_per_class[key].f_measure for key in global_metrics_per_class.keys()}
             },
-            'psnr': {
-                **{'global': global_metric_all_classes.psnr},
-                **{key: global_metrics_per_class[key].psnr for key in global_metrics_per_class.keys()}
+            'IU': {
+                **{'global': global_metric_all_classes.IU},
+                **{key: global_metrics_per_class[key].IU for key in global_metrics_per_class.keys()}
             },
             'accuracy': {
                 **{'global': global_metric_all_classes.accuracy},
@@ -163,7 +165,7 @@ def diva_evaluate_folder(output_folder: str, validation_dir: str, command_line_t
         return {
             'precision': global_metric_all_classes.precision,
             'recall': global_metric_all_classes.recall,
-            'psnr': global_metric_all_classes.psnr,
+            'IU': global_metric_all_classes.IU,
             'f_measure': global_metric_all_classes.f_measure,
             'accuracy': global_metric_all_classes.accuracy
         }
