@@ -221,10 +221,12 @@ def ornament_evaluate_folder(output_folder: str, validation_dir: str, debug_fold
 
                     if best_iou > threshold:
                         metric.true_positives += 1
+                        metric.IOU_list.append(best_iou)
                     elif best_iou < 0.1:
                         metric.false_negatives += 1
                     else:
                         metric.false_positives += 1
+                        metric.IOU_list.append(best_iou)
 
             metric.total_elements += len(label_boxes)
             return metric
