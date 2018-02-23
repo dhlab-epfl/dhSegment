@@ -54,7 +54,6 @@ if __name__ == '__main__':
 
     # Perform test prediction (is it the right place?)
     test_folder = args.get('test_folder')
-    #if test_folder is None:
     for i, best_experiment in enumerate(sorted_experiments[:1]):
         print(best_experiment)
         print('Validation :')
@@ -82,7 +81,7 @@ if __name__ == '__main__':
                                                                 debug_folder=os.path.join(output_folder_exp, 'debug'))
         utils.dump_json(os.path.join(output_folder_exp, 'scores.json'), scores)
         print(scores)
-        # utils.dump_json(os.path.join(output_folder_exp, 'experiment_info.json'),
-        #                 {'model': best_experiment.model_config,
-        #                  'post_process_config': best_experiment.post_process_config,
-        #                  'folder': best_experiment.get_best_model_folder()})
+        utils.dump_json(os.path.join(output_folder_exp, 'experiment_info.json'),
+                        {'model': best_experiment.model_config,
+                         'post_process_config': best_experiment.post_process_config,
+                         'folder': best_experiment.get_best_model_folder()})

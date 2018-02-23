@@ -31,7 +31,7 @@ def _hash_dict(params):
 
 
 def evaluate_one_model(model_dir, validation_dir, post_processing_pair, post_processing_params,
-                       verbose=False, save_params=True) -> None:
+                       verbose=False, save_params=True, n_selected_epochs=None) -> None:
     """
     Evaluate a combination model/post-process
     :param model_dir:
@@ -44,6 +44,9 @@ def evaluate_one_model(model_dir, validation_dir, post_processing_pair, post_pro
     """
     eval_outputs_dir = os.path.join(model_dir, 'eval', 'epoch_*')
     list_saved_epochs = glob(eval_outputs_dir)
+    list_saved_epochs.sort()
+    if n_selected_epochs is not None:
+        list_saved_epochs = list_saved_epochs[-n_selected_epochs:]
     if len(list_saved_epochs) == 0:
         print('No file found in : {}'.format(eval_outputs_dir))
         return
@@ -79,6 +82,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--task-type', type=str, required=True,
                         help="Choose among : 'cbad', 'dibco', 'page', 'cini'")
     parser.add_argument('-v', '--verbose', type=bool, default=False)
+    parser.add_argument('-ne', '--n_epochs', type=int, default=None, help='Number of selected epochs to evaluate')
     # Labels dir is not necessary anymore, can be obtained directly from model config
     # parser.add_argument('-l', '--labels-dir', type=str, required=True)
     args = vars(parser.parse_args())
@@ -104,4 +108,5 @@ if __name__ == '__main__':
             eval_data_dir = parse_json(os.path.join(model_dir, 'config.json'))['eval_dir']
             evaluate_one_model(model_dir, eval_data_dir,
                                post_processing_pair,
-                               params, args.get('verbose'))
+                               params, args.get('verbose'),
+                               n_selected_epochs=args.get('n_epochs'))

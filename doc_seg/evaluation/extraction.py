@@ -215,7 +215,7 @@ def ornament_evaluate_folder(output_folder: str, validation_dir: str, debug_fold
                 for pb in predicted_boxes:
                     best_iou = 0
                     for lb in label_boxes:
-                        iou = intersection_over_union(pb[:, None, :], lb[:, None, :], True)
+                        iou = intersection_over_union(pb[:, None, :], lb[:, None, :])
                         if iou > best_iou:
                             best_iou = iou
 

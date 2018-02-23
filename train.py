@@ -64,6 +64,10 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
     train_images_dir, train_labels_dir = os.path.join(train_dir, 'images'), os.path.join(train_dir, 'labels')
     eval_images_dir, eval_labels_dir = os.path.join(eval_dir, 'images'), os.path.join(eval_dir, 'labels')
 
+    # Check if training and eval dir exists
+    assert os.path.isdir(train_images_dir)
+    assert os.path.isdir(eval_images_dir)
+
     for i in trange(0, training_params.n_epochs, training_params.evaluate_every_epoch, desc='Evaluated epochs'):
         # Train for one epoch
         estimator.train(input.input_fn(train_images_dir,

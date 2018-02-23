@@ -122,7 +122,7 @@ class ModelParams(BaseParams):
 class TrainingParams(BaseParams):
     def __init__(self):
         self.n_epochs = 20
-        self.evaluate_every_epoch = 5
+        self.evaluate_every_epoch = 10
         self.learning_rate = 1e-5
         self.exponential_learning = True
         self.batch_size = 5

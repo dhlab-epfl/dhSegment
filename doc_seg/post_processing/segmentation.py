@@ -50,12 +50,13 @@ def page_post_processing_fn(probs: np.ndarray, threshold: float=0.5, output_base
     return result
 
 
-def diva_post_processing_fn(probs: np.ndarray, thresholds: List[float]=[0.5, 0.5, 0.5],
+def diva_post_processing_fn(probs: np.ndarray, thresholds: List[float]=[0.5, 0.5, 0.5], opening=False,
                             output_basename: str=None) -> np.ndarray:
     """
 
     :param probs: array in range [0, 1] of shape HxWx3
     :param thresholds: list of length 3 corresponding to the threshold for each channel
+    :param opening: perform an morphological opening after threshold
     :param output_basename:
     :return:
     """
@@ -71,6 +72,9 @@ def diva_post_processing_fn(probs: np.ndarray, thresholds: List[float]=[0.5, 0.5
             bin_img = bin_img / 255
         else:
             bin_img = probs_ch > thresholds[ch]
+
+        if opening:
+            bin_img = cv2.morphologyEx((bin_img.astype(np.uint8) * 255), cv2.MORPH_OPEN, kernel=np.ones((3, 3)))
 
         final_mask[:, :, ch] = bin_img
 

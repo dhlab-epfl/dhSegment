@@ -63,7 +63,7 @@ class Metrics:
         return self.__add__(other)
 
     def compute_mse(self):
-        self.MSE = np.sum(self.SE_list) / self.total_elements
+        self.MSE = np.sum(self.SE_list) / self.total_elements if self.total_elements > 0 else np.inf
         return self.MSE
 
     def compute_psnr(self):
