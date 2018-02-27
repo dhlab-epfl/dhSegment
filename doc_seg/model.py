@@ -347,8 +347,9 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
 
         # Upsampling
         with tf.name_scope('upsampling'):
-            with resnet_v1.resnet_arg_scope(), \
-                 arg_scope([layers.conv2d], normalizer_fn=batch_norm_fn):
+            with arg_scope([layers.conv2d],
+                           normalizer_fn=batch_norm_fn,
+                           weights_regularizer=layers.l2_regularizer(weight_decay)):
                 selected_upscale_params = [l for i, l in enumerate(params.upscale_params)
                                            if params.selected_levels_upscaling[i]]
 
@@ -368,7 +369,8 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
                             inputs=l,
                             num_outputs=params.max_depth,
                             kernel_size=[1, 1],
-                            scope="dimreduc_{}".format(i)
+                            scope="dimreduc_{}".format(i),
+                            activation_fn=None
                         )
 
                 # Deconvolving loop
