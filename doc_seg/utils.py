@@ -91,6 +91,7 @@ class ModelParams(BaseParams):
         self.weight_decay = kwargs.get('weight_decay', 1e-5)  # type: float
         self.n_classes = kwargs.get('n_classes', None)  # type: int
         self.pretrained_model_name = kwargs.get('pretrained_model_name', None)  # type: str
+        self.max_depth = kwargs.get('max_depth', 512)  # type: int
 
         if self.pretrained_model_name == 'vgg16':
             model_class = VGG16ModelParams

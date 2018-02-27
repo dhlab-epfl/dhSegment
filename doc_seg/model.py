@@ -1,5 +1,7 @@
 import tensorflow as tf
 from tensorflow.contrib import layers  # TODO migration to tf.layers ?
+from tensorflow.contrib.slim.nets import resnet_v1
+from tensorflow.contrib.slim import arg_scope
 from .utils import PredictionType, class_to_label_image, ModelParams, TrainingParams
 from .pretrained_models import vgg_16_fn, resnet_v1_50_fn
 from doc_seg import utils
@@ -7,7 +9,6 @@ import numpy as np
 
 
 def model_fn(mode, features, labels, params):
-
     model_params = ModelParams(**params['model_params'])
     training_params = TrainingParams.from_dict(params['training_params'])
     prediction_type = params['prediction_type']
@@ -89,11 +90,11 @@ def model_fn(mode, features, labels, params):
                     weight_mask = tf.reduce_sum(
                         tf.constant(np.array(training_params.weights_labels, dtype=np.float32)[None, None, None]) *
                         onehot_labels, axis=-1)
-                    per_pixel_loss = per_pixel_loss*weight_mask
+                    per_pixel_loss = per_pixel_loss * weight_mask
                 if training_params.local_entropy_ratio > 0:
                     assert 'weight_maps' in features
                     r = training_params.local_entropy_ratio
-                    per_pixel_loss = per_pixel_loss* ( (1-r) + r * features['weight_maps'])
+                    per_pixel_loss = per_pixel_loss * ((1 - r) + r * features['weight_maps'])
 
         elif prediction_type == PredictionType.REGRESSION:
             per_pixel_loss = tf.squared_difference(labels, network_output, name='per_pixel_loss')
@@ -107,7 +108,7 @@ def model_fn(mode, features, labels, params):
                         tf.reduce_max(tf.constant(
                             np.array(training_params.weights_labels, dtype=np.float32)[None, None, None])
                                       * labels_floats, axis=-1), 1.0)
-                    per_pixel_loss = per_pixel_loss*weight_mask[:, :, :, None]
+                    per_pixel_loss = per_pixel_loss * weight_mask[:, :, :, None]
         else:
             raise NotImplementedError
 
@@ -116,7 +117,8 @@ def model_fn(mode, features, labels, params):
         with tf.name_scope('Loss'):
             def _fn(_in):
                 output, shape = _in
-                return tf.reduce_mean(output[margin:shape[0]-margin, margin:shape[1]-margin])
+                return tf.reduce_mean(output[margin:shape[0] - margin, margin:shape[1] - margin])
+
             per_img_loss = tf.map_fn(_fn, (per_pixel_loss, input_shapes), dtype=tf.float32)
             loss = tf.reduce_mean(per_img_loss, name='loss')
 
@@ -179,7 +181,7 @@ def model_fn(mode, features, labels, params):
             class_dim = prediction_probs.get_shape().as_list()[-1]
             for c in range(0, class_dim):
                 tf.summary.image('output/prediction_probs_{}'.format(c),
-                                 tf.image.resize_images(prediction_probs[:, :, :, c:c+1],
+                                 tf.image.resize_images(prediction_probs[:, :, :, c:c + 1],
                                                         tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
                                  max_outputs=1)
 
@@ -205,7 +207,7 @@ def model_fn(mode, features, labels, params):
                                       train_op=train_op,
                                       eval_metric_ops=metrics,
                                       export_outputs={'output':
-                                                      tf.estimator.export.PredictOutput(predictions)},
+                                                          tf.estimator.export.PredictOutput(predictions)},
                                       scaffold=tf.train.Scaffold(init_fn=init_fn)
                                       )
 
@@ -319,47 +321,71 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
                                                          method=tf.image.ResizeMethod.BILINEAR)
                 net = tf.concat([upsampled_layer, previous_intermediate_layer], 3)
 
-                for i, (nb_filters, filter_size) in enumerate(layer_params):
+                filter_size, nb_bottlenecks = layer_params
+                if nb_bottlenecks > 0:
+                    for i in range(nb_bottlenecks):
+                        net = resnet_v1.bottleneck(
+                            inputs=net,
+                            depth=filter_size,
+                            depth_bottleneck=filter_size // 4,
+                            stride=1
+                        )
+                else:
                     net = layers.conv2d(
-                        inputs=net,
-                        num_outputs=nb_filters,
-                        kernel_size=[filter_size, filter_size],
-                        normalizer_fn=batch_norm_fn,
-                        scope="conv{}_{}".format(number, i + 1)
-                    )
+                            inputs=net,
+                            num_outputs=filter_size,
+                            kernel_size=[1, 1],
+                            scope="conv{}".format(number)
+                        )
+
             return net
 
         # Original ResNet
-        resnet_net, intermediate_layers = resnet_v1_50_fn(images, is_training=False, blocks=4,
+        blocks_needed = max([i - 1 for i, is_needed in enumerate(params.selected_levels_upscaling) if is_needed])
+        resnet_net, intermediate_layers = resnet_v1_50_fn(images, is_training=False, blocks=blocks_needed,
                                                           weight_decay=weight_decay, renorm=False)
-        out_tensor = resnet_net
 
         # Upsampling
         with tf.name_scope('upsampling'):
-            selected_upscale_params = [l for i, l in enumerate(params.upscale_params)
-                                       if params.selected_levels_upscaling[i]]
+            with resnet_v1.resnet_arg_scope(), \
+                 arg_scope([layers.conv2d], normalizer_fn=batch_norm_fn):
+                selected_upscale_params = [l for i, l in enumerate(params.upscale_params)
+                                           if params.selected_levels_upscaling[i]]
 
-            assert len(params.selected_levels_upscaling) == len(intermediate_layers), \
-                'Upsacaling : {} is different from {}'.format(len(params.selected_levels_upscaling),
-                                                              len(intermediate_layers))
+                assert len(params.selected_levels_upscaling) == len(intermediate_layers), \
+                    'Upscaling : {} is different from {}'.format(len(params.selected_levels_upscaling),
+                                                                 len(intermediate_layers))
 
-            selected_intermediate_levels = [l for i, l in enumerate(intermediate_layers)
-                                            if params.selected_levels_upscaling[i]]
+                selected_intermediate_levels = [l for i, l in enumerate(intermediate_layers)
+                                                if params.selected_levels_upscaling[i]]
 
-            # Deconvolving loop
-            n_layer = 1
-            for i in reversed(range(len(selected_intermediate_levels))):
-                out_tensor = upsample_conv(out_tensor, selected_intermediate_levels[i],
-                                           selected_upscale_params[i], n_layer)
+                selected_intermediate_levels.insert(images, 0)
 
-                n_layer += 1
+                # Force layers to not be too big to reduce memory usage
+                for i, l in enumerate(selected_intermediate_levels):
+                    if l.get_shape()[-1] > params.max_depth:
+                        selected_intermediate_levels[i] = layers.conv2d(
+                            inputs=l,
+                            num_outputs=params.max_depth,
+                            kernel_size=[1, 1],
+                            scope="dimreduc_{}".format(i)
+                        )
 
-            if images.get_shape()[1].value and images.get_shape()[2].value:
-                target_shape = images.get_shape()[1:3]
-            else:
-                target_shape = tf.shape(images)[1:3]
-            out_tensor = tf.image.resize_images(out_tensor, target_shape,
-                                                method=tf.image.ResizeMethod.BILINEAR)
+                # Deconvolving loop
+                out_tensor = selected_intermediate_levels[-1]
+                n_layer = 1
+                for i in reversed(range(len(selected_intermediate_levels)))[1:]:
+                    out_tensor = upsample_conv(out_tensor, selected_intermediate_levels[i],
+                                               selected_upscale_params[i], n_layer)
+
+                    n_layer += 1
+
+                if images.get_shape()[1].value and images.get_shape()[2].value:
+                    target_shape = images.get_shape()[1:3]
+                else:
+                    target_shape = tf.shape(images)[1:3]
+                out_tensor = tf.image.resize_images(out_tensor, target_shape,
+                                                    method=tf.image.ResizeMethod.BILINEAR)
 
             logits = layers.conv2d(inputs=out_tensor,
                                    num_outputs=num_classes,

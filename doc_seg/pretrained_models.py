@@ -77,8 +77,7 @@ def resnet_v1_50_fn(input_tensor: tf.Tensor, is_training=False, blocks=4, weight
                              ]
 
         intermediate_layers = list()
-        intermediate_layers.append(input_tensor)
-        for d in desired_endpoints:
+        for d in desired_endpoints[:blocks+1]:
             intermediate_layers.append(endpoints[d])
 
         return net, intermediate_layers
