@@ -1,0 +1,20 @@
+{
+  "training_params" : {
+      "learning_rate": 3e-4,
+      "batch_size": 8,
+      "make_patches": true,
+      "n_epochs": 50,
+      "patch_shape": [400, 400],
+      "data_augmentation" : true,
+      "data_augmentation_max_rotation" : 0.4,
+      "data_augmentation_max_scaling" : 0.2,
+      "evaluate_every_epoch" : 10
+  },
+  "model_params": {
+    "batch_norm": true,
+    "batch_renorm": true,
+    "weight_decay": 1e-4,
+    "correct_resnet_version" : false
+  },
+  "pretrained_model_name" : "resnet50"
+}

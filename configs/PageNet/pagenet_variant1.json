@@ -1,6 +1,0 @@
-{
-"train_dir" : "/home/datasets/PageNet_data/generated_pages/train/",
-"eval_dir" : "/home/datasets/PageNet_data/generated_pages/val_a1",
-"classes_file" : "/home/datasets/PageNet_data/generated_pages/classes.txt",
-"model_output_dir" : "/home/docseg_models/PAGE/pagenet_test"
-}

@@ -1,7 +1,0 @@
-{
-"train_dir" : "/home/datasets/DIVA/generated_diva/training",
-"eval_dir" : "/home/datasets/DIVA/generated_diva/validation",
-"classes_file" : "/home/datasets/DIVA/generated_diva/training/classes.txt",
-"model_output_dir" : "/home/docseg_models/DIVA/diva_1",
-"prediction_type" : "MULTILABEL"
-}
