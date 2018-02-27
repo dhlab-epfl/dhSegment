@@ -141,16 +141,20 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
         if make_patches:
             dataset = dataset.shuffle(50)
 
+        if make_patches and input_label_dir:
+            base_shape_images = list(training_params.patch_shape)
+        else:
+            base_shape_images = [-1, -1]
         # Pad things
         padded_shapes = {
-            'images': [-1, -1, 3],
+            'images': base_shape_images + [3],
             'shapes': [2]
         }
         if 'labels' in dataset.output_shapes.keys():
             output_shapes_label = dataset.output_shapes['labels']
-            padded_shapes['labels'] = [-1, -1] + list(output_shapes_label[2:])
+            padded_shapes['labels'] = base_shape_images + list(output_shapes_label[2:])
         if 'weight_maps' in dataset.output_shapes.keys():
-            padded_shapes['weight_maps'] = [-1, -1]
+            padded_shapes['weight_maps'] = base_shape_images
         dataset = dataset.padded_batch(batch_size=batch_size, padded_shapes=padded_shapes)
         dataset = dataset.prefetch(4)
         iterator = dataset.make_one_shot_iterator()
@@ -168,7 +172,6 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
                     label_export = utils.class_to_label_image(label_export, classes_file)
                 if prediction_type == utils.PredictionType.MULTILABEL:
                     label_export = tf.cast(label_export, tf.int32)
-                    label_export.set_shape((batch_size, *shape_summary_img, None))
                     label_export = utils.multiclass_to_label_image(label_export, classes_file)
                 tf.summary.image('input/label',
                                  tf.image.resize_images(label_export, shape_summary_img), max_outputs=1)

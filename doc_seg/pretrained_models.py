@@ -73,7 +73,7 @@ def resnet_v1_50_fn(input_tensor: tf.Tensor, is_training=False, blocks=4, weight
                              'resnet_v1_50/block1/unit_2/bottleneck_v1',
                              'resnet_v1_50/block2/unit_3/bottleneck_v1',
                              'resnet_v1_50/block3/unit_5/bottleneck_v1',
-                             'resnet_v1_50/block4/unit_2/bottleneck_v1'
+                             'resnet_v1_50/block4/unit_3/bottleneck_v1'
                              ]
 
         intermediate_layers = list()

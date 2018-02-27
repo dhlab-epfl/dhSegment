@@ -150,40 +150,44 @@ def model_fn(mode, features, labels, params):
     # Summaries
     # ---------
     if mode == tf.estimator.ModeKeys.TRAIN:
-        tf.summary.scalar('losses/loss', loss)
-        tf.summary.scalar('losses/loss_per_batch', loss)
-        tf.summary.scalar('losses/regularized_loss', regularized_loss)
-        if prediction_type == PredictionType.CLASSIFICATION:
-            tf.summary.image('output/prediction',
-                             tf.image.resize_images(class_to_label_image(prediction_labels, classes_file),
-                                                    tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
-                             max_outputs=1)
-            if model_params.n_classes == 3:
-                tf.summary.image('output/probs',
-                                 tf.image.resize_images(prediction_probs[:, :, :, :],
+        with tf.name_scope('summaries'):
+            tf.summary.scalar('losses/loss', loss)
+            tf.summary.scalar('losses/loss_per_batch', loss)
+            tf.summary.scalar('losses/regularized_loss', regularized_loss)
+            if prediction_type == PredictionType.CLASSIFICATION:
+                tf.summary.image('output/prediction',
+                                 tf.image.resize_images(class_to_label_image(prediction_labels, classes_file),
                                                         tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
                                  max_outputs=1)
-            if model_params.n_classes == 2:
-                tf.summary.image('output/probs',
-                                 tf.image.resize_images(prediction_probs[:, :, :, 1:2],
-                                                        tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
+                if model_params.n_classes == 3:
+                    tf.summary.image('output/probs',
+                                     tf.image.resize_images(prediction_probs[:, :, :, :],
+                                                            tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
+                                     max_outputs=1)
+                if model_params.n_classes == 2:
+                    tf.summary.image('output/probs',
+                                     tf.image.resize_images(prediction_probs[:, :, :, 1:2],
+                                                            tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
+                                     max_outputs=1)
+            elif prediction_type == PredictionType.REGRESSION:
+                summary_img = tf.nn.relu(network_output)[:, :, :, 0:1]  # Put negative values to zero
+                tf.summary.image('output/prediction', summary_img, max_outputs=1)
+            elif prediction_type == PredictionType.MULTILABEL:
+                labels_visualization = tf.cast(prediction_labels, tf.int32)
+                labels_visualization = utils.multiclass_to_label_image(labels_visualization, classes_file)
+                tf.summary.image('output/prediction_image',
+                                 tf.image.resize_images(labels_visualization,
+                                                        tf.cast(tf.shape(labels_visualization)[1:3] / 3, tf.int32)),
                                  max_outputs=1)
-        elif prediction_type == PredictionType.REGRESSION:
-            summary_img = tf.nn.relu(network_output)[:, :, :, 0:1]  # Put negative values to zero
-            tf.summary.image('output/prediction', summary_img, max_outputs=1)
-        elif prediction_type == PredictionType.MULTILABEL:
-            labels_visualization = tf.cast(prediction_labels, tf.int32)
-            labels_visualization = utils.multiclass_to_label_image(labels_visualization, classes_file)
-            tf.summary.image('output/prediction_image',
-                             tf.image.resize_images(labels_visualization,
-                                                    tf.cast(tf.shape(labels_visualization)[1:3] / 3, tf.int32)),
-                             max_outputs=1)
-            class_dim = prediction_probs.get_shape().as_list()[-1]
-            for c in range(0, class_dim):
-                tf.summary.image('output/prediction_probs_{}'.format(c),
-                                 tf.image.resize_images(prediction_probs[:, :, :, c:c + 1],
-                                                        tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
-                                 max_outputs=1)
+                class_dim = prediction_probs.get_shape().as_list()[-1]
+                for c in range(0, class_dim):
+                    tf.summary.image('output/prediction_probs_{}'.format(c),
+                                     tf.image.resize_images(prediction_probs[:, :, :, c:c + 1],
+                                                            tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
+                                     max_outputs=1)
+
+            # beta = tf.get_default_graph().get_tensor_by_name('upsampling/deconv_5/conv5/batch_norm/beta/read:0')
+            # tf.summary.histogram('Beta', beta)
 
     # Evaluation
     # ----------
@@ -295,104 +299,106 @@ def inference_vgg16(images: tf.Tensor, params: ModelParams, num_classes: int, us
 
 def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, weight_decay=0.0,
                            is_training=False) -> tf.Tensor:
-    with tf.name_scope('resnet_augmented'):
-        if use_batch_norm:
-            if params.batch_renorm:
-                renorm_clipping = {'rmax': 100, 'rmin': 0.1, 'dmax': 1}
-                renorm_momentum = 0.98
-            else:
-                renorm_clipping = None
-                renorm_momentum = 0.99
-            batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm',
-                                                                    renorm=params.batch_renorm,
-                                                                    renorm_clipping=renorm_clipping,
-                                                                    renorm_momentum=renorm_momentum)
+    if use_batch_norm:
+        if params.batch_renorm:
+            renorm_clipping = {'rmax': 100, 'rmin': 0.1, 'dmax': 1}
+            renorm_momentum = 0.98
         else:
-            batch_norm_fn = None
+            renorm_clipping = None
+            renorm_momentum = 0.99
+        batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training, name='batch_norm',
+                                                                renorm=params.batch_renorm,
+                                                                renorm_clipping=renorm_clipping,
+                                                                renorm_momentum=renorm_momentum)
+    else:
+        batch_norm_fn = None
 
-        def upsample_conv(input_tensor, previous_intermediate_layer, layer_params, number):
-            with tf.name_scope('deconv_{}'.format(number)):
-                if previous_intermediate_layer.get_shape()[1].value and \
-                        previous_intermediate_layer.get_shape()[2].value:
-                    target_shape = previous_intermediate_layer.get_shape()[1:3]
-                else:
-                    target_shape = tf.shape(previous_intermediate_layer)[1:3]
-                upsampled_layer = tf.image.resize_images(input_tensor, target_shape,
-                                                         method=tf.image.ResizeMethod.BILINEAR)
-                net = tf.concat([upsampled_layer, previous_intermediate_layer], 3)
+    def upsample_conv(input_tensor, previous_intermediate_layer, layer_params, number):
+        with tf.variable_scope('deconv_{}'.format(number)):
+            if previous_intermediate_layer.get_shape()[1].value and \
+                    previous_intermediate_layer.get_shape()[2].value:
+                target_shape = previous_intermediate_layer.get_shape()[1:3]
+            else:
+                target_shape = tf.shape(previous_intermediate_layer)[1:3]
+            upsampled_layer = tf.image.resize_images(input_tensor, target_shape,
+                                                     method=tf.image.ResizeMethod.BILINEAR)
+            net = tf.concat([upsampled_layer, previous_intermediate_layer], 3)
 
-                filter_size, nb_bottlenecks = layer_params
-                if nb_bottlenecks > 0:
-                    for i in range(nb_bottlenecks):
-                        net = resnet_v1.bottleneck(
-                            inputs=net,
-                            depth=filter_size,
-                            depth_bottleneck=filter_size // 4,
-                            stride=1
-                        )
-                else:
-                    net = layers.conv2d(
-                            inputs=net,
-                            num_outputs=filter_size,
-                            kernel_size=[1, 1],
-                            scope="conv{}".format(number)
-                        )
+            filter_size, nb_bottlenecks = layer_params
+            if nb_bottlenecks > 0:
+                for i in range(nb_bottlenecks):
+                    net = resnet_v1.bottleneck(
+                        inputs=net,
+                        depth=filter_size,
+                        depth_bottleneck=filter_size // 4,
+                        stride=1
+                    )
+            else:
+                net = layers.conv2d(
+                        inputs=net,
+                        num_outputs=filter_size,
+                        kernel_size=[1, 1],
+                        scope="conv{}".format(number)
+                    )
 
-            return net
+            # tf.summary.histogram('activations_{}'.format(number), net)
 
-        # Original ResNet
-        blocks_needed = max([i - 1 for i, is_needed in enumerate(params.selected_levels_upscaling) if is_needed])
-        resnet_net, intermediate_layers = resnet_v1_50_fn(images, is_training=False, blocks=blocks_needed,
-                                                          weight_decay=weight_decay, renorm=False)
+        return net
 
-        # Upsampling
-        with tf.name_scope('upsampling'):
-            with arg_scope([layers.conv2d],
-                           normalizer_fn=batch_norm_fn,
-                           weights_regularizer=layers.l2_regularizer(weight_decay)):
-                selected_upscale_params = [l for i, l in enumerate(params.upscale_params)
-                                           if params.selected_levels_upscaling[i]]
+    # Original ResNet
+    blocks_needed = max([i for i, is_needed in enumerate(params.selected_levels_upscaling) if is_needed])
+    resnet_net, intermediate_layers = resnet_v1_50_fn(images, is_training=False, blocks=blocks_needed,
+                                                      weight_decay=weight_decay, renorm=False)
 
-                assert len(params.selected_levels_upscaling) == len(intermediate_layers), \
-                    'Upscaling : {} is different from {}'.format(len(params.selected_levels_upscaling),
-                                                                 len(intermediate_layers))
+    # Upsampling
+    with tf.variable_scope('upsampling'):
+        with arg_scope([layers.conv2d],
+                       normalizer_fn=batch_norm_fn,
+                       weights_regularizer=layers.l2_regularizer(weight_decay)):
+            selected_upscale_params = [l for i, l in enumerate(params.upscale_params)
+                                       if params.selected_levels_upscaling[i]]
 
-                selected_intermediate_levels = [l for i, l in enumerate(intermediate_layers)
-                                                if params.selected_levels_upscaling[i]]
+            assert len(selected_upscale_params) == len(intermediate_layers), \
+                'Upscaling : {} is different from {}'.format(len(selected_upscale_params),
+                                                             len(intermediate_layers))
 
-                selected_intermediate_levels.insert(images, 0)
+            selected_intermediate_levels = [l for i, l in enumerate(intermediate_layers)
+                                            if params.selected_levels_upscaling[i]]
 
-                # Force layers to not be too big to reduce memory usage
-                for i, l in enumerate(selected_intermediate_levels):
-                    if l.get_shape()[-1] > params.max_depth:
-                        selected_intermediate_levels[i] = layers.conv2d(
-                            inputs=l,
-                            num_outputs=params.max_depth,
-                            kernel_size=[1, 1],
-                            scope="dimreduc_{}".format(i),
-                            activation_fn=None
-                        )
+            selected_intermediate_levels.insert(0, images)
 
-                # Deconvolving loop
-                out_tensor = selected_intermediate_levels[-1]
-                n_layer = 1
-                for i in reversed(range(len(selected_intermediate_levels)))[1:]:
-                    out_tensor = upsample_conv(out_tensor, selected_intermediate_levels[i],
-                                               selected_upscale_params[i], n_layer)
+            # Force layers to not be too big to reduce memory usage
+            for i, l in enumerate(selected_intermediate_levels):
+                if l.get_shape()[-1] > params.max_depth:
+                    selected_intermediate_levels[i] = layers.conv2d(
+                        inputs=l,
+                        num_outputs=params.max_depth,
+                        kernel_size=[1, 1],
+                        scope="dimreduc_{}".format(i),
+                        # normalizer_fn=batch_norm_fn,
+                        activation_fn=None
+                    )
 
-                    n_layer += 1
+            # Deconvolving loop
+            out_tensor = selected_intermediate_levels[-1]
+            n_layer = 1
+            for i in reversed(range(len(selected_intermediate_levels) - 1)):
+                out_tensor = upsample_conv(out_tensor, selected_intermediate_levels[i],
+                                           selected_upscale_params[i], n_layer)
 
-                if images.get_shape()[1].value and images.get_shape()[2].value:
-                    target_shape = images.get_shape()[1:3]
-                else:
-                    target_shape = tf.shape(images)[1:3]
-                out_tensor = tf.image.resize_images(out_tensor, target_shape,
-                                                    method=tf.image.ResizeMethod.BILINEAR)
+                n_layer += 1
 
-            logits = layers.conv2d(inputs=out_tensor,
-                                   num_outputs=num_classes,
-                                   activation_fn=None,
-                                   kernel_size=[1, 1],
-                                   scope="conv{}-logits".format(n_layer))
+            if images.get_shape()[1].value and images.get_shape()[2].value:
+                target_shape = images.get_shape()[1:3]
+            else:
+                target_shape = tf.shape(images)[1:3]
+            out_tensor = tf.image.resize_images(out_tensor, target_shape,
+                                                method=tf.image.ResizeMethod.BILINEAR)
 
-        return logits
+        logits = layers.conv2d(inputs=out_tensor,
+                               num_outputs=num_classes,
+                               activation_fn=None,
+                               kernel_size=[1, 1],
+                               scope="conv{}-logits".format(n_layer))
+
+    return logits
