@@ -67,16 +67,18 @@ class ResNetModelParams:
     PRETRAINED_MODEL_FILE = '/home/pretrained_models/resnet_v1_50.ckpt'
     INTERMEDIATE_CONV = None
     UPSCALE_PARAMS = [
-        [(32, 3)],
-        [(64, 3)],
-        [(64, 3)],
-        [(128, 3)],
-        [(256, 3)],
-        [(512, 3)]
+        # Filter size (depth bottleneck's output), number of bottleneck
+        (32, 1),
+        (64, 1),
+        (64, 1),
+        (128, 1),
+        (256, 1),
+        (512, 1)
     ]
     SELECTED_LAYERS_UPSCALING = [
+        # Must have the same length as resnet_upscale_params
         True,
-        True,  # Must have same length as resnet_upscale_params
+        True,
         True,
         True,
         True,
@@ -130,11 +132,11 @@ class TrainingParams(BaseParams):
         self.data_augmentation_flip_lr = True
         self.data_augmentation_flip_ud = True
         self.data_augmentation_color = True
-        self.data_augmentation_max_rotation = 0.2
+        self.data_augmentation_max_rotation = 0.2  # in radians
         self.data_augmentation_max_scaling = 0.05  # range : [0, 1]
         self.make_patches = True
         self.patch_shape = (300, 300)
-        self.input_resized_shape = (480, 320)  # Deprecated
+        # self.input_resized_shape = (480, 320)  # Deprecated
         # If input_resized_size == -1, no resizing is done
         self.input_resized_size = int(72e4)  # (600*1200) # type: int
         self.weights_labels = None
