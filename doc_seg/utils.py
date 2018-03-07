@@ -61,13 +61,14 @@ class VGG16ModelParams:
         False,
         False
     ]
+    CORRECTED_VERSION = None
 
 
 class ResNetModelParams:
     PRETRAINED_MODEL_FILE = '/home/pretrained_models/resnet_v1_50.ckpt'
     INTERMEDIATE_CONV = None
     UPSCALE_PARAMS = [
-        # Filter size (depth bottleneck's output), number of bottleneck
+        # (Filter size (depth bottleneck's output), number of bottleneck)
         (32, 2),
         (64, 1),
         (256, 1),
@@ -82,6 +83,7 @@ class ResNetModelParams:
         True,
         True
     ]
+    CORRECT_VERSION = False
 
 
 class ModelParams(BaseParams):
@@ -104,6 +106,7 @@ class ModelParams(BaseParams):
         self.intermediate_conv = kwargs.get('intermediate_conv', model_class.INTERMEDIATE_CONV)
         self.upscale_params = kwargs.get('upscale_params', model_class.UPSCALE_PARAMS)
         self.selected_levels_upscaling = kwargs.get('selected_levels_upscaling', model_class.SELECTED_LAYERS_UPSCALING)
+        self.correct_resnet_version = kwargs.get('correct_resnet_version', model_class.CORRECT_VERSION)
         self.check_params()
 
     def check_params(self):
@@ -128,9 +131,9 @@ class TrainingParams(BaseParams):
         self.exponential_learning = True
         self.batch_size = 5
         self.data_augmentation = False
-        self.data_augmentation_flip_lr = True
-        self.data_augmentation_flip_ud = True
-        self.data_augmentation_color = True
+        self.data_augmentation_flip_lr = False
+        self.data_augmentation_flip_ud = False
+        self.data_augmentation_color = False
         self.data_augmentation_max_rotation = 0.2  # in radians
         self.data_augmentation_max_scaling = 0.05  # range : [0, 1]
         self.make_patches = True
