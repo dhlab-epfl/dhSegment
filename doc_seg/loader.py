@@ -2,7 +2,10 @@ import tensorflow as tf
 import os
 from threading import Semaphore
 import numpy as np
-
+from .input_utils import load_and_resize_image
+import tempfile
+from scipy.misc import imsave, imread
+from PIL import Image
 
 class LoadedModel:
     def __init__(self, model_base_dir, input_dict_key='images', signature_def_key='serving_default',
@@ -32,17 +35,31 @@ class LoadedModel:
                 desired_output = self._output_dict
             return self.sess.run(desired_output, feed_dict={self._input_tensor: input_tensor})
 
-    def predict_with_tiles(self, image_tensor, tile_size=500, min_overlap=0.2, linear_interpolation=True):
-        b, h, w = image_tensor.shape[:3]
+    def predict_with_tiles(self, filename: str, resized_size: int=None, tile_size: int=500,
+                           min_overlap: float=0.2, linear_interpolation: bool=True):
+
+        if resized_size is None or resized_size < 0:
+            image_np = imread(filename)
+            h, w = image_np.shape[:2]
+            b = 1
+        else:
+            raise NotImplementedError
         assert h > tile_size, w > tile_size
         # Get x and y coordinates of beginning of tiles and compute prediction for each tile
         y_step = np.ceil((h - tile_size) / (tile_size * (1 - min_overlap)))
         x_step = np.ceil((w - tile_size) / (tile_size * (1 - min_overlap)))
         y_pos = np.round(np.arange(y_step + 1) / y_step * (h - tile_size)).astype(np.int32)
         x_pos = np.round(np.arange(x_step + 1) / x_step * (w - tile_size)).astype(np.int32)
-        all_outputs = [[self.predict(image_tensor[:, y:y + tile_size, x:x + tile_size])
-                        for x in x_pos]
-                       for y in y_pos]
+
+        all_outputs = list()
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            for i, y in enumerate(y_pos):
+                inside_list = list()
+                for j, x in enumerate(x_pos):
+                    filename_tile = os.path.join(tmpdirname, 'tile{}{}.png'.format(i, j))
+                    imsave(filename_tile, image_np[y:y + tile_size, x:x + tile_size])
+                    inside_list.append(self.predict(filename_tile))#, prediction_key='probs'))
+                all_outputs.append(inside_list)
 
         def _merge_x(full_output, assigned_up_to, new_input, begin_position):
             assert full_output.shape[1] == new_input.shape[1]
