@@ -86,6 +86,14 @@ class ResNetModelParams:
     CORRECT_VERSION = False
 
 
+class UNetModelParams:
+    PRETRAINED_MODEL_FILE = None
+    INTERMEDIATE_CONV = None
+    UPSCALE_PARAMS = None
+    SELECTED_LAYERS_UPSCALING = None
+    CORRECT_VERSION = False
+
+
 class ModelParams(BaseParams):
     def __init__(self, **kwargs):
         self.batch_norm = kwargs.get('batch_norm', True)  # type: bool
@@ -99,6 +107,8 @@ class ModelParams(BaseParams):
             model_class = VGG16ModelParams
         elif self.pretrained_model_name == 'resnet50':
             model_class = ResNetModelParams
+        elif self.pretrained_model_name == 'unet':
+            model_class = UNetModelParams
         else:
             raise NotImplementedError
 
@@ -111,16 +121,17 @@ class ModelParams(BaseParams):
 
     def check_params(self):
         # Pretrained model name check
-        assert self.upscale_params is not None and self.selected_levels_upscaling is not None, \
-            'Model parameters cannot be None'
+        # assert self.upscale_params is not None and self.selected_levels_upscaling is not None, \
+        #     'Model parameters cannot be None'
+        if self.upscale_params is not None and self.selected_levels_upscaling is not None:
 
-        assert len(self.upscale_params) == len(self.selected_levels_upscaling), \
-            'Upscaling levels and selection levels must have the same lengths (in model_params definition), ' \
-            '{} != {}'.format(len(self.upscale_params),
-                              len(self.selected_levels_upscaling))
+            assert len(self.upscale_params) == len(self.selected_levels_upscaling), \
+                'Upscaling levels and selection levels must have the same lengths (in model_params definition), ' \
+                '{} != {}'.format(len(self.upscale_params),
+                                  len(self.selected_levels_upscaling))
 
-        assert os.path.isfile(self.pretrained_model_file), \
-            'Pretrained weights file {} not found'.format(self.pretrained_model_file)
+            assert os.path.isfile(self.pretrained_model_file), \
+                'Pretrained weights file {} not found'.format(self.pretrained_model_file)
 
 
 class TrainingParams(BaseParams):
@@ -145,6 +156,7 @@ class TrainingParams(BaseParams):
         self.training_margin = 16
         self.local_entropy_ratio = 0.0
         self.local_entropy_sigma = 3
+        self.focal_loss_gamma = 0.0
 
     def check_params(self):
         assert self.training_margin*2 < min(self.patch_shape)
@@ -227,6 +239,15 @@ def get_classes_color_from_file_multilabel(classes_file: str) -> np.ndarray:
 
 def get_n_classes_from_file_multilabel(classes_file: str) -> int:
     return get_classes_color_from_file_multilabel(classes_file)[1].shape[1]
+
+
+def get_image_shape_tensor(tensor: tf.Tensor):
+    if tensor.get_shape()[1].value and \
+                    tensor.get_shape()[2].value:
+        target_shape = tensor.get_shape()[1:3]
+    else:
+        target_shape = tf.shape(tensor)[1:3]
+    return target_shape
 
 
 def parse_json(filename):

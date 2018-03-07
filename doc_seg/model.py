@@ -2,7 +2,7 @@ import tensorflow as tf
 from .utils import PredictionType, class_to_label_image, ModelParams, TrainingParams
 from doc_seg import utils
 import numpy as np
-from .inferences import inference_resnet_v1_50, inference_vgg16
+from .inferences import inference_resnet_v1_50, inference_vgg16, inference_u_net
 
 
 def model_fn(mode, features, labels, params):
@@ -37,16 +37,28 @@ def model_fn(mode, features, labels, params):
                                                 is_training=(mode == tf.estimator.ModeKeys.TRAIN)
                                                 )
         key_restore_model = 'resnet_v1_50'
+    elif model_params.pretrained_model_name == 'unet':
+        network_output = inference_u_net(input_images,
+                                         model_params,
+                                         model_params.n_classes,
+                                         use_batch_norm=model_params.batch_norm,
+                                         weight_decay=model_params.weight_decay,
+                                         is_training=(mode == tf.estimator.ModeKeys.TRAIN)
+                                         )
+        key_restore_model = None
     else:
         raise NotImplementedError
 
     if mode == tf.estimator.ModeKeys.TRAIN:
-        # Pretrained weights as initialization
-        pretrained_restorer = tf.train.Saver(var_list=[v for v in tf.global_variables()
-                                                       if key_restore_model in v.name])
+        if key_restore_model is not None:
+            # Pretrained weights as initialization
+            pretrained_restorer = tf.train.Saver(var_list=[v for v in tf.global_variables()
+                                                           if key_restore_model in v.name])
 
-        def init_fn(scaffold, session):
-            pretrained_restorer.restore(session, model_params.pretrained_model_file)
+            def init_fn(scaffold, session):
+                pretrained_restorer.restore(session, model_params.pretrained_model_file)
+        else:
+            init_fn = None
     else:
         init_fn = None
 
@@ -82,6 +94,10 @@ def model_fn(mode, features, labels, params):
             with tf.name_scope("loss"):
                 per_pixel_loss = tf.nn.softmax_cross_entropy_with_logits(logits=network_output,
                                                                          labels=onehot_labels, name='per_pixel_loss')
+                if training_params.focal_loss_gamma > 0.0:
+                    modulation = tf.pow(tf.reduce_max(tf.multiply(1. - prediction_probs, onehot_labels)),
+                                        training_params.focal_loss_gamma)
+                    per_pixel_loss = tf.multiply(per_pixel_loss, modulation)
 
                 if training_params.weights_labels is not None:
                     weight_mask = tf.reduce_sum(
@@ -183,8 +199,8 @@ def model_fn(mode, features, labels, params):
                                                             tf.cast(tf.shape(network_output)[1:3] / 3, tf.int32)),
                                      max_outputs=1)
 
-            # beta = tf.get_default_graph().get_tensor_by_name('upsampling/deconv_5/conv5/batch_norm/beta/read:0')
-            # tf.summary.histogram('Beta', beta)
+                    # beta = tf.get_default_graph().get_tensor_by_name('upsampling/deconv_5/conv5/batch_norm/beta/read:0')
+                    # tf.summary.histogram('Beta', beta)
 
     # Evaluation
     # ----------

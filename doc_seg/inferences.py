@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
 import tensorflow as tf
-from .utils import ModelParams
+from .utils import ModelParams, get_image_shape_tensor
 from tensorflow.contrib import layers  # TODO migration to tf.layers ?
 from tensorflow.contrib.slim.nets import resnet_v1
 from tensorflow.contrib.slim import arg_scope
 from .pretrained_models import vgg_16_fn, resnet_v1_50_fn
+from collections import OrderedDict
 
 
 def inference_vgg16(images: tf.Tensor, params: ModelParams, num_classes: int, use_batch_norm=False, weight_decay=0.0,
@@ -135,11 +136,11 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
                     )
             else:
                 net = layers.conv2d(
-                        inputs=net,
-                        num_outputs=filter_size,
-                        kernel_size=[3, 3],
-                        scope="conv{}".format(number)
-                    )
+                    inputs=net,
+                    num_outputs=filter_size,
+                    kernel_size=[3, 3],
+                    scope="conv{}".format(number)
+                )
 
         return net
 
@@ -201,3 +202,92 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
                                scope="conv{}-logits".format(n_layer))
 
     return logits
+
+
+def conv_bn_layer(input_tensor, kernel_size, output_channels, stride=1, bn=False,
+                  is_training=True, relu=True):
+    # with tf.variable_scope(name) as scope:
+    conv_layer = layers.conv2d(inputs=input_tensor,
+                               num_outputs=output_channels,
+                               kernel_size=kernel_size,
+                               stride=stride,
+                               activation_fn=tf.identity,
+                               padding='SAME')
+    if bn and relu:
+        # How to use Batch Norm: https://github.com/martin-gorner/tensorflow-mnist-tutorial/blob/master/README_BATCHNORM.md
+
+        # Why scale is false when using ReLU as the next activation
+        # https://datascience.stackexchange.com/questions/22073/why-is-scale-parameter-on-batch-normalization-not-needed-on-relu/22127
+
+        # Using fuse operation: https://www.tensorflow.org/performance/performance_guide#common_fused_ops
+        conv_layer = layers.batch_norm(inputs=conv_layer, center=True, scale=False, is_training=is_training, fused=True)
+        conv_layer = tf.nn.relu(conv_layer)
+
+    if bn and not relu:
+        conv_layer = layers.batch_norm(inputs=conv_layer, center=True, scale=True, is_training=is_training)
+
+    # print('Conv layer {0} -> {1}'.format(input_tensor.get_shape().as_list(),conv_layer.get_shape().as_list()))
+    return conv_layer
+
+
+def inference_u_net(images: tf.Tensor, params: ModelParams, num_classes: int, use_batch_norm=False, weight_decay=0.0,
+                    is_training=False) -> tf.Tensor:
+    enc_layers = OrderedDict()
+    dec_layers = OrderedDict()
+
+    conv_layer = layers.conv2d(images, num_outputs=64, kernel_size=(3, 3), padding='SAME',
+                               activation_fn=tf.identity)
+
+    enc_layers['conv_layer_enc_64'] = conv_bn_layer(conv_layer, kernel_size=(3, 3),
+                                                    output_channels=64,
+                                                    bn=True, is_training=is_training, relu=True)
+
+    conv_layer = layers.max_pool2d(inputs=enc_layers['conv_layer_enc_64'], kernel_size=(2, 2), stride=2)
+
+    for n_feat in [128, 256, 512]:
+        enc_layers['conv_layer_enc_' + str(n_feat)] = conv_bn_layer(conv_layer, kernel_size=(3, 3),
+                                                                    output_channels=n_feat,
+                                                                    bn=True,
+                                                                    is_training=is_training, relu=True)
+
+        enc_layers['conv_layer_enc_' + str(n_feat)] = conv_bn_layer(
+            enc_layers['conv_layer_enc_' + str(n_feat)], kernel_size=(3, 3),
+            output_channels=n_feat,
+            bn=True, is_training=is_training, relu=True)
+
+        conv_layer = layers.max_pool2d(inputs=enc_layers['conv_layer_enc_' + str(n_feat)], kernel_size=(2, 2), stride=2)
+
+    conv_layer_enc_1024 = conv_bn_layer(conv_layer, kernel_size=(3, 3),
+                                        output_channels=1024,
+                                        bn=True, is_training=is_training, relu=True)
+    dec_layers['conv_layer_dec_512'] = conv_bn_layer(conv_layer_enc_1024, kernel_size=(3, 3),
+                                                     output_channels=512,
+                                                     bn=True, is_training=is_training, relu=True)
+
+    reduced_patchsize = get_image_shape_tensor(enc_layers['conv_layer_enc_512'])
+    dec_layers['conv_layer_dec_512'] = tf.image.resize_images(dec_layers['conv_layer_dec_512'], size=reduced_patchsize,
+                                                              method=tf.image.ResizeMethod.BILINEAR)
+
+    for n_feat in [512, 256, 128, 64]:
+
+        dec_layers['conv_layer_dec_' + str(n_feat * 2)] = tf.concat([dec_layers['conv_layer_dec_' + str(n_feat)],
+                                                                     enc_layers['conv_layer_enc_' + str(n_feat)]],
+                                                                    axis=3)
+        dec_layers['conv_layer_dec_' + str(n_feat)] = conv_bn_layer(
+            dec_layers['conv_layer_dec_' + str(n_feat * 2)], kernel_size=(3, 3),
+            output_channels=n_feat,
+            bn=True, is_training=is_training, relu=True)
+        if n_feat > 64:
+            dec_layers['conv_layer_dec_' + str(int(n_feat / 2))] = conv_bn_layer(
+                dec_layers['conv_layer_dec_' + str(n_feat)], kernel_size=(3, 3),
+                output_channels=n_feat / 2,
+                bn=True, is_training=is_training, relu=True)
+
+            reduced_patchsize = get_image_shape_tensor(enc_layers['conv_layer_enc_' + str(int(n_feat / 2))])
+            dec_layers['conv_layer_dec_' + str(int(n_feat / 2))] = tf.image.resize_images(
+                dec_layers['conv_layer_dec_' + str(int(n_feat / 2))],
+                size=reduced_patchsize,
+                method=tf.image.ResizeMethod.BILINEAR)
+
+    return layers.conv2d(dec_layers['conv_layer_dec_64'], num_outputs=num_classes, kernel_size=(3, 3),
+                         padding='SAME', activation_fn=tf.identity)

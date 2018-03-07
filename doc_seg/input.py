@@ -93,10 +93,10 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
                                                                -training_params.data_augmentation_max_rotation,
                                                                training_params.data_augmentation_max_rotation)
                             label_image = rotate_crop(label_image, rotation_angle,
-                                                      minimum_shape=[2 * i for i in training_params.patch_shape],
+                                                      minimum_shape=[(i*3)//2 for i in training_params.patch_shape],
                                                       interpolation='NEAREST')
                             input_image = rotate_crop(input_image, rotation_angle,
-                                                      minimum_shape=[2 * i for i in training_params.patch_shape],
+                                                      minimum_shape=[(i*3)//2 for i in training_params.patch_shape],
                                                       interpolation='BILINEAR')
 
                 if make_patches:
