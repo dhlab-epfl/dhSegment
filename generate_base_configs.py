@@ -4,13 +4,26 @@ import argparse
 import copy
 
 params_model_selected_levels = [
-    [True, True, True, True, True],
-    [True, True, True, False, False]
+    #[True, True, True, True, True],
+    [True, True, True, True, True]
 ]
 
 params_training_size = [int(90e4), int(60e4)]
 # params_training_make_patches = [True]
-params_training_learning_rate = [1e-4, 1e-3]
+params_training_learning_rate = [1e-4,
+                                 1e-3]
+
+
+def deep_update(destination, source):
+    for key, value in source.items():
+        if isinstance(value, dict):
+            # get node or create one
+            node = destination.setdefault(key, dict())
+            deep_update(node, value)
+        else:
+            destination[key] = value
+
+    return destination
 
 
 if __name__ == '__main__':
@@ -28,7 +41,7 @@ if __name__ == '__main__':
     base_config = dict()
     for filename in args['base_config']:
         with open(filename, 'r') as f:
-            base_config.update(json.load(f))  # type: dict
+            deep_update(base_config, json.load(f))  # type: dict
 
     dic_params = copy.deepcopy(base_config)
     for sel_levels in params_model_selected_levels:
