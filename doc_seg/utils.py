@@ -69,11 +69,11 @@ class ResNetModelParams:
     INTERMEDIATE_CONV = None
     UPSCALE_PARAMS = [
         # (Filter size (depth bottleneck's output), number of bottleneck)
-        (32, 2),
-        (64, 1),
-        (256, 1),
-        (512, 1),
-        (512, 1)
+        (32, 0),
+        (64, 0),
+        (126, 0),
+        (256, 0),
+        (512, 0)
     ]
     SELECTED_LAYERS_UPSCALING = [
         # Must have the same length as resnet_upscale_params
