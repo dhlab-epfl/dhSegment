@@ -98,7 +98,7 @@ class ModelParams(BaseParams):
     def __init__(self, **kwargs):
         self.batch_norm = kwargs.get('batch_norm', True)  # type: bool
         self.batch_renorm = kwargs.get('batch_renorm', True)  # type: bool
-        self.weight_decay = kwargs.get('weight_decay', 1e-5)  # type: float
+        self.weight_decay = kwargs.get('weight_decay', 1e-6)  # type: float
         self.n_classes = kwargs.get('n_classes', None)  # type: int
         self.pretrained_model_name = kwargs.get('pretrained_model_name', None)  # type: str
         self.max_depth = kwargs.get('max_depth', 512)  # type: int

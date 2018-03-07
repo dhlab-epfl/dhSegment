@@ -235,59 +235,65 @@ def inference_u_net(images: tf.Tensor, params: ModelParams, num_classes: int, us
     enc_layers = OrderedDict()
     dec_layers = OrderedDict()
 
-    conv_layer = layers.conv2d(images, num_outputs=64, kernel_size=(3, 3), padding='SAME',
-                               activation_fn=tf.identity)
+    with tf.variable_scope('U-Net'):
 
-    enc_layers['conv_layer_enc_64'] = conv_bn_layer(conv_layer, kernel_size=(3, 3),
-                                                    output_channels=64,
-                                                    bn=True, is_training=is_training, relu=True)
+        with tf.variable_scope('Encoder'):
 
-    conv_layer = layers.max_pool2d(inputs=enc_layers['conv_layer_enc_64'], kernel_size=(2, 2), stride=2)
+            conv_layer = layers.conv2d(images, num_outputs=64, kernel_size=(3, 3), padding='SAME',
+                                       activation_fn=tf.identity)
 
-    for n_feat in [128, 256, 512]:
-        enc_layers['conv_layer_enc_' + str(n_feat)] = conv_bn_layer(conv_layer, kernel_size=(3, 3),
-                                                                    output_channels=n_feat,
-                                                                    bn=True,
-                                                                    is_training=is_training, relu=True)
+            enc_layers['conv_layer_enc_64'] = conv_bn_layer(conv_layer, kernel_size=(3, 3),
+                                                            output_channels=64,
+                                                            bn=True, is_training=is_training, relu=True)
 
-        enc_layers['conv_layer_enc_' + str(n_feat)] = conv_bn_layer(
-            enc_layers['conv_layer_enc_' + str(n_feat)], kernel_size=(3, 3),
-            output_channels=n_feat,
-            bn=True, is_training=is_training, relu=True)
+            conv_layer = layers.max_pool2d(inputs=enc_layers['conv_layer_enc_64'], kernel_size=(2, 2), stride=2)
 
-        conv_layer = layers.max_pool2d(inputs=enc_layers['conv_layer_enc_' + str(n_feat)], kernel_size=(2, 2), stride=2)
+            for n_feat in [128, 256, 512]:
+                enc_layers['conv_layer_enc_' + str(n_feat)] = conv_bn_layer(conv_layer, kernel_size=(3, 3),
+                                                                            output_channels=n_feat,
+                                                                            bn=True,
+                                                                            is_training=is_training, relu=True)
 
-    conv_layer_enc_1024 = conv_bn_layer(conv_layer, kernel_size=(3, 3),
-                                        output_channels=1024,
-                                        bn=True, is_training=is_training, relu=True)
-    dec_layers['conv_layer_dec_512'] = conv_bn_layer(conv_layer_enc_1024, kernel_size=(3, 3),
-                                                     output_channels=512,
-                                                     bn=True, is_training=is_training, relu=True)
+                enc_layers['conv_layer_enc_' + str(n_feat)] = conv_bn_layer(
+                    enc_layers['conv_layer_enc_' + str(n_feat)], kernel_size=(3, 3),
+                    output_channels=n_feat,
+                    bn=True, is_training=is_training, relu=True)
 
-    reduced_patchsize = get_image_shape_tensor(enc_layers['conv_layer_enc_512'])
-    dec_layers['conv_layer_dec_512'] = tf.image.resize_images(dec_layers['conv_layer_dec_512'], size=reduced_patchsize,
-                                                              method=tf.image.ResizeMethod.BILINEAR)
+                conv_layer = layers.max_pool2d(inputs=enc_layers['conv_layer_enc_' + str(n_feat)], kernel_size=(2, 2), stride=2)
 
-    for n_feat in [512, 256, 128, 64]:
+            conv_layer_enc_1024 = conv_bn_layer(conv_layer, kernel_size=(3, 3),
+                                                output_channels=1024,
+                                                bn=True, is_training=is_training, relu=True)
 
-        dec_layers['conv_layer_dec_' + str(n_feat * 2)] = tf.concat([dec_layers['conv_layer_dec_' + str(n_feat)],
-                                                                     enc_layers['conv_layer_enc_' + str(n_feat)]],
-                                                                    axis=3)
-        dec_layers['conv_layer_dec_' + str(n_feat)] = conv_bn_layer(
-            dec_layers['conv_layer_dec_' + str(n_feat * 2)], kernel_size=(3, 3),
-            output_channels=n_feat,
-            bn=True, is_training=is_training, relu=True)
-        if n_feat > 64:
-            dec_layers['conv_layer_dec_' + str(int(n_feat / 2))] = conv_bn_layer(
-                dec_layers['conv_layer_dec_' + str(n_feat)], kernel_size=(3, 3),
-                output_channels=n_feat / 2,
-                bn=True, is_training=is_training, relu=True)
+        with tf.variable_scope('Decoder'):
+            dec_layers['conv_layer_dec_512'] = conv_bn_layer(conv_layer_enc_1024, kernel_size=(3, 3),
+                                                             output_channels=512,
+                                                             bn=True, is_training=is_training, relu=True)
 
-            reduced_patchsize = get_image_shape_tensor(enc_layers['conv_layer_enc_' + str(int(n_feat / 2))])
-            dec_layers['conv_layer_dec_' + str(int(n_feat / 2))] = tf.image.resize_images(
-                dec_layers['conv_layer_dec_' + str(int(n_feat / 2))],
-                size=reduced_patchsize,
-                method=tf.image.ResizeMethod.BILINEAR)
+            reduced_patchsize = get_image_shape_tensor(enc_layers['conv_layer_enc_512'])
+            dec_layers['conv_layer_dec_512'] = tf.image.resize_images(dec_layers['conv_layer_dec_512'], size=reduced_patchsize,
+                                                                      method=tf.image.ResizeMethod.BILINEAR)
 
-    return layers.conv2d(dec_layers['conv_layer_dec_64'], num_outputs=num_classes, kernel_size=(3, 3),
-                         padding='SAME', activation_fn=tf.identity)
+            for n_feat in [512, 256, 128, 64]:
+
+                dec_layers['conv_layer_dec_' + str(n_feat * 2)] = tf.concat([dec_layers['conv_layer_dec_' + str(n_feat)],
+                                                                             enc_layers['conv_layer_enc_' + str(n_feat)]],
+                                                                            axis=3)
+                dec_layers['conv_layer_dec_' + str(n_feat)] = conv_bn_layer(
+                    dec_layers['conv_layer_dec_' + str(n_feat * 2)], kernel_size=(3, 3),
+                    output_channels=n_feat,
+                    bn=True, is_training=is_training, relu=True)
+                if n_feat > 64:
+                    dec_layers['conv_layer_dec_' + str(int(n_feat / 2))] = conv_bn_layer(
+                        dec_layers['conv_layer_dec_' + str(n_feat)], kernel_size=(3, 3),
+                        output_channels=n_feat / 2,
+                        bn=True, is_training=is_training, relu=True)
+
+                    reduced_patchsize = get_image_shape_tensor(enc_layers['conv_layer_enc_' + str(int(n_feat / 2))])
+                    dec_layers['conv_layer_dec_' + str(int(n_feat / 2))] = tf.image.resize_images(
+                        dec_layers['conv_layer_dec_' + str(int(n_feat / 2))],
+                        size=reduced_patchsize,
+                        method=tf.image.ResizeMethod.BILINEAR)
+
+            return layers.conv2d(dec_layers['conv_layer_dec_64'], num_outputs=num_classes, kernel_size=(3, 3),
+                                 padding='SAME', activation_fn=tf.identity)

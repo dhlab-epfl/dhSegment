@@ -8,13 +8,14 @@
       "data_augmentation" : true,
       "data_augmentation_max_rotation" : 0.4,
       "data_augmentation_max_scaling" : 0.2,
+      "data_augmentation_flip_lr": false,
+      "data_augmentation_flip_ud": false,
+      "data_augmentation_color": false,
       "evaluate_every_epoch" : 10
   },
   "model_params": {
     "batch_norm": true,
-    "batch_renorm": true,
-    "weight_decay": 1e-4,
-    "correct_resnet_version" : false
+    "batch_renorm": true
   },
   "pretrained_model_name" : "resnet50"
 }
