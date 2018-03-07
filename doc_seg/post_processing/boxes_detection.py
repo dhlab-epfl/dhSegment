@@ -69,7 +69,10 @@ def find_box(predictions: np.array, mode: str='min_rectangle', min_area: float=0
     found_boxes = [fb for fb in found_boxes if fb is not None]
     found_boxes = sorted(found_boxes, key=lambda x: x[1], reverse=True)
     if n_max_boxes == 1:
-        return found_boxes[0][0]
+        if found_boxes != []:
+            return found_boxes[0][0]
+        else:
+            return None
     else:
         return [fb[0] for i, fb in enumerate(found_boxes) if i <= n_max_boxes]
 
