@@ -1,8 +1,7 @@
 import numpy as np
-import cv2
 from scipy.misc import imsave
 from typing import List
-from skimage.morphology import label
+import cv2
 
 
 def dibco_binarization_fn(probs: np.ndarray, threshold=0.5, output_basename=None):
@@ -51,17 +50,18 @@ def page_post_processing_fn(probs: np.ndarray, threshold: float=0.5, output_base
     return result
 
 
-def diva_post_processing_fn(probs: np.ndarray, thresholds: List[float]=[0.5, 0.5, 0.5], min_cc=0,
-                            output_basename: str=None) -> np.ndarray:
+def diva_post_processing_fn(probs: np.ndarray, thresholds: List[float]=[0.5, 0.5, 0.5], min_cc: int=0,
+                            border_removal: bool=False, output_basename: str=None) -> np.ndarray:
     """
 
     :param probs: array in range [0, 1] of shape HxWx3
     :param thresholds: list of length 3 corresponding to the threshold for each channel
     :param min_cc: minimum size of connected components to keep
+    :param border_removal: removes pixels in left and right border of the image that are within a certain margin
     :param output_basename:
     :return:
     """
-
+    border_margin = probs.shape[1] * 0.02
     final_mask = np.zeros_like(probs, dtype=np.uint8)
     # Compute binary mask for each class (each channel)
     for ch in range(probs.shape[-1]):
@@ -75,7 +75,7 @@ def diva_post_processing_fn(probs: np.ndarray, thresholds: List[float]=[0.5, 0.5
             bin_img = probs_ch > thresholds[ch]
 
         if min_cc > 0:
-            labeled_cc = label(bin_img, neighbors=8)
+            _, labeled_cc = cv2.connectedComponents(bin_img.astype(np.uint8), connectivity=8)
             for lab in np.unique(labeled_cc):
                 mask = labeled_cc == lab
                 if np.sum(mask) < min_cc:
@@ -83,6 +83,10 @@ def diva_post_processing_fn(probs: np.ndarray, thresholds: List[float]=[0.5, 0.5
             final_mask[:, :, ch] = bin_img * (labeled_cc > 0)
         else:
             final_mask[:, :, ch] = bin_img
+
+        if border_removal:
+            final_mask[:, :border_margin, ch] = 0
+            final_mask[:, -border_margin:, ch] = 0
 
     result = final_mask.astype(int)
 
