@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 def evaluate_epoch(exported_eval_files_dir, validation_dir: str, post_process_fn, evaluation_fn,
-                   verbose: bool=False, debug_folder=None):
+                   post_process_params=dict(), verbose: bool=False, debug_folder=None):
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Process predicted probs
         filenames_exported_predictions = glob(os.path.join(exported_eval_files_dir, '*.npy'))
@@ -17,7 +17,8 @@ def evaluate_epoch(exported_eval_files_dir, validation_dir: str, post_process_fn
             predictions = np.load(filename)
             predictions_normalized = predictions / 255
 
-            post_process_fn(predictions_normalized, output_basename=os.path.join(tmpdirname, basename))
+            post_process_fn(predictions_normalized, output_basename=os.path.join(tmpdirname, basename),
+                            **post_process_params)
 
         return evaluation_fn(tmpdirname, validation_dir, debug_folder=debug_folder)
 

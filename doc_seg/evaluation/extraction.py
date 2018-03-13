@@ -114,8 +114,8 @@ def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise: bo
             metric = compare_bin_prediction_to_label(bin_upscaled, label_image)
             global_metrics += metric
 
-        pred_box = find_box(np.uint8(bin_upscaled), mode='min_rectangle')
-        label_box = find_box(np.uint8(label_image), mode='min_rectangle')
+        pred_box = find_box(np.uint8(bin_upscaled), mode='quadrilateral')
+        label_box = find_box(np.uint8(label_image), mode='quadrilateral')
 
         if debug_folder is not None:
             imsave(os.path.join(debug_folder, '{}_bin.png'.format(basename)), np.uint8(bin_upscaled*255))
@@ -187,7 +187,7 @@ def ornament_evaluate_folder(output_folder: str, validation_dir: str, debug_fold
 
         if debug_folder is not None:
             imsave(os.path.join(debug_folder, '{}_bin.png'.format(basename)), np.uint8(bin_upscaled*255))
-            orig_img = imread(os.path.join(validation_dir, 'images', '{}.jpg'.format(basename)))
+            orig_img = imread(os.path.join(validation_dir, 'images', '{}.jpg'.format(basename)), mode='RGB')
             cv2.polylines(orig_img, [label_boxes[:, None, :]], True, (0, 255, 0), thickness=15)
             if pred_boxes is not None:
                 cv2.polylines(orig_img, [pred_boxes[:, None, :]], True, (0, 0, 255), thickness=15)
