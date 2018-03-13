@@ -2,7 +2,6 @@ from train import ex
 import argparse
 import glob
 import os
-import sys
 import time
 import json
 import better_exceptions
@@ -13,7 +12,7 @@ if __name__ == '__main__':
 
     ap = argparse.ArgumentParser()
     ap.add_argument("-c", "--configs-dir", required=True, help="Folder with configs file")
-    ap.add_argument("-f", "--failed-configs-dir", required=False, help="Folder with failed experiments")
+    ap.add_argument("-f", "--failed-configs-dir", required=True, help="Folder with failed experiments")
     args = ap.parse_args()
 
     while True:
@@ -34,13 +33,16 @@ if __name__ == '__main__':
             continue
 
         print("Running config")
-        #try:
-        res = ex.run(config_updates=config)
-        #except Exception as e:
-        #    filename = os.path.relpath(config_file, args.configs_dir)
-        #    print('Experiment {} failed : {}'.format(filename, e))
-        #    output_file = os.path.join(args.failed_configs_dir, filename)
-        #    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        #    with open(output_file, 'w') as f:
-        #        json.dump(config, f)
-        print("Running Done")
+        try:
+            res = ex.run(config_updates=config)
+        except Exception as e:
+            print(e)
+            print('----------------ERROR----------------')
+            filename = os.path.relpath(config_file, args.configs_dir)
+            print('Experiment {} failed : {}'.format(filename, e))
+            output_file = os.path.join(args.failed_configs_dir, filename)
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
+            with open(output_file, 'w') as f:
+                json.dump(config, f)
+            continue
+    print("Running Done")

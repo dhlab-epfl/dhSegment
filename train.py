@@ -85,16 +85,19 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
         exported_path = exported_path.decode()
         timestamp_exported = os.path.split(exported_path)[-1]
 
-        # Save predictions
-        filenames_evaluation = glob(os.path.join(eval_images_dir, '*.jpg'))
-        exported_files_eval_dir = os.path.join(model_output_dir, 'eval',
-                                               'epoch_{:03d}_{}'.format(i+training_params.evaluate_every_epoch,
-                                                                        timestamp_exported))
-        os.makedirs(exported_files_eval_dir, exist_ok=True)
-        # Predict and save probs
-        prediction_input_fn = input.input_fn(filenames_evaluation, num_epochs=1, batch_size=1,
-                                             data_augmentation=False, make_patches=False, params=_config)
-        for filename, predicted_probs in zip(filenames_evaluation,
-                                             estimator.predict(prediction_input_fn, predict_keys=['probs'])):  # tqdm(filenames_evaluation):
-            np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
-                    np.uint8(255 * predicted_probs['probs']))
+        try: # There should be no evaluation when input_resize_size is too big (e.g -1)
+            # Save predictions
+            filenames_evaluation = glob(os.path.join(eval_images_dir, '*.jpg'))
+            exported_files_eval_dir = os.path.join(model_output_dir, 'eval',
+                                                   'epoch_{:03d}_{}'.format(i+training_params.evaluate_every_epoch,
+                                                                            timestamp_exported))
+            os.makedirs(exported_files_eval_dir, exist_ok=True)
+            # Predict and save probs
+            prediction_input_fn = input.input_fn(filenames_evaluation, num_epochs=1, batch_size=1,
+                                                 data_augmentation=False, make_patches=False, params=_config)
+            for filename, predicted_probs in zip(filenames_evaluation,
+                                                 estimator.predict(prediction_input_fn, predict_keys=['probs'])):  # tqdm(filenames_evaluation):
+                np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
+                        np.uint8(255 * predicted_probs['probs']))
+        except Exception as e:
+            print(e)

@@ -48,7 +48,7 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
     def fn():
         if not input_label_dir:
             encoded_filenames = [f.encode() for f in input_images]
-            dataset = tf.data.Dataset.from_generator(lambda: tqdm(encoded_filenames, desc='Dataset generation'),
+            dataset = tf.data.Dataset.from_generator(lambda: tqdm(encoded_filenames, desc='Dataset'),
                                                      tf.string, tf.TensorShape([]))
             dataset = dataset.repeat(count=num_epochs)
             dataset = dataset.map(lambda filename: {'images':
@@ -58,7 +58,7 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
             # Filenames
             encoded_filenames = [(i.encode(), l.encode()) for i, l in zip(input_images, label_images)]
             shuffle(encoded_filenames)
-            dataset = tf.data.Dataset.from_generator(lambda: tqdm(encoded_filenames, desc='Dataset creation'),
+            dataset = tf.data.Dataset.from_generator(lambda: tqdm(encoded_filenames, desc='Dataset'),
                                                      (tf.string, tf.string), (tf.TensorShape([]), tf.TensorShape([])))
             dataset = dataset.repeat(count=num_epochs)
 

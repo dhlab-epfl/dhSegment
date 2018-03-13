@@ -153,7 +153,7 @@ def diva_evaluate_folder(output_folder: str, validation_dir: str, diva_jar: str=
     }
 
 
-def parse_diva_tool_output(score_txt, output_json):
+def parse_diva_tool_output(score_txt, output_json=None):
     def process_hlp_fn(string):
         """
         Processes format : R=0.64,0.52
@@ -184,8 +184,9 @@ def parse_diva_tool_output(score_txt, output_json):
     dic_results = {**dic_results, **process_hlp_per_class_format(sp[1][:-6], key + '_per_class')}
     dic_results = {**dic_results, **process_hlp_per_class_format(sp[2][:-1], sp[1][-5:-1])}
 
-    with open(output_json, 'w') as f:
-        json.dump(dic_results, f)
+    if output_json is not None:
+        with open(output_json, 'w') as f:
+            json.dump(dic_results, f)
 
     return dic_results
 
