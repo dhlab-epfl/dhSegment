@@ -9,7 +9,8 @@ import os
 from collections import OrderedDict
 import argparse
 
-MAP_COLORS = OrderedDict([('comment', ((0, 0, 2), (0, 0, 255))),
+MAP_COLORS = OrderedDict([('background', ((0, 0, 1), (0, 0, 0))),
+                          ('comment', ((0, 0, 2), (0, 0, 255))),
                           ('decoration', ((0, 0, 4), (0, 255, 0))),
                           ('text', ((0, 0, 8), (255, 0, 0))),
                           ('comment_deco', ((0, 0, 6), (0, 255, 255))),
