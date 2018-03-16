@@ -1,6 +1,6 @@
 {
   "configs" : [
-    {"threshold": -1, "ksize_open": [11, 11], "ksize_close" : [15, 15]},
-    {"threshold": 0.7, "ksize_open": [11, 11], "ksize_close" : [15, 15]}
+    {"threshold": -1, "ksize_open": [7, 7], "ksize_close" : [5, 5]},
+    {"threshold": -1, "ksize_open": [5, 5], "ksize_close" : [5, 5]}
   ]
 }
