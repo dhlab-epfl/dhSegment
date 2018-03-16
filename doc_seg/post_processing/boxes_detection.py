@@ -15,7 +15,7 @@ def find_box(predictions: np.array, mode: str='min_rectangle', min_area: float=0
     :param min_area:
     :param p_arc_length: when 'qualidrateral' mode is chosen
     :param n_max_boxes:
-    :return:
+    :return: n_max_boxes of 4 corners [[x1,y2], [x2,y2], ... ]
     """
     _, contours, _ = cv2.findContours(predictions, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if contours is None:

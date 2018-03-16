@@ -165,6 +165,7 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
             selected_intermediate_levels = [l for i, l in enumerate(intermediate_layers)
                                             if params.selected_levels_upscaling[i]]
 
+            # Todo : normalize images to have [0,1] values in shortcut
             selected_intermediate_levels.insert(0, images)
 
             # Force layers to not be too big to reduce memory usage

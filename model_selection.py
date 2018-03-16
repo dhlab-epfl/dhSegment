@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import argparse
-import json
 from typing import List
 from doc_seg.evaluation.model_selection import ExperimentResult
 from doc_seg.evaluation import dibco_evaluate_folder, cbad_evaluate_folder, \
@@ -30,6 +29,8 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--selection-metric', type=str, required=True)
     parser.add_argument('-o', '--output-folder', type=str, required=False)
     parser.add_argument('--task', type=str, required=True)
+    parser.add_argument('--eval_only', default=False, action='store_true',
+                        help='False to run model on set, True evaluate only')
     args = vars(parser.parse_args())
 
     experiment_dirs = args['experiment_dirs']
@@ -67,14 +68,15 @@ if __name__ == '__main__':
         if len(test_files) == 0:
             print('No files in ', test_folder)
             continue
-        with tf.Graph().as_default(), tf.Session() as sess:
-            m = LoadedModel(model_folder, input_dict_key='filename')
-            for filename in tqdm(test_files, desc='Test images'):
-                basename = os.path.basename(filename).split('.')[0]
-                probs = m.predict(filename, prediction_key='probs')[0]
-                output = post_process_fn(probs, **post_process_params,
-                                         output_basename=os.path.join(output_folder_exp,
-                                                                      os.path.splitext(os.path.basename(filename))[0]))
+        if args.get('eval_only'):
+            with tf.Graph().as_default(), tf.Session() as sess:
+                m = LoadedModel(model_folder, input_dict_key='filename')
+                for filename in tqdm(test_files, desc='Test images'):
+                    basename = os.path.basename(filename).split('.')[0]
+                    probs = m.predict(filename, prediction_key='probs')[0]
+                    output = post_process_fn(probs, **post_process_params,
+                                             output_basename=os.path.join(output_folder_exp,
+                                                                          os.path.splitext(os.path.basename(filename))[0]))
 
         print('Test :')
         scores = POST_PROCESSING_EVAL_FN_DICT[args.get('task')](output_folder_exp, test_folder,
