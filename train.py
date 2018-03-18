@@ -85,9 +85,10 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
         exported_path = exported_path.decode()
         timestamp_exported = os.path.split(exported_path)[-1]
 
-        try: # There should be no evaluation when input_resize_size is too big (e.g -1)
+        try:  # There should be no evaluation when input_resize_size is too big (e.g -1)
             # Save predictions
-            filenames_evaluation = glob(os.path.join(eval_images_dir, '*.jpg'))
+            filenames_evaluation = glob(os.path.join(eval_images_dir, '*.jpg')) \
+                                   + glob(os.path.join(eval_images_dir, '*.png'))
             exported_files_eval_dir = os.path.join(model_output_dir, 'eval',
                                                    'epoch_{:03d}_{}'.format(i+training_params.evaluate_every_epoch,
                                                                             timestamp_exported))

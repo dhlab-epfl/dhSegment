@@ -4,7 +4,6 @@ import glob
 import os
 import time
 import json
-import better_exceptions
 
 
 if __name__ == '__main__':
@@ -29,7 +28,7 @@ if __name__ == '__main__':
         try:
             os.remove(config_file)
         except Exception:
-            print('Some worker took MY JEB, #MAGA')
+            print('Some worker already processed this config file!')
             continue
 
         print("Running config")

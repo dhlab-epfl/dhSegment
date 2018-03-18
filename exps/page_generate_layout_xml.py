@@ -11,7 +11,7 @@ from scipy.ndimage import label
 
 from doc_seg import post_processing
 from doc_seg.loader import LoadedModel
-from doc_seg_datasets import PAGE
+from doc_seg.post_processing import PAGE
 
 IMAGE_FILENAME = '/mnt/Garzoni/Garzoni/Giustizia-vecchia_Accordi-dei-garzoni-b-125-reg-179/Giustizia-vecchia_Accordi-dei-garzoni-b-125-reg-179_0014_007-v.tif'
 IMAGE_HEIGHT = 1500
