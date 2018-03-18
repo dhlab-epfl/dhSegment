@@ -1,0 +1,1 @@
+training with margin=0 gives worse results

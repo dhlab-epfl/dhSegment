@@ -6,9 +6,11 @@ import json
 import os
 from glob import glob
 from hashlib import sha1
-from doc_seg.post_processing import cbad_post_processing_fn, dibco_binarization_fn, cini_post_processing_fn, \
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
+from exps import cbad_post_processing_fn, dibco_binarization_fn, cini_post_processing_fn, \
     page_post_processing_fn, diva_post_processing_fn, ornaments_post_processing_fn
-from doc_seg.evaluation import cbad_evaluate_folder, dibco_evaluate_folder, cini_evaluate_folder, \
+from exps import cbad_evaluate_folder, dibco_evaluate_folder, cini_evaluate_folder, \
     page_evaluate_folder, diva_evaluate_folder, ornament_evaluate_folder, evaluate_epoch
 from doc_seg.utils import parse_json
 from tqdm import tqdm
@@ -89,7 +91,6 @@ if __name__ == '__main__':
 
     # get the pair post-process fn and post-process eval
     post_processing_pair = POST_PROCESSING_EVAL_FN_DICT[args['task_type']]
-
     with open(args.get('params_json_file'), 'r') as f:
         configs_data = json.load(f)
         # If the file contains a list of configurations

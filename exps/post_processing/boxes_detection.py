@@ -1,8 +1,5 @@
 import cv2
 import numpy as np
-from ..utils import dump_pickle
-import math
-from scipy.misc import imsave
 from scipy.spatial import KDTree
 
 
@@ -95,92 +92,6 @@ def find_box(predictions: np.array, mode: str='min_rectangle', min_area: float=0
             return None
     else:
         return [fb[0] for i, fb in enumerate(found_boxes) if i <= n_max_boxes]
-
-
-def cini_post_processing_fn(preds: np.ndarray,
-                            clean_predictions=False,
-                            advanced=False,
-                            output_basename=None):
-    # class 0 -> cardboard
-    # class 1 -> background
-    # class 2 -> photograph
-
-    def get_cleaned_prediction(prediction):
-        # Perform Erosion and Dilation
-        if not clean_predictions:
-            return prediction
-        opening = cv2.morphologyEx(prediction, cv2.MORPH_OPEN, np.ones((5, 5)))
-        closing = cv2.medianBlur(opening, 11)
-        return closing
-
-    class_predictions = np.argmax(preds, axis=-1)
-
-    # get cardboard rectangle
-    cardboard_prediction = get_cleaned_prediction((class_predictions == 0).astype(np.uint8))
-    _, contours, hierarchy = cv2.findContours(cardboard_prediction, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    cardboard_contour = np.concatenate(contours)  # contours[np.argmax([cv2.contourArea(c) for c in contours])]
-    cardboard_rectangle = cv2.minAreaRect(cardboard_contour)
-    # If extracted cardboard too small compared to scan size, get cardboard+image prediction
-    if cv2.contourArea(cv2.boxPoints(cardboard_rectangle)) < 0.20*cardboard_prediction.size:
-        cardboard_prediction = get_cleaned_prediction(((class_predictions == 0) | (class_predictions == 2)).astype(np.uint8))
-        _, contours, hierarchy = cv2.findContours(cardboard_prediction, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        cardboard_contour = np.concatenate(contours)  # contours[np.argmax([cv2.contourArea(c) for c in contours])]
-        cardboard_rectangle = cv2.minAreaRect(cardboard_contour)
-
-    image_prediction = (class_predictions == 2).astype(np.uint8)
-    if advanced:
-        # Force the image prediction to be inside the extracted cardboard
-        mask = np.zeros_like(image_prediction)
-        cv2.fillConvexPoly(mask, cv2.boxPoints(cardboard_rectangle).astype(np.int32), 1)
-        image_prediction = mask * image_prediction
-        eroded_mask = cv2.erode(mask, np.ones((20, 20)))
-        image_prediction = image_prediction | (~cardboard_prediction & eroded_mask)
-
-    image_prediction = get_cleaned_prediction(image_prediction)
-    _, contours, hierarchy = cv2.findContours(image_prediction, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)
-    # Take the biggest contour or two biggest if similar size (two images in the page)
-    image_contour = contours[0] if len(contours) == 1 or (cv2.contourArea(contours[0]) > 0.5*cv2.contourArea(contours[1])) \
-        else np.concatenate(contours[0:2])
-    image_rectangle = cv2.minAreaRect(image_contour)
-
-    if output_basename is not None:
-        dump_pickle(output_basename+'.pkl', {
-            'shape': preds.shape[:2],
-            'cardboard_rectangle': cardboard_rectangle,
-            'image_rectangle': image_rectangle
-        })
-    return cardboard_rectangle, image_rectangle
-
-
-def ornaments_post_processing_fn(probs: np.ndarray, threshold: float=0.5, ksize_open: tuple=(5, 5),
-                                 ksize_close: tuple=(7, 7), output_basename: str=None) -> np.ndarray:
-    """
-
-    :param probs:
-    :param threshold:
-    :param ksize_open:
-    :param ksize_close:
-    :param output_basename:
-    :return:
-    """
-    probs = probs[:, :, 1]
-    if threshold < 0:  # Otsu thresholding
-        probs_ch = np.uint8(probs * 255)
-        blur = cv2.GaussianBlur(probs_ch, (5, 5), 0)
-        thresh_val, bin_img = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        mask = bin_img / 255
-    else:
-        mask = probs > threshold
-        # TODO : adaptive kernel (not hard-coded)
-    mask = cv2.morphologyEx((mask.astype(np.uint8) * 255), cv2.MORPH_OPEN, kernel=np.ones(ksize_open))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel=np.ones(ksize_close))
-
-    result = mask / 255
-
-    if output_basename is not None:
-        imsave('{}.png'.format(output_basename), result*255)
-    return result
 
 
 # Ramer-Douglas-Peucker from :

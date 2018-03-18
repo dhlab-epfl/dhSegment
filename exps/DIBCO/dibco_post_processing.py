@@ -1,6 +1,8 @@
+#!/usr/bin/env python
+__author__ = 'solivr'
+
 import numpy as np
 from scipy.misc import imsave
-from typing import List
 import cv2
 
 

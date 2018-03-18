@@ -7,9 +7,10 @@ from glob import glob
 
 import pandas as pd
 from scipy.misc import imread, imresize, imsave
-
-from doc_seg.post_processing import PAGE
-from ..utils import load_pickle
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)))
+from exps.post_processing import PAGE
+from doc_seg.utils import load_pickle
 
 CBAD_JAR = '/home/datasets/TranskribusBaseLineEvaluationScheme_v0.1.3/' \
            'TranskribusBaseLineEvaluationScheme-0.1.3-jar-with-dependencies.jar'

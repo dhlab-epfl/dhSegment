@@ -1,0 +1,30 @@
+{
+  "training_params" : {
+      "learning_rate": 1e-4,
+      "batch_size": 16,
+      "make_patches": true,
+      "n_epochs": 30,
+      "patch_shape": [300, 300],
+      "data_augmentation" : true,
+      "data_augmentation_max_rotation" : 0.2,
+      "data_augmentation_max_scaling" : 0.2,
+      "data_augmentation_flip_lr": false,
+      "data_augmentation_flip_ud": false,
+      "data_augmentation_color": false,
+      "evaluate_every_epoch" : 10,
+      "focal_loss_gamma" : 0.0,
+      "training_margin" : 0
+  },
+  "model_params": {
+    "batch_norm": true,
+    "batch_renorm": true,
+    "selected_levels_upscaling": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "pretrained_model_name" : "resnet50"
+}
