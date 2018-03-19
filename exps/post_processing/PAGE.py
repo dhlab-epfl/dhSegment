@@ -101,16 +101,6 @@ class TextLine(BaseElement):
         )
 
     @classmethod
-    def from_coords_array(cls, coords: np.array=None, baseline_coords: np.array=None,  # shape [N, 1, 2]
-                   text_equiv: str=None, id: str=None):
-        return TextLine(
-            id=id,
-            coords=Point.arr_to_point_list(coords) if coords is not None else [],
-            baseline=Point.arr_to_point_list(baseline_coords) if baseline_coords is not None else [],
-            text_equiv=text_equiv
-        )
-
-    @classmethod
     def from_cv2_array(cls, cv2_coords: np.array=None, baseline_coords: np.array=None,  # shape [N, 1, 2]
                    text_equiv: str=None, id: str=None):
         return TextLine(

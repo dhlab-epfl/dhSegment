@@ -1,6 +1,7 @@
 {
   "configs":[
-    {"sigma": 2.5, "low_threshold": 0.1, "high_threshold": 0.3},
-    {"sigma": 2.5, "low_threshold": 0.3, "high_threshold": 0.7}
+    {"low_threshold": 0.25, "high_threshold": 0.6},
+    {"low_threshold": 0.1, "high_threshold": 0.3},
+    {"low_threshold": 0.3, "high_threshold": 0.7}
   ]
 }

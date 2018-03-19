@@ -35,16 +35,21 @@ def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
         gt_dir = os.path.join(validation_dir, 'gt')
 
         filenames_processed = glob(os.path.join(output_folder, '*.pkl'))
+        filenames_processed.extend(glob(os.path.join(output_folder, '*.xml')))
 
         xml_filenames_list = list()
         for filename in filenames_processed:
             basename = os.path.basename(filename).split('.')[0]
-            gt_page = PAGE.parse_file(os.path.join(gt_dir,
-                                                   '{}.xml'.format(basename)))
-
-            contours, img_shape = load_pickle(filename)
-            ratio = (gt_page.image_height/img_shape[0], gt_page.image_width/img_shape[1])
+            gt_page = PAGE.parse_file(os.path.join(gt_dir, '{}.xml'.format(basename)))
             xml_filename = os.path.join(tmpdirname, basename + '.xml')
+            if filename[-4:] == '.pkl':
+                contours, img_shape = load_pickle(filename)
+            else:
+                extracted_page = PAGE.parse_file(filename)
+                img_shape = (extracted_page.image_height, extracted_page.image_width)
+                contours = [PAGE.Point.list_to_cv2poly(tl.baseline)
+                            for tr in extracted_page.text_regions for tl in tr.text_lines]
+            ratio = (gt_page.image_height/img_shape[0], gt_page.image_width/img_shape[1])
             PAGE.save_baselines(xml_filename, contours, ratio, initial_shape=img_shape[:2])
 
             gt_xml_file = os.path.join(gt_dir, basename + '.xml')
@@ -52,7 +57,7 @@ def cbad_evaluate_folder(output_folder: str, validation_dir: str, verbose=False,
 
             if debug_folder is not None:
                 img = imread(os.path.join(validation_dir, 'images', basename+'.jpg'))
-                img = imresize(img, img_shape[:2])
+                img = imresize(img, 1000/img.shape[0])
                 gt_page.draw_baselines(img, color=(0, 255, 0))
                 generated_page = PAGE.parse_file(xml_filename)
                 generated_page.draw_baselines(img, color=(255, 0, 0))

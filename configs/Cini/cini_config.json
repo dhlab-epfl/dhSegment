@@ -5,21 +5,7 @@
       "make_patches": true,
       "n_epochs": 60,
       "input_resized_size" : 800000,
-      "patch_shape": [300, 300],
-      "data_augmentation": false
-  },
-  "model_params": {
-    "batch_norm": true,
-    "batch_renorm": true,
-    "weight_decay": 1e-4,
-    "selected_levels_upscaling" : [
-        true,
-        true,
-        true,
-        true,
-        false,
-        false
-    ]
+      "patch_shape": [400, 400]
   },
   "pretrained_model_name" : "resnet50",
   "prediction_type" : "CLASSIFICATION"
