@@ -17,30 +17,21 @@ Available pretrained implementations :
 0 255 0
 ...
 ```
-* There are 3 types of segmentation possible:
-  * `CLASSIFICATION` : Segments assigning a class to each pixel of the image
- 
 
+In order to train a model, you should run `python train.py with <config.json>`
 
-## Method
-
-* Train : `python train.py with <config.json>`
-* Perform evaluation : `python post_process_evaluation.py -m <model-folders> -p <post-process-configs.json> -t <TASK>`
-* Model Selection : `python model_selection.py -e <experiment-folders> -m <metric-to-be-used-for-selection>`
-
-
-* Generate configs : `python generate_base_configs.py -co /home/docseg_models/generated_configs/ -mo /home/docseg_models/DIBCO/ -c configs/DIBCO/dibco_binarization_config.json configs/DIBCO/dibco_variant2.json`
-* Train them : `python worker.py -c /home/docseg_models/generated_configs -f /home/docseg_models/failed_configs`
-* Evaluate on validation : `python post_process_evaluation.py -m /home/docseg_models/DIBCO/* -p configs/DIBCO/dibco_post_processing_configs.json -t dibco`
-* Find best on validation and apply to test : `python model_selection.py -e /home/docseg_models/DIBCO/*/post_processing/* -m f_measure`
 
 ## Demo
-[`sacred`](https://sacred.readthedocs.io/en/latest/quickstart.html) package is used to deal with experiments and trainings.
+This demo shows the usage of dhSegment for page document extraction. It trains a model from scratch (optional) using the [READ-BAD dataset](https://arxiv.org/abs/1705.03311) and the annotations of [pagenet](https://github.com/ctensmeyer/pagenet/tree/master/annotations) (annotator1 is used).
+In order to limit memory usage, the images in the dataset we provide have been downsized to have 1M pixels each.
 
-1. Get the data from [link]()
+__How to__
+
+1. Get the data from [link]() and unzip it. 
 2. You can train the model from scratch with 
     `python train.py with demo/demo_config.json`
-    or skip this step and use directly the provided model
-3. 
+    or skip this step and use directly the [provided model]() (download and unzip it in `demo/model`)
+3. Run `python demo.py`
+4. Have a look at the results in `demo/processed_images`
 
 
