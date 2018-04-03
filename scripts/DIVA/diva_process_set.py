@@ -14,11 +14,12 @@ from scipy.misc import imsave
 from doc_seg.post_processing.segmentation import diva_post_processing_fn
 from doc_seg.evaluation.segmentation import to_original_color_code, parse_diva_tool_output
 import argparse
+import json
 
 
 TILE_SIZE = 400
 DIVA_JAR = '/home/datasets/DIVA_Layout_Analysis_Evaluator/out/artifacts/LayoutAnalysisEvaluator.jar'
-PARAMS = {'thresholds': [0.6, 0.6, 0.6], 'min_cc': 100}
+PARAMS = {'thresholds': [0.5, 0.5, 0.5], 'min_cc': 50}
 
 
 def predict_on_set(filenames_to_predict, model_dir, output_dir):
@@ -73,6 +74,8 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', type=str, default='0', help='Which GPU to use')
     parser.add_argument('-e', '--eval_only', default=False, action='store_true',
                         help='Whether to make or not the prediction')
+    parser.add_argument('-p', '-params_file', type=str, default=None,
+                        help='JSON params file')
     args = parser.parse_args()
     args = vars(args)
 
@@ -91,6 +94,20 @@ if __name__ == '__main__':
     npy_files = glob(os.path.join(output_dir, '*.npy'))
 
     # TODO Get params from file
+    if args.get('params_file') is None:
+        params_list = [PARAMS]
+    else:
+        with open(args.get('params_file'), 'r') as f:
+            configs_data = json.load(f)
+            # If the file contains a list of configurations
+            if 'configs' in configs_data.keys():
+                params_list = configs_data['configs']
+                assert isinstance(params_list, list)
+            # Or if there is a single configuration
+            else:
+                params_list = [configs_data]
+
     gt_dir = args.get('ground_truth_dir')
-    mean_iu = evaluate_on_set(npy_files, PARAMS, output_dir, gt_dir)
-    print('MEAN IU : {}'.format(mean_iu))
+    for params in params_list:
+        mean_iu = evaluate_on_set(npy_files, params, output_dir, gt_dir)
+        print('MEAN IU : {}'.format(mean_iu))

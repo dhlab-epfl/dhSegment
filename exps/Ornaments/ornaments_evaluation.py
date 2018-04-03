@@ -12,7 +12,7 @@ import cv2
 
 
 def ornament_evaluate_folder(output_folder: str, validation_dir: str, debug_folder: str=None,
-                             verbose: bool=False) -> dict:
+                             verbose: bool=False, min_area: float=0.0, miou_threshold: float=0.8) -> dict:
 
     if debug_folder is not None:
         os.makedirs(debug_folder, exist_ok=True)
@@ -28,21 +28,22 @@ def ornament_evaluate_folder(output_folder: str, validation_dir: str, debug_fold
         post_processed_img = post_processed_img / np.maximum(np.max(post_processed_img), 1)
 
         label_image = imread(os.path.join(validation_dir, 'labels', '{}.png'.format(basename)), mode='L')
-        label_image = label_image / np.max(label_image)
+        label_image = label_image / np.max(label_image) if np.max(label_image) > 0 else label_image
 
         # Upsample processed image to compare it to original image
         target_shape = (label_image.shape[1], label_image.shape[0])
         bin_upscaled = cv2.resize(np.uint8(post_processed_img), target_shape, interpolation=cv2.INTER_NEAREST)
 
-        pred_boxes = find_box(np.uint8(bin_upscaled), mode='min_rectangle', min_area=0, n_max_boxes=np.inf)
-        label_boxes = find_box(np.uint8(label_image), mode='min_rectangle', min_area=0, n_max_boxes=np.inf)
+        pred_boxes = find_box(np.uint8(bin_upscaled), mode='min_rectangle', min_area=min_area, n_max_boxes=np.inf)
+        label_boxes = find_box(np.uint8(label_image), mode='min_rectangle', min_area=min_area, n_max_boxes=np.inf)
 
         if debug_folder is not None:
-            imsave(os.path.join(debug_folder, '{}_bin.png'.format(basename)), np.uint8(bin_upscaled*255))
-            orig_img = imread(os.path.join(validation_dir, 'images', '{}.jpg'.format(basename)), mode='RGB')
-            cv2.polylines(orig_img, [label_boxes[:, None, :]], True, (0, 255, 0), thickness=15)
+            # imsave(os.path.join(debug_folder, '{}_bin.png'.format(basename)), np.uint8(bin_upscaled*255))
+            # orig_img = imread(os.path.join(validation_dir, 'images', '{}.jpg'.format(basename)), mode='RGB')
+            orig_img = imread(os.path.join(validation_dir, 'images', '{}.png'.format(basename)), mode='RGB')
+            cv2.polylines(orig_img, [lb[:, None, :] for lb in label_boxes], True, (0, 255, 0), thickness=15)
             if pred_boxes is not None:
-                cv2.polylines(orig_img, [pred_boxes[:, None, :]], True, (0, 0, 255), thickness=15)
+                cv2.polylines(orig_img, [pb[:, None, :] for pb in pred_boxes], True, (0, 0, 255), thickness=15)
             imsave(os.path.join(debug_folder, '{}_boxes.jpg'.format(basename)), orig_img)
 
         def intersection_over_union(cnt1, cnt2):
@@ -53,7 +54,7 @@ def ornament_evaluate_folder(output_folder: str, validation_dir: str, debug_fold
 
             return np.sum(mask1 & mask2) / np.sum(mask1 | mask2)
 
-        def compute_metric_boxes(predicted_boxes: np.array, label_boxes: np.array, threshold: float=0.6):
+        def compute_metric_boxes(predicted_boxes: np.array, label_boxes: np.array, threshold: float=miou_threshold):
             # Todo test this fn
             metric = Metrics()
             if label_boxes is None:
@@ -98,6 +99,3 @@ def ornament_evaluate_folder(output_folder: str, validation_dir: str, debug_fold
         'f_measure': global_metrics.f_measure,
         'mIOU': global_metrics.mIOU
     }
-
-
-

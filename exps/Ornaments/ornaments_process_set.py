@@ -57,7 +57,7 @@ def find_ornament(img_filenames, dir_predictions, post_process_params, output_di
             target_shape = (orig_img.shape[1], orig_img.shape[0])
             bin_upscaled = cv2.resize(np.uint8(page_bin), target_shape, interpolation=cv2.INTER_NEAREST)
             if debug:
-                imsave(os.path.join(output_dir, '{}_bin.jpg'.format(basename)), bin_upscaled)
+                imsave(os.path.join(output_dir, '{}_bin.png'.format(basename)), bin_upscaled)
             pred_box = boxes_detection.find_box(np.uint8(bin_upscaled), mode='min_rectangle',
                                                 min_area=0.005, n_max_boxes=10)
             if pred_box is not None:
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     parser.add_argument('--post_process_params', type=str, default=None,
                         help='JSOn file containing the params for post-processing')
     parser.add_argument('--gpu', type=str, default='0', help='Which GPU to use')
-    parser.add_argument('-p', '--predict_only', default=False, action='store_true',
+    parser.add_argument('-pp', '--post_process_only', default=False, action='store_true',
                          help='Whether to make or not the prediction')
     args = parser.parse_args()
     args = vars(args)
@@ -106,11 +106,11 @@ if __name__ == '__main__':
     # Prediction
     with tempfile.TemporaryDirectory() as tmpdirname:
         npy_directory = output_dir
-        predict_on_set(input_files, model_dir, npy_directory)
+        if not args.get('post_process_only'):
+            predict_on_set(input_files, model_dir, npy_directory)
 
-        if not args.get('predict_only'):
-            npy_files = glob(os.path.join(npy_directory, '*.npy'))
-            find_ornament(input_files, npy_directory, post_process_params, output_dir)
+        npy_files = glob(os.path.join(npy_directory, '*.npy'))
+        find_ornament(input_files, npy_directory, post_process_params, output_dir)
 
 
 
