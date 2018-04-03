@@ -1,1 +1,5 @@
 theme: jekyll-theme-cayman
+title: dhSegment
+description: A generic deep-learning framework for Historical Document Processing
+show_downloads: true
+google_analytics: UA-116871716-1
