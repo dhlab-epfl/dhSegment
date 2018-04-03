@@ -14,7 +14,7 @@ from ..utils import dump_pickle
 
 
 def cbad_post_processing_fn(probs: np.array, sigma: float=2.5, low_threshold: float=0.8, high_threshold: float=0.9,
-                            output_basename=None):
+                            filter_width: float=0, output_basename=None):
     """
 
     :param probs: output of the model (probabilities) in range [0, 255]
@@ -28,7 +28,7 @@ def cbad_post_processing_fn(probs: np.array, sigma: float=2.5, low_threshold: fl
      WARNING : contours IN OPENCV format List[np.ndarray(n_points, 1, (x,y))]
     """
 
-    contours, lines_mask = line_extraction_v1(probs[:, :, 1], sigma, low_threshold, high_threshold)
+    contours, lines_mask = line_extraction_v1(probs[:, :, 1], sigma, low_threshold, high_threshold, filter_width)
     if output_basename is not None:
         dump_pickle(output_basename+'.pkl', (contours, lines_mask.shape))
     return contours, lines_mask
@@ -47,14 +47,17 @@ def line_extraction_v0(probs, sigma, threshold):
     return contours, lines_mask
 
 
-def line_extraction_v1(probs, sigma, low_threshold, high_threshold):
-    # probs_line = probs[:, :, 1]
+def line_extraction_v1(probs, low_threshold, high_threshold, sigma=0.0, filter_width=0.00, vertical_maxima=True):
     probs_line = probs
     # Smooth
-    probs2 = cv2.GaussianBlur(probs_line, (int(3*sigma)*2+1, int(3*sigma)*2+1), sigma)
-    local_maxima = vertical_local_maxima(probs2)
-    lines_mask = hysteresis_thresholding(probs2, local_maxima, low_threshold, high_threshold)
-    # Remove lines touching border
+    if sigma > 0.:
+        probs2 = cv2.GaussianBlur(probs_line, (int(3*sigma)*2+1, int(3*sigma)*2+1), sigma)
+    else:
+        probs2 = cv2.fastNlMeansDenoising((probs_line*255).astype(np.uint8), h=50)/255
+    #probs2 = probs_line
+    #local_maxima = vertical_local_maxima(probs2)
+    lines_mask = hysteresis_thresholding(probs2, low_threshold, high_threshold,
+                                         candidates=vertical_local_maxima(probs2) if vertical_maxima else None)
     #lines_mask = remove_borders(lines_mask)
     # Extract polygons from line mask
     contours = extract_line_polygons(lines_mask)
@@ -62,10 +65,11 @@ def line_extraction_v1(probs, sigma, low_threshold, high_threshold):
     filtered_contours = []
     page_width = probs.shape[1]
     for cnt in contours:
-        if cv2.arcLength(cnt, False) < 0.05*page_width:
+        centroid_x, centroid_y = np.mean(cnt, axis=0)[0]
+        if centroid_x < filter_width*page_width or centroid_x > (1-filter_width)*page_width:
             continue
-        if cv2.arcLength(cnt, False) < 0.05*page_width:
-            continue
+        # if cv2.arcLength(cnt, False) < filter_width*page_width:
+        #    continue
         filtered_contours.append(cnt)
 
     return filtered_contours, lines_mask
@@ -153,12 +157,14 @@ def extract_line_polygons(lines_mask):
 
 def vertical_local_maxima(probs):
     local_maxima = np.zeros_like(probs, dtype=bool)
-    local_maxima[1:-1] = (probs[1:-1] > probs[:-2]) & (probs[2:] < probs[1:-1])
+    local_maxima[1:-1] = (probs[1:-1] >= probs[:-2]) & (probs[2:] <= probs[1:-1])
     return local_maxima
 
 
-def hysteresis_thresholding(probs: np.array, candidates: np.array, low_threshold: float, high_threshold: float):
-    low_mask = candidates & (probs > low_threshold)
+def hysteresis_thresholding(probs: np.array, low_threshold: float, high_threshold: float, candidates=None):
+    low_mask = probs > low_threshold
+    if candidates is not None:
+        low_mask = candidates & low_mask
     # Connected components extraction
     label_components, count = label(low_mask, np.ones((3, 3)))
     # Keep components with high threshold elements

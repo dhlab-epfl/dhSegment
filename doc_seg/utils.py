@@ -3,6 +3,7 @@ import numpy as np
 import os
 import json
 import pickle
+from hashlib import sha1
 
 
 class PredictionType:
@@ -269,3 +270,7 @@ def load_pickle(filename):
 def dump_pickle(filename, obj):
     with open(filename, 'wb') as f:
         return pickle.dump(obj, f)
+
+
+def hash_dict(params):
+    return sha1(json.dumps(params, sort_keys=True).encode()).hexdigest()

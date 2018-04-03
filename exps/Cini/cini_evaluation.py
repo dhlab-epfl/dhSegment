@@ -3,7 +3,7 @@ from glob import glob
 from scipy.misc import imread, imsave, imresize
 import cv2
 import numpy as np
-from .cini_post_processing import cini_post_processing_fn
+from cini_post_processing import cini_post_processing_fn
 from doc_seg.utils import load_pickle
 import pandas as pd
 

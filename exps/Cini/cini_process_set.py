@@ -6,8 +6,8 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)))
 from doc_seg.loader import LoadedModel
-from cbad_post_processing import line_extraction_v1
-from cbad_evaluation import cbad_evaluate_folder
+from cini_post_processing import cini_post_processing_fn
+from cini_evaluation import cini_evaluate_folder
 
 import tensorflow as tf
 from tqdm import tqdm
@@ -37,7 +37,7 @@ def predict_on_set(filenames_to_predict, model_dir, output_dir):
                     np.uint8(255 * pred))
 
 
-def find_lines(img_filenames, dir_predictions, post_process_params, output_dir, debug=False, mask_dir: str=None):
+def find_elements(img_filenames, dir_predictions, post_process_params, output_dir, debug=False, mask_dir: str=None):
     """
 
     :param img_filenames:
@@ -55,25 +55,9 @@ def find_lines(img_filenames, dir_predictions, post_process_params, output_dir, 
 
         filename_pred = os.path.join(dir_predictions, basename + '.npy')
         pred = np.load(filename_pred)/255  # type: np.ndarray
-        lines_prob = pred[:, :, 1]
 
-        if mask_dir is not None:
-            mask = imread(os.path.join(mask_dir, basename + '.png'), mode='L')
-            mask = imresize(mask, lines_prob.shape)
-            lines_prob[mask == 0] = 0.
-
-        contours, lines_mask = line_extraction_v1(lines_prob, **post_process_params)
-
-        if debug:
-            imsave(os.path.join(output_dir, '{}_bin.jpg'.format(basename)), lines_mask)
-
-        ratio = (orig_img.shape[0] / pred.shape[0], orig_img.shape[1] / pred.shape[1])
-        xml_filename = os.path.join(output_dir, basename + '.xml')
-        PAGE.save_baselines(xml_filename, contours, ratio, initial_shape=pred.shape[:2])
-
-        generated_page = PAGE.parse_file(xml_filename)
-        generated_page.draw_baselines(orig_img, color=(0, 0, 255))
-        imsave(os.path.join(output_dir, '{}_lines.jpg'.format(basename)), orig_img)
+        contours, lines_mask = cini_post_processing_fn(pred, **post_process_params,
+                                                       output_basename=os.path.join(output_dir, basename))
 
 
 if __name__ == '__main__':
@@ -85,11 +69,9 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output-dir', type=str, required=True,
                         help='Folder containing the outputs (.npy predictions and visualization errors)')
     parser.add_argument('-gt', '--ground_truth_dir', type=str, required=True,
-                        help='Ground truth directory containing the abeled images')
+                        help='Ground truth directory containing the labeled images')
     parser.add_argument('--params-file', type=str, default=None,
                         help='JSOn file containing the params for post-processing')
-    parser.add_argument('--mask-dir', type=str, default=None,
-                        help='Folder with the binary masks if available for predictions')
     parser.add_argument('--gpu', type=str, default='0', help='Which GPU to use')
     parser.add_argument('-pp', '--post-process-only', default=False, action='store_true',
                         help='Whether to make or not the prediction')
@@ -114,7 +96,7 @@ if __name__ == '__main__':
 
     if args.get('params_file') is None:
         print('No params file found')
-        params_list = [{"low_threshold": 0.25, "high_threshold": 0.6}]
+        params_list = [{"clean_predictions": True, "advanced": True}]
     else:
         with open(args.get('params_file'), 'r') as f:
             configs_data = json.load(f)
@@ -127,18 +109,14 @@ if __name__ == '__main__':
                 params_list = [configs_data]
 
     gt_dir = args.get('ground_truth_dir')
-    if gt_dir is not None:
-        assert os.path.basename(gt_dir) == 'gt'
-        gt_dir = os.path.join(gt_dir, os.path.pardir)
 
     for params in tqdm(params_list, desc='Params'):
         print(params)
         exp_dir = os.path.join(output_dir, '_' + hash_dict(params))
-        find_lines(input_files, npy_directory, params, exp_dir,
-                   debug=False, mask_dir=args.get('mask_dir'))
+        find_elements(input_files, npy_directory, params, exp_dir, debug=False)
 
         if gt_dir is not None:
-            scores = cbad_evaluate_folder(exp_dir, gt_dir, debug_folder=os.path.join(exp_dir, '_debug'))
+            scores = cini_evaluate_folder(exp_dir, gt_dir, debug_folder=os.path.join(exp_dir, '_debug'))
             dump_json(os.path.join(exp_dir, 'post_process_config.json'), params)
             dump_json(os.path.join(exp_dir, 'scores.json'), scores)
             print('Scores : {}'.format(scores))

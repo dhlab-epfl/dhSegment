@@ -35,7 +35,7 @@ def predict_on_set(filenames_to_predict, model_dir, output_dir):
                     np.uint8(255 * pred))
 
 
-def find_lines(img_filenames, dir_predictions, post_process_params, output_dir, debug=False):
+def find_lines(img_filenames, dir_predictions, post_process_params, output_dir, debug=False, mask_dir: str=None):
     """
 
     :param img_filenames:
@@ -51,8 +51,13 @@ def find_lines(img_filenames, dir_predictions, post_process_params, output_dir, 
 
         filename_pred = os.path.join(dir_predictions, basename + '.npy')
         pred = np.load(filename_pred)
+        lines_prob = pred[:, :, 1]
 
-        contours, lines_mask = line_extraction_v1(pred[:, :, 1], **post_process_params)
+        if mask_dir is not None:
+            mask = imread(os.path.join(mask_dir, basename + '_bin.png'), mode='L')
+            lines_prob[mask == 0] = 0.
+
+        contours, lines_mask = line_extraction_v1(lines_prob, **post_process_params)
         if debug:
             imsave(os.path.join(output_dir, '{}_bin.jpg'.format(basename)), lines_mask)
 

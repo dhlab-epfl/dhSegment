@@ -273,6 +273,18 @@ class Page(BaseElement):
             cv2.circle(img_canvas, (coords[-1, 0, 0], coords[-1, 0, 1]),
                        radius=endpoint_radius, color=color, thickness=-1)
 
+    def draw_textregions(self, img_canvas, color=(255, 0, 0), autoscale=True):
+        if autoscale:
+            assert self.image_height is not None
+            assert self.image_width is not None
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
+        else:
+            ratio = (1, 1)
+
+        tr_coords = [(Point.list_to_cv2poly(tr.coords)*ratio).astype(np.int32) for tr in self.text_regions
+                     if len(tr.coords) > 0]
+        cv2.fillPoly(img_canvas, tr_coords, color)
+
 
 def parse_file(filename: str) -> Page:
     xml_page = ET.parse(filename)
