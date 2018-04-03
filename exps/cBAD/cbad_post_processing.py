@@ -47,16 +47,17 @@ def line_extraction_v0(probs, sigma, threshold):
     return contours, lines_mask
 
 
-def line_extraction_v1(probs, low_threshold, high_threshold, sigma=0.0, filter_width=0.00):
+def line_extraction_v1(probs, low_threshold, high_threshold, sigma=0.0, filter_width=0.00, vertical_maxima=False):
     probs_line = probs
     # Smooth
     if sigma > 0.:
         probs2 = cv2.GaussianBlur(probs_line, (int(3*sigma)*2+1, int(3*sigma)*2+1), sigma)
     else:
-        probs2 = cv2.fastNlMeansDenoising((probs_line*255).astype(np.uint8), h=50)/255
+        probs2 = cv2.fastNlMeansDenoising((probs_line*255).astype(np.uint8), h=20)/255
     #probs2 = probs_line
     #local_maxima = vertical_local_maxima(probs2)
-    lines_mask = hysteresis_thresholding(probs2, low_threshold, high_threshold)
+    lines_mask = hysteresis_thresholding(probs2, low_threshold, high_threshold,
+                                         candidates=vertical_local_maxima(probs2) if vertical_maxima else None)
     # Remove lines touching border
     #lines_mask = remove_borders(lines_mask)
     # Extract polygons from line mask
@@ -157,8 +158,9 @@ def extract_line_polygons(lines_mask):
 
 def vertical_local_maxima(probs):
     local_maxima = np.zeros_like(probs, dtype=bool)
-    local_maxima[1:-1] = (probs[1:-1] > probs[:-2]) & (probs[2:] < probs[1:-1])
-    return local_maxima
+    local_maxima[1:-1] = (probs[1:-1] => probs[:-2]) & (probs[2:] <= probs[1:-1])
+    local_maxima = cv2.morphologyEx(local_maxima.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((5, 5), dtype=np.uint8))
+    return local_maxima > 0
 
 
 def hysteresis_thresholding(probs: np.array, low_threshold: float, high_threshold: float, candidates=None):

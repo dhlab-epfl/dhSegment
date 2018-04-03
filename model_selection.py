@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
     # Perform test prediction (is it the right place?)
     test_folder = args.get('test_folder')
-    for i, best_experiment in enumerate(sorted_experiments[:1]):
+    for i, best_experiment in enumerate(sorted_experiments[:10]):
         print(best_experiment)
         print('Validation :')
         print(best_experiment.get_best_validated_epoch())
@@ -68,7 +68,7 @@ if __name__ == '__main__':
         if len(test_files) == 0:
             print('No files in ', test_folder)
             continue
-        if args.get('eval_only'):
+        if not args.get('eval_only'):
             with tf.Graph().as_default(), tf.Session() as sess:
                 m = LoadedModel(model_folder, input_dict_key='filename')
                 for filename in tqdm(test_files, desc='Test images'):

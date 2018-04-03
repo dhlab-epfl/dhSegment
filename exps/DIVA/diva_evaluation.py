@@ -9,7 +9,7 @@ import subprocess
 import numpy as np
 import cv2
 import json
-from diva_dataset_generator import MAP_COLORS
+from .diva_dataset_generator import MAP_COLORS
 
 
 DIVA_CLASSES = {
