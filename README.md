@@ -13,9 +13,9 @@ It is inspired by the paper [_U-Net: Convolutional Networks for Biomedical Image
 0 255 0
 ...
 ```
+* [`sacred`](https://sacred.readthedocs.io/en/latest/quickstart.html) package is used to deal with experiments and trainings. Have a look at the documentation to use it properly.
 
 In order to train a model, you should run `python train.py with <config.json>`
-
 
 ## Demo
 This demo shows the usage of dhSegment for page document extraction. It trains a model from scratch (optional) using the [READ-BAD dataset](https://arxiv.org/abs/1705.03311) and the annotations of [pagenet](https://github.com/ctensmeyer/pagenet/tree/master/annotations) (annotator1 is used).
