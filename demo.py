@@ -8,28 +8,10 @@ from glob import glob
 import numpy as np
 import os
 import cv2
-import tempfile
 from scipy.misc import imread, imsave
 
 
-def predict_on_set(filenames_to_predict, model_dir, output_dir):
-    """
-    Given a list of filenames, loads the model and saves the probabilities into a .npy file
-    :param filenames_to_predict:
-    :param model_dir:
-    :param output_dir:
-    :return:
-    """
-    with tf.Session():
-        m = LoadedModel(model_dir, 'filename')
-        for filename in tqdm(filenames_to_predict, desc='Prediction'):
-            pred = m.predict(filename)['probs'][0]
-            np.save(os.path.join(output_dir, os.path.basename(filename).split('.')[0]),
-                    np.uint8(255 * pred))
-
-
-def page_post_processing_fn(probs: np.ndarray, threshold: float=-1, ksize_open: tuple=(5, 5),
-                            ksize_close: tuple=(5, 5)) -> np.ndarray:
+def page_post_processing_fn(probs: np.ndarray, threshold: float=-1) -> np.ndarray:
     """
     Computes the binary mask of the detected Page from the probabilities outputed by network
     :param probs: array in range [0, 1] of shape HxWx2
@@ -38,7 +20,6 @@ def page_post_processing_fn(probs: np.ndarray, threshold: float=-1, ksize_open: 
     :param ksize_close: size of kernel for morphological closing
     :return: binary mask
     """
-    probs = probs[:, :, 1]
     if threshold < 0:  # Otsu's thresholding
         probs = np.uint8(probs * 255)
         blur = cv2.GaussianBlur(probs, (5, 5), 0)
@@ -46,12 +27,13 @@ def page_post_processing_fn(probs: np.ndarray, threshold: float=-1, ksize_open: 
         mask = np.uint8(bin_img / 255)
     else:
         mask = probs > threshold
+
+    ksize_open = (5, 5)
+    ksize_close = (5, 5)
     mask = cv2.morphologyEx((mask.astype(np.uint8) * 255), cv2.MORPH_OPEN, kernel=np.ones(ksize_open))
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel=np.ones(ksize_close))
 
-    result = mask / 255
-
-    return result
+    return mask / 255
 
 
 def format_quad_to_string(quad):
@@ -66,46 +48,36 @@ def format_quad_to_string(quad):
     return s[:-1]
 
 
-def find_page(img_filenames, dir_predictions, output_dir):
+def find_page(filename, prediction):
     """
     Finds the rectangle enclosing the page and writes the coordinates into a txt file. It also exports the images
     with the page drawn.
-    :param img_filenames: list of filenames to process
-    :param dir_predictions: directory where are stored the temporary .npy files (probabilities maps) output by the model
+    :param filename: filename of the image to process
+    :param prediction: probability map output by the model
     :param output_dir: directory to output the txt file with the corner points of the page and the images with
             the highlighted page
     :return:
     """
 
-    with open(os.path.join(output_dir, 'pages.txt'), 'w') as f:
-        for filename in tqdm(img_filenames, 'Post-processing'):
-            orig_img = imread(filename, mode='RGB')
-            basename = os.path.basename(filename).split('.')[0]
+    # Load original image
+    orig_img = imread(filename, mode='RGB')
 
-            filename_pred = os.path.join(dir_predictions, basename + '.npy')
-            pred = np.load(filename_pred)
-            # Make binary mask
-            page_bin = page_post_processing_fn(pred / np.max(pred))
+    # Make binary mask
+    page_bin = page_post_processing_fn(prediction)
 
-            # Upscale to have full resolution image
-            target_shape = (orig_img.shape[1], orig_img.shape[0])
-            bin_upscaled = cv2.resize(np.uint8(page_bin), target_shape, interpolation=cv2.INTER_NEAREST)
+    # Upscale to have full resolution image
+    target_shape = (orig_img.shape[1], orig_img.shape[0])
+    bin_upscaled = cv2.resize(np.uint8(page_bin), target_shape, interpolation=cv2.INTER_NEAREST)
 
-            # Find quadrilateral enclosing the page
-            pred_box = boxes_detection.find_boxes(np.uint8(bin_upscaled), mode='quadrilateral')
+    # Find quadrilateral enclosing the page
+    pred_box = boxes_detection.find_boxes(np.uint8(bin_upscaled), mode='min_rectangle')
 
-            if pred_box is not None:
-                cv2.polylines(orig_img, [pred_box[:, None, :]], True, (0, 0, 255), thickness=5)
-            else:
-                print('No box found in {}'.format(filename))
-            imsave(os.path.join(output_dir, '{}_boxes.jpg'.format(basename)), orig_img)
-
-            # Write corners points into a .txt file
-            f.write('{},{}\n'.format(filename, format_quad_to_string(pred_box)))
+    return pred_box, orig_img
 
 
 if __name__ == '__main__':
 
+    # If the model has been trained load the model, otherwise use the given model
     export_models_dir = glob('demo/page_model/export/*')
     if not export_models_dir:
         model_dir = 'demo/model/'
@@ -118,10 +90,32 @@ if __name__ == '__main__':
     output_dir = 'demo/processed_images'
     os.makedirs(output_dir, exist_ok=True)
 
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        npy_directory = tmpdirname
-        # Load model and output probabilities masks
-        predict_on_set(input_files, model_dir, npy_directory)
+    # Store coordinates of page in a .txt file
+    txt_coordinates = ''
 
-        npy_files = glob(os.path.join(npy_directory, '*.npy'))
-        find_page(input_files, npy_directory, output_dir)
+    with tf.Session():  # Start a tensorflow session
+        # Load the model
+        m = LoadedModel(model_dir, 'filename')
+
+        for filename in tqdm(input_files, desc='Processed files'):
+            # For each image, predict each pixel's label
+            pred = m.predict(filename)['probs'][0]
+            pred = pred[:, :, 1]  # Take only class '1' (class 0 is the background, class 1 is the page)
+            pred = pred / np.max(pred)  # Normalize to be in [0, 1]
+
+            # Find page coordinates
+            pred_page, original_img = find_page(filename, pred)
+
+            # Draw page box on image and export it. Add also box coordinates to the txt file
+            if pred_page is not None:
+                cv2.polylines(original_img, [pred_page[:, None, :]], True, (0, 0, 255), thickness=5)
+                # Write corners points into a .txt file
+                txt_coordinates += '{},{}\n'.format(filename, format_quad_to_string(pred_page))
+            else:
+                print('No box found in {}'.format(filename))
+            basename = os.path.basename(filename).split('.')[0]
+            imsave(os.path.join(output_dir, '{}_boxes.jpg'.format(basename)), original_img)
+
+    # Save txt file
+    with open(os.path.join(output_dir, 'pages.txt'), 'w') as f:
+        f.write(txt_coordinates)
