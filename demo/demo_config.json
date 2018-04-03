@@ -28,7 +28,7 @@
   "pretrained_model_name" : "resnet50",
   "prediction_type": "CLASSIFICATION",
   "train_dir" : "demo/dataset_page/train/",
-  "eval_dir" : "demo_dataset_page/validation",
+  "eval_dir" : "demo_dataset_page/val_a1",
   "classes_file" : "demo/dataset_page/classes.txt",
   "model_output_dir" : "demo/page_model"
 }

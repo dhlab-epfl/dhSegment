@@ -29,8 +29,8 @@ def predict_on_set(filenames_to_predict, model_dir, output_dir):
                     np.uint8(255 * pred))
 
 
-def page_post_processing_fn(probs: np.ndarray, threshold: float=0.5, ksize_open: tuple=(7, 7),
-                            ksize_close: tuple=(9, 9)) -> np.ndarray:
+def page_post_processing_fn(probs: np.ndarray, threshold: float=-1, ksize_open: tuple=(5, 5),
+                            ksize_close: tuple=(5, 5)) -> np.ndarray:
     """
     Computes the binary mask of the detected Page from the probabilities outputed by network
     :param probs: array in range [0, 1] of shape HxWx2
@@ -57,8 +57,8 @@ def page_post_processing_fn(probs: np.ndarray, threshold: float=0.5, ksize_open:
 
 def format_quad_to_string(quad):
     """
-
-    :param quad:
+    Formats the corner points into a string.
+    :param quad: coordinates of the quadrilateral
     :return:
     """
     s = ''
@@ -67,17 +67,17 @@ def format_quad_to_string(quad):
     return s[:-1]
 
 
-def find_page(img_filenames, dir_predictions, post_process_params, output_dir):
+def find_page(img_filenames, dir_predictions, output_dir):
     """
-
-    :param img_filenames:
-    :param dir_predictions:
-    :param post_process_params:
-    :param output_dir:
+    Finds the rectangle enclosing the page and writes the coordinates into a txt file. It also exports the images
+    with the page drawn.
+    :param img_filenames: list of filenames to process
+    :param dir_predictions: directory where are stored the temporary .npy files (probabilities maps) output by the model
+    :param output_dir: directory to output the txt file with the corner points of the page and the images with
+            the highlighted page
     :return:
     """
 
-    # Write the corners points into a .txt file
     with open(os.path.join(output_dir, 'pages.txt'), 'w') as f:
         for filename in tqdm(img_filenames, 'Post-processing'):
             orig_img = imread(filename, mode='RGB')
@@ -86,7 +86,7 @@ def find_page(img_filenames, dir_predictions, post_process_params, output_dir):
             filename_pred = os.path.join(dir_predictions, basename + '.npy')
             pred = np.load(filename_pred)
             # Make binary mask
-            page_bin = page_post_processing_fn(pred / np.max(pred), **post_process_params)
+            page_bin = page_post_processing_fn(pred / np.max(pred))
 
             # Upscale to have full resolution image
             target_shape = (orig_img.shape[1], orig_img.shape[0])
@@ -101,34 +101,28 @@ def find_page(img_filenames, dir_predictions, post_process_params, output_dir):
                 print('No box found in {}'.format(filename))
             imsave(os.path.join(output_dir, '{}_boxes.jpg'.format(basename)), orig_img)
 
+            # Write corners points into a .txt file
             f.write('{},{}\n'.format(filename, format_quad_to_string(pred_box)))
-
-# Export corners
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-o', '--output_dir', type=str, required=True,
-                        help='Folder containing the outputs (.npy predictions and visualization errors)')
-    parser.add_argument('--post_process_params', type=str, default=None,
-                        help='JSOn file containing the params for post-processing')
-    parser.add_argument('-b', '--box_mode', type=str, default='quadrilateral',
-                        help="Which type of box to use 'quadrilateral', 'min_rectangle', 'rectangle', 'no_box'")
-    parser.add_argument('--gpu', type=str, default='0', help='Which GPU to use')
 
     export_models_dir = glob('demo/page_model/export/*')
-    export_models_dir.sort()
-    model_dir = export_models_dir[-1]
+    if export_models_dir is not None:
+        export_models_dir.sort()
+        model_dir = export_models_dir[-1]
+    else:
+        model_dir = 'demo/model/'
 
-    input_files = glob('demo/dataset/test/images/*')
+    input_files = glob('demo/pages/test_a1/images/*')
 
     output_dir = 'demo/processed_images'
     os.makedirs(output_dir, exist_ok=True)
 
-    # with tempfile.TemporaryDirectory() as tmpdirname:
-    #     npy_directory = tmpdirname
-    #     # Load model and output probabilities masks
-    #     predict_on_set(input_files, model_dir, npy_directory)
-    #
-    #     npy_files = glob(os.path.join(npy_directory, '*.npy'))
-    #     find_page(input_files, npy_directory, post_process_params, output_dir, mode=args.get('box_mode'))
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        npy_directory = tmpdirname
+        # Load model and output probabilities masks
+        predict_on_set(input_files, model_dir, npy_directory)
+
+        npy_files = glob(os.path.join(npy_directory, '*.npy'))
+        find_page(input_files, npy_directory, output_dir)
