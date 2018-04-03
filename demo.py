@@ -1,2 +1,8 @@
 #!/usr/bin/env python
-__author__ = 'solivr'
+
+# Load model
+
+# Postprocess
+
+# Export corners
+

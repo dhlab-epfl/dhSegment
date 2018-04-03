@@ -2,13 +2,15 @@
 __author__ = 'solivr'
 
 import os
-from exps.evaluation.base import Metrics, format_quad_to_string, compare_bin_prediction_to_label
-from exps.post_processing.boxes_detection import find_box
-from tqdm import tqdm
-from scipy.misc import imread, imsave
 from glob import glob
+
 import cv2
 import numpy as np
+from scipy.misc import imread, imsave
+from tqdm import tqdm
+
+from doc_seg.post_processing.boxes_detection import find_box
+from exps.evaluation.base import Metrics, format_quad_to_string, compare_bin_prediction_to_label
 
 
 def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise: bool=True,

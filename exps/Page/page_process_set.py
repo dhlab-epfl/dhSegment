@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 __author__ = 'solivr'
 
-import sys
 import os
+import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)))
 from doc_seg.loader import LoadedModel
-from exps.post_processing import boxes_detection
+from doc_seg.post_processing import boxes_detection
 from exps.Page.page_post_processing import page_post_processing_fn
 from exps.evaluation.base import format_quad_to_string
 import tensorflow as tf

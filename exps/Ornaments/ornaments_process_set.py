@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 __author__ = 'solivr'
 
-import tensorflow as tf
-import sys
 import os
+import sys
+
+import tensorflow as tf
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)))
 from doc_seg.loader import LoadedModel
 from ornaments_post_processing import ornaments_post_processing_fn
-from exps.post_processing import boxes_detection
+from doc_seg.post_processing import boxes_detection
 from exps.evaluation.base import format_quad_to_string
 from tqdm import tqdm
 import numpy as np

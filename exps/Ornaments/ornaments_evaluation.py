@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 __author__ = 'solivr'
 
-from exps.evaluation.base import Metrics
-from exps.post_processing.boxes_detection import find_box
 import os
 from glob import glob
-from tqdm import tqdm
-from scipy.misc import imread, imsave
-import numpy as np
+
 import cv2
+import numpy as np
+from scipy.misc import imread, imsave
+from tqdm import tqdm
+
+from doc_seg.post_processing.boxes_detection import find_box
+from exps.evaluation.base import Metrics
 
 
 def ornament_evaluate_folder(output_folder: str, validation_dir: str, debug_folder: str=None,
