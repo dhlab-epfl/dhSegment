@@ -1,9 +1,8 @@
 import tensorflow as tf
-from doc_seg import model, input, utils, loader
+from dh_segment import model, input, utils
 import os
 import json
 from glob import glob
-from tqdm import tqdm
 import numpy as np
 try:
     import better_exceptions

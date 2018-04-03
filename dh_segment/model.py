@@ -1,6 +1,6 @@
 import tensorflow as tf
 from .utils import PredictionType, class_to_label_image, ModelParams, TrainingParams
-from doc_seg import utils
+from . import utils
 import numpy as np
 from .inferences import inference_resnet_v1_50, inference_vgg16, inference_u_net
 

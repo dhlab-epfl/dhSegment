@@ -92,10 +92,10 @@ def find_page(img_filenames, dir_predictions, output_dir):
             bin_upscaled = cv2.resize(np.uint8(page_bin), target_shape, interpolation=cv2.INTER_NEAREST)
 
             # Find quadrilateral enclosing the page
-            pred_box = boxes_detection.find_box(np.uint8(bin_upscaled), mode='quadrilateral')
+            pred_box = boxes_detection.find_boxes(np.uint8(bin_upscaled), mode='quadrilateral')
 
             if pred_box is not None:
-                cv2.polylines(orig_img, [pred_box[:, None, :]], True, (0, 0, 255), thickness=15)
+                cv2.polylines(orig_img, [pred_box[:, None, :]], True, (0, 0, 255), thickness=5)
             else:
                 print('No box found in {}'.format(filename))
             imsave(os.path.join(output_dir, '{}_boxes.jpg'.format(basename)), orig_img)
@@ -107,11 +107,11 @@ def find_page(img_filenames, dir_predictions, output_dir):
 if __name__ == '__main__':
 
     export_models_dir = glob('demo/page_model/export/*')
-    if export_models_dir is not None:
+    if not export_models_dir:
+        model_dir = 'demo/model/'
+    else:
         export_models_dir.sort()
         model_dir = export_models_dir[-1]
-    else:
-        model_dir = 'demo/model/'
 
     input_files = glob('demo/pages/test_a1/images/*')
 

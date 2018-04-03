@@ -2,10 +2,9 @@ import tensorflow as tf
 import os
 from threading import Semaphore
 import numpy as np
-from .input_utils import load_and_resize_image
 import tempfile
 from scipy.misc import imsave, imread
-from PIL import Image
+
 
 class LoadedModel:
     def __init__(self, model_base_dir, input_dict_key='images', signature_def_key='serving_default',
