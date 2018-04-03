@@ -3,10 +3,6 @@
 DocumentSegmentation allows you to extract content (segment regions) from different type of documents.
 It is inspired by the paper [_U-Net: Convolutional Networks for Biomedical Image Segmentation_](https://arxiv.org/pdf/1505.04597.pdf) but uses a pretrained network for encoding.
 
-Available pretrained implementations : 
-* VGG-16: http://download.tensorflow.org/models/vgg_16_2016_08_28.tar.gz
-* Resnet-V1-50 : http://download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz
-
 ### Usage
 #### Training
 * You need to have your training data in a folder containing `images` folder and `labels` folder. The pairs (images, labels) need to have the same name (it is not mandatory to have the same extension file, however we recommend having the label images as `.png` files). 
@@ -27,10 +23,10 @@ In order to limit memory usage, the images in the dataset we provide have been d
 
 __How to__
 
-1. Get the data from [link]() and unzip it. 
+1. Get the annotated dataset [here](https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/pages.zip), which already contains the folders `images` and `labels` for training validation and testing set. Unzip it into `model/pages`. 
 2. You can train the model from scratch with 
     `python train.py with demo/demo_config.json`
-    or skip this step and use directly the [provided model]() (download and unzip it in `demo/model`)
+    or skip this step and use directly the [provided model](https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/model.zip) (download and unzip it in `demo/model`)
 3. Run `python demo.py`
 4. Have a look at the results in `demo/processed_images`
 
