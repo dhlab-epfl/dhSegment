@@ -1,4 +1,4 @@
-name: doc_seg
+name: dh_segment
 channels:
 - defaults
 dependencies:

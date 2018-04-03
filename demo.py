@@ -8,7 +8,6 @@ from glob import glob
 import numpy as np
 import os
 import cv2
-import argparse
 import tempfile
 from scipy.misc import imread, imsave
 
@@ -92,7 +91,7 @@ def find_page(img_filenames, dir_predictions, output_dir):
             target_shape = (orig_img.shape[1], orig_img.shape[0])
             bin_upscaled = cv2.resize(np.uint8(page_bin), target_shape, interpolation=cv2.INTER_NEAREST)
 
-            # Find quadrilateral inclosing the page
+            # Find quadrilateral enclosing the page
             pred_box = boxes_detection.find_box(np.uint8(bin_upscaled), mode='quadrilateral')
 
             if pred_box is not None:

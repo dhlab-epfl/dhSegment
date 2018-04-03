@@ -3,7 +3,7 @@
 
 - Create a virtual environment with all the packages : `conda env create -f environment.yml`
 
-- Then activate the environment with `source activate doc_seg`
+- Then activate the environment with `source activate dh_segment`
 
 - It might be possible that the following needs to be added to your `~/.bashrc`
 

@@ -24,10 +24,17 @@ In order to limit memory usage, the images in the dataset we provide have been d
 __How to__
 
 1. Get the annotated dataset [here](https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/pages.zip), which already contains the folders `images` and `labels` for training validation and testing set. Unzip it into `model/pages`. 
-2. You can train the model from scratch with 
+2. Download the pretrained weights for ResNet :
+```
+cd pretrained_models/
+python download_resnet_pretrained_model.py
+cd ..
+```
+
+3. You can train the model from scratch with 
     `python train.py with demo/demo_config.json`
     or skip this step and use directly the [provided model](https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/model.zip) (download and unzip it in `demo/model`)
-3. Run `python demo.py`
-4. Have a look at the results in `demo/processed_images`
+4. Run `python demo.py`
+5. Have a look at the results in `demo/processed_images`
 
 
