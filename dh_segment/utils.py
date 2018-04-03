@@ -42,7 +42,7 @@ class BaseParams:
 
 
 class VGG16ModelParams:
-    PRETRAINED_MODEL_FILE = '/home/pretrained_models/vgg_16.ckpt'
+    PRETRAINED_MODEL_FILE = 'pretrained_models/vgg_16.ckpt'
     INTERMEDIATE_CONV = [
         [(256, 3)]
     ]
@@ -66,7 +66,7 @@ class VGG16ModelParams:
 
 
 class ResNetModelParams:
-    PRETRAINED_MODEL_FILE = '/home/pretrained_models/resnet_v1_50.ckpt'
+    PRETRAINED_MODEL_FILE = 'pretrained_models/resnet_v1_50.ckpt'
     INTERMEDIATE_CONV = None
     UPSCALE_PARAMS = [
         # (Filter size (depth bottleneck's output), number of bottleneck)
