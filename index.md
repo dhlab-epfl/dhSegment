@@ -10,7 +10,7 @@ overview: true
 
 It is a generic approach for Historical Document Processing. It relies on a Convolutional Neural Network to do the heavy lifting of predicting pixelwise characteristics. Then simple image processing operations are provided to extract the components of interest (boxes, polygons, lines, masks, ...)
 
-It was originally created by [Benoit Seguin](https://twitter.com/Seguin_Be) and Sofia Olivera Ares at the DHLAB of EPFL for the needs of the Venice Time Machine.
+It was originally created by [Benoit Seguin](https://twitter.com/Seguin_Be) and Sofia Oliveira Ares at the DHLAB of EPFL for the needs of the Venice Time Machine.
 
 It does include the following features: 
 
