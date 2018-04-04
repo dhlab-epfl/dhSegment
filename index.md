@@ -16,6 +16,8 @@ It does include the following features:
 
 - You only need to provide a list of images with annotated masks, which everybody can do with an image editing software (Gimp, Photoshop). You only need to draw the elements you care about!
 
+- Allows to classify each pixel across multiple classes, or even multiple labels per pixel.
+
 - On-the-fly data augmentation, and efficient batching of batches.
 
 - Leverages a state-of-the-art pre-trained network (Resnet50) to lower the need for training data and improve generalization.
@@ -23,6 +25,24 @@ It does include the following features:
 - Monitor training on Tensorboard very easily.
 
 - A list of image processing operations are already implemented such that the post-processing step only take a couple of lines.
+
+# What sort of training data do I need?
+
+Each training sample is an image of a document with the corresponding parts to be predicted. 
+
+<div style="margin:0 auto; width: 80%;">
+    <image src="assets/images/cini_input.jpg" style="width: 48%;"></image>
+    <image src="assets/images/cini_labels.png" style="width: 48%;"></image>
+</div>
+
+Additionally, a text file encoding the RGB values of the classes has to be present, in this case if we want background, document, photograph to be respectively classes 0, 1, and 2 we need to encode their color line-by-line:
+
+```
+0 255 0
+255 0 0
+0 0 255
+```
+
 
 # Use cases
 
@@ -51,9 +71,6 @@ It does include the following features:
 
 # Tensorboard Integration
 
-<div style="margin:0 auto; width: 100%;">
-    <image src="assets/images/tensorboard_1.png" style="width: 30%;"></image>
-    <image src="assets/images/tensorboard_2.png" style="width: 30%;"></image>
-    <image src="assets/images/tensorboard_3.png" style="width: 30%;"></image>
-</div>
-
+![](assets/images/tensorboard_1.png){: .center-image .w-70}
+![](assets/images/tensorboard_2.png){: .center-image .w-70}
+![](assets/images/tensorboard_3.png){: .center-image .w-70}
