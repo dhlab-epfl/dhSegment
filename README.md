@@ -3,6 +3,9 @@
 DocumentSegmentation allows you to extract content (segment regions) from different type of documents.
 It is inspired by the paper [_U-Net: Convolutional Networks for Biomedical Image Segmentation_](https://arxiv.org/pdf/1505.04597.pdf) but uses a pretrained network for encoding.
 
+## Installation and requirements
+ See `INSTALL.md` and `environment.yml`.
+
 ### Usage
 #### Training
 * You need to have your training data in a folder containing `images` folder and `labels` folder. The pairs (images, labels) need to have the same name (it is not mandatory to have the same extension file, however we recommend having the label images as `.png` files). 
