@@ -51,8 +51,8 @@ wget https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/model.zip
 unzip model.zip
 cd ..
 ```
-4. During training, you can visualize the progresses in tensorboard by running `tensorboard --logdir .` in the `demo` folder.
-4. Run `python demo.py`
-5. Have a look at the results in `demo/processed_images`
+4. (Only if training from scratch) You can visualize the progresses in tensorboard by running `tensorboard --logdir .` in the `demo` folder.
+5. Run `python demo.py`
+6. Have a look at the results in `demo/processed_images`
 
 
