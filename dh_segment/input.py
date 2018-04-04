@@ -5,7 +5,7 @@ import numpy as np
 from . import utils
 from tqdm import tqdm
 from random import shuffle
-from .input_utils import data_augmentation_fn, extract_patches_fn, load_and_resize_image, rotate_crop
+from .input_utils import data_augmentation_fn, extract_patches_fn, load_and_resize_image, rotate_crop, resize_image
 from scipy import ndimage
 
 
@@ -93,10 +93,10 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
                                                                -training_params.data_augmentation_max_rotation,
                                                                training_params.data_augmentation_max_rotation)
                             label_image = rotate_crop(label_image, rotation_angle,
-                                                      minimum_shape=[(i*3)//2 for i in training_params.patch_shape],
+                                                      minimum_shape=[(i * 3) // 2 for i in training_params.patch_shape],
                                                       interpolation='NEAREST')
                             input_image = rotate_crop(input_image, rotation_angle,
-                                                      minimum_shape=[(i*3)//2 for i in training_params.patch_shape],
+                                                      minimum_shape=[(i * 3) // 2 for i in training_params.patch_shape],
                                                       interpolation='BILINEAR')
 
                 if make_patches:
@@ -162,7 +162,7 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
 
         # Summaries for checking that the loading and data augmentation goes fine
         if image_summaries:
-            shape_summary_img = tf.cast(tf.shape(prepared_batch['images'])[1:3]/3, tf.int32)
+            shape_summary_img = tf.cast(tf.shape(prepared_batch['images'])[1:3] / 3, tf.int32)
             tf.summary.image('input/image',
                              tf.image.resize_images(prepared_batch['images'], shape_summary_img),
                              max_outputs=1)
@@ -177,7 +177,8 @@ def input_fn(input_image_dir_or_filenames, params: dict, input_label_dir=None, d
                                  tf.image.resize_images(label_export, shape_summary_img), max_outputs=1)
             if 'weight_maps' in prepared_batch:
                 tf.summary.image('input/weight_map',
-                                 tf.image.resize_images(prepared_batch['weight_maps'][:, :, :, None], shape_summary_img),
+                                 tf.image.resize_images(prepared_batch['weight_maps'][:, :, :, None],
+                                                        shape_summary_img),
                                  max_outputs=1)
 
         return prepared_batch, prepared_batch.get('labels')
@@ -191,17 +192,23 @@ def serving_input_filename(resized_size):
         filename = tf.placeholder(dtype=tf.string)
 
         # TODO : make it batch-compatible (with Dataset or string input producer)
-        image = load_and_resize_image(filename, 3, resized_size)
+        decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=3,
+                                                         try_recover_truncated=True))
+        original_shape = tf.shape(decoded_image)[:2]
+        image = resize_image(decoded_image, resized_size)
 
         image_batch = image[None]
-        features = {'images': image_batch}
+        features = {'images': image_batch, 'original_shape': original_shape}
 
         receiver_inputs = {'filename': filename}
 
         input_from_resized_images = {'resized_images': image_batch}
+        input_from_original_image = {'image': decoded_image}
 
         return tf.estimator.export.ServingInputReceiver(features, receiver_inputs,
-                                                        receiver_tensors_alternatives={'from_resized_images':
+                                                        receiver_tensors_alternatives={'from_image':
+                                                                                           input_from_original_image,
+                                                                                       'from_resized_images':
                                                                                            input_from_resized_images})
 
     return serving_input_fn
@@ -214,6 +221,7 @@ def serving_input_image():
 
 def local_entropy(tf_binary_img: tf.Tensor, sigma=3):
     tf_binary_img.get_shape().assert_has_rank(2)
+
     def get_gaussian_filter_1d(sigma):
         sigma_r = int(np.round(sigma))
         x = np.zeros(6 * sigma_r + 1, dtype=np.float32)
@@ -239,5 +247,5 @@ def local_entropy(tf_binary_img: tf.Tensor, sigma=3):
                                         (1, 1, 1, 1), padding='SAME')
     local_components_avg = tf.transpose(local_components_avg[:, :, :, 0], [1, 2, 0])
     local_components_avg = tf.pow(local_components_avg, 1 / 1.4)
-    local_components_avg = local_components_avg/(tf.reduce_sum(local_components_avg, axis=2, keep_dims=True)+1e-6)
+    local_components_avg = local_components_avg / (tf.reduce_sum(local_components_avg, axis=2, keep_dims=True) + 1e-6)
     return -tf.reduce_sum(local_components_avg * tf.log(local_components_avg + 1e-6), axis=2)

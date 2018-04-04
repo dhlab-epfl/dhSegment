@@ -3,36 +3,36 @@ import numpy as np
 from scipy.spatial import KDTree
 
 
-def find_boxes(predictions: np.array, mode: str='min_rectangle', min_area: float=0.2,
+def find_boxes(boxes_mask: np.array, mode: str= 'min_rectangle', min_area: float=0.2,
                p_arc_length: float=0.01, n_max_boxes=1):
     """
 
-    :param predictions: Uint8 binary 2D array
-    :param mode: 'min_rectangle', 'quadrilateral', rectangle
+    :param boxes_mask: Uint8 binary 2D array
+    :param mode: 'min_rectangle', 'quadrilateral', 'rectangle'
     :param min_area:
     :param p_arc_length: when 'qualidrateral' mode is chosen
     :param n_max_boxes:
     :return: n_max_boxes of 4 corners [[x1,y2], [x2,y2], ... ]
     """
-    _, contours, _ = cv2.findContours(predictions, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    _, contours, _ = cv2.findContours(boxes_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if contours is None:
         print('No contour found')
         return None
     # found_box = None
     found_boxes = list()
 
-    h_img, w_img = predictions.shape[:2]
+    h_img, w_img = boxes_mask.shape[:2]
 
     def validate_box(box: np.array) -> (np.array, float):
         # Aproximate area computation (TODO eventually make a proper area computation)
         approx_area = (np.max(box[:, 0]) - np.min(box[:, 0])) * (np.max(box[:, 1] - np.min(box[:, 1])))
-        # if approx_area > min_area * predictions.size and approx_area > biggest_area:
-        if approx_area > min_area * predictions.size:
+        # if approx_area > min_area * boxes_mask.size and approx_area > biggest_area:
+        if approx_area > min_area * boxes_mask.size:
 
             # Correct out of range corners
             box = np.maximum(box, 0)
-            box = np.stack((np.minimum(box[:, 0], predictions.shape[1]),
-                            np.minimum(box[:, 1], predictions.shape[0])), axis=1)
+            box = np.stack((np.minimum(box[:, 0], boxes_mask.shape[1]),
+                            np.minimum(box[:, 1], boxes_mask.shape[0])), axis=1)
 
             # return box
             return box, approx_area

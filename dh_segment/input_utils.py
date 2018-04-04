@@ -50,6 +50,23 @@ def rotate_crop(img, rotation, crop=True, minimum_shape=[0, 0], interpolation='N
         return rotated_image
 
 
+def resize_image(image: tf.Tensor, size: int, interpolation='BILINEAR'):
+    with tf.name_scope('ImageRescaling'):
+        input_shape = tf.cast(tf.shape(image)[:2], tf.float32)
+        size = tf.cast(size, tf.float32)
+        # Compute new shape
+        # We want X/Y = x/y and we have size = x*y so :
+        ratio = tf.div(input_shape[1], input_shape[0])
+        new_height = tf.sqrt(tf.div(size, ratio))
+        new_width = tf.div(size, new_height)
+        new_shape = tf.cast([new_height, new_width], tf.int32)
+        resize_method = {
+            'NEAREST': tf.image.ResizeMethod.NEAREST_NEIGHBOR,
+            'BILINEAR': tf.image.ResizeMethod.BILINEAR
+        }
+        return tf.image.resize_images(image, new_shape, method=resize_method[interpolation])
+
+
 def load_and_resize_image(filename, channels, size=None, interpolation='BILINEAR'):
     """
 
@@ -57,29 +74,20 @@ def load_and_resize_image(filename, channels, size=None, interpolation='BILINEAR
     :param channels: nb of channels for the decoded image
     :param size: number of desired pixels in the resized image, tf.Tensor or int (None for no resizing)
     :param interpolation:
-    :return: decoded and resized float32 tensor [h, w, channels]
+    :param return_original_shape: returns the original shape of the image before resizing if this flag is True
+    :return: decoded and resized float32 tensor [h, w, channels],
+            tuple (decoded-image, original-shape) if return_original_shape==True
     """
     with tf.name_scope('load_img'):
         decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=channels,
                                                          try_recover_truncated=True))
         # TODO : if one side is smaller than size of patches (and make patches == true), force the image to have at least patch size
         if size is not None and not(isinstance(size, int) and size <= 0):
-            with tf.name_scope('ImageRescaling'):
-                input_shape = tf.cast(tf.shape(decoded_image)[:2], tf.float32)
-                size = tf.cast(size, tf.float32)
-                # Compute new shape
-                # We want X/Y = x/y and we have size = x*y so :
-                ratio = tf.div(input_shape[1], input_shape[0])
-                new_height = tf.sqrt(tf.div(size, ratio))
-                new_width = tf.div(size, new_height)
-                new_shape = tf.cast([new_height, new_width], tf.int32)
-                resize_method = {
-                    'NEAREST': tf.image.ResizeMethod.NEAREST_NEIGHBOR,
-                    'BILINEAR': tf.image.ResizeMethod.BILINEAR
-                }
-                decoded_image = tf.image.resize_images(decoded_image, new_shape,
-                                                       method=resize_method[interpolation])
-        return decoded_image
+            result_image = resize_image(decoded_image, size, interpolation)
+        else:
+            result_image = decoded_image
+
+        return result_image
 
 
 def extract_patches_fn(image: tf.Tensor, patch_shape: list, offsets) -> tf.Tensor:
