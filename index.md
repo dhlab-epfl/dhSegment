@@ -28,11 +28,11 @@ It does include the following features:
 
 # What sort of training data do I need?
 
-Each training sample is an image of a document with the corresponding parts to be predicted. 
+Each training sample is an image of a document with the corresponding parts to be predicted.
 
 <div style="margin:0 auto; width: 80%;">
     <image src="assets/images/cini_input.jpg" style="width: 48%;"></image>
-    <image src="assets/images/cini_labels.png" style="width: 48%;"></image>
+    <image src="assets/images/cini_labels.jpg" style="width: 48%;"></image>
 </div>
 
 Additionally, a text file encoding the RGB values of the classes has to be present, in this case if we want background, document, photograph to be respectively classes 0, 1, and 2 we need to encode their color line-by-line:
