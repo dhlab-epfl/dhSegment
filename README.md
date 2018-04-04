@@ -42,10 +42,15 @@ cd pretrained_models/
 python download_resnet_pretrained_model.py
 cd ..
 ```
-
-3. You can train the model from scratch with 
-    `python train.py with demo/demo_config.json`
-    or skip this step and use directly the [provided model](https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/model.zip) (download and unzip it in `demo/model`)
+3. You can train the model from scratch with: 
+    `python train.py with demo/demo_config.json` but because this takes quite some time,
+    we recommend you to skip this and just download the [provided model](https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/model.zip) (download and unzip it in `demo/model`)
+```
+cd demo/
+wget https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/model.zip
+unzip model.zip
+cd ..
+```
 4. During training, you can visualize the progresses in tensorboard by running `tensorboard --logdir .` in the `demo` folder.
 4. Run `python demo.py`
 5. Have a look at the results in `demo/processed_images`

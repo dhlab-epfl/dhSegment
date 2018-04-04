@@ -39,12 +39,9 @@ def format_quad_to_string(quad):
 if __name__ == '__main__':
 
     # If the model has been trained load the model, otherwise use the given model
-    export_models_dir = glob('demo/page_model/export/*')
-    if not export_models_dir:
+    model_dir = 'demo/page_model/export'
+    if not os.path.exists(model_dir):
         model_dir = 'demo/model/'
-    else:
-        export_models_dir.sort()
-        model_dir = export_models_dir[-1]
 
     input_files = glob('demo/pages/test_a1/images/*')
 
