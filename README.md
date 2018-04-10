@@ -6,7 +6,7 @@ It is inspired by the paper [_U-Net: Convolutional Networks for Biomedical Image
 ## Installation and requirements
  See `INSTALL.md` and `environment.yml`.
 
-### Usage
+## Usage
 #### Training
 * You need to have your training data in a folder containing `images` folder and `labels` folder. The pairs (images, labels) need to have the same name (it is not mandatory to have the same extension file, however we recommend having the label images as `.png` files). 
 * The annotated images in `label` folder are (usually) RGB images with the regions to segment annotated with a specific color
@@ -26,7 +26,7 @@ In order to limit memory usage, the images in the dataset we provide have been d
 
 __How to__
 
-1. Get the annotated dataset [here](https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/pages.zip), which already contains the folders `images` and `labels` for training validation and testing set. Unzip it into `model/pages`. 
+1. Get the annotated dataset [here](https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/pages.zip), which already contains the folders `images` and `labels` for training, validation and testing set. Unzip it into `model/pages`. 
 2. Download the pretrained weights for ResNet :
 ```
 cd pretrained_models/
