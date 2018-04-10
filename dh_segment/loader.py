@@ -7,8 +7,7 @@ from scipy.misc import imsave, imread
 
 
 class LoadedModel:
-    def __init__(self, model_base_dir, input_dict_key='images', signature_def_key='serving_default',
-                 num_parallel_predictions=2):
+    def __init__(self, model_base_dir, predict_mode='filename', num_parallel_predictions=2):
         if os.path.exists(os.path.join(model_base_dir, 'saved_model.pbtxt')) or \
                 os.path.exists(os.path.join(model_base_dir, 'saved_model.pb')):
             model_dir = model_base_dir
@@ -17,13 +16,37 @@ class LoadedModel:
             model_dir = os.path.join(model_base_dir, max(possible_dirs))  # Take latest export
         print("Loading {}".format(model_dir))
 
+        if predict_mode == 'filename':
+            input_dict_key = 'filename'
+            signature_def_key = 'serving_default'
+        elif predict_mode == 'filename_original_shape':
+            input_dict_key = 'filename'
+            signature_def_key = 'resized_output'
+        elif predict_mode == 'image':
+            input_dict_key = 'image'
+            signature_def_key = 'from_image:serving_default'
+        elif predict_mode == 'image_original_shape':
+            input_dict_key = 'image'
+            signature_def_key = 'from_image:resized_output'
+        elif predict_mode == 'resized_images':
+            input_dict_key = 'resized_images'
+            signature_def_key = 'from_resized_images:serving_default'
+        else:
+            raise NotImplementedError
+        self.predict_mode = predict_mode
+
         self.sess = tf.get_default_session()
         loaded_model = tf.saved_model.loader.load(self.sess, ['serve'], model_dir)
         assert 'serving_default' in list(loaded_model.signature_def)
 
         input_dict, output_dict = _signature_def_to_tensors(loaded_model.signature_def[signature_def_key])
+        assert input_dict_key in input_dict.keys(), "{} not present in input_keys, " \
+                                                    "possible values: {}".format(input_dict_key, input_dict.keys())
         self._input_tensor = input_dict[input_dict_key]
         self._output_dict = output_dict
+        if predict_mode == 'resized_images':
+            # This node is not defined in this specific run-mode as there is no original image
+            del self._output_dict['original_shape']
         self.sema = Semaphore(num_parallel_predictions)
 
     def predict(self, input_tensor, prediction_key=None):
@@ -36,6 +59,8 @@ class LoadedModel:
 
     def predict_with_tiles(self, filename: str, resized_size: int=None, tile_size: int=500,
                            min_overlap: float=0.2, linear_interpolation: bool=True):
+
+        #TODO this part should only happen if self.predict_mode == 'resized_images'
 
         if resized_size is None or resized_size < 0:
             image_np = imread(filename)

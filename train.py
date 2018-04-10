@@ -1,6 +1,13 @@
-import tensorflow as tf
-from dh_segment import model, input, utils
 import os
+# Logging level
+# 0: all
+# 1: filter INFO
+# 2: filter WARNING
+# 3: filter ERROR
+# TODO does not seem to work :(
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+import tensorflow as tf
+from dh_segment import estimator_fn, input, utils
 import json
 from glob import glob
 import numpy as np
@@ -45,7 +52,7 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
     else:
         assert _config.get('restore_model'), \
             '{} already exists, you cannot use it as output directory. ' \
-            'Set "restore_model=True" to continue training'.format(model_output_dir)
+            'Set "restore_model=True" to continue training, or delete dir "rm -r {}"'.format(model_output_dir, model_output_dir)
     with open(os.path.join(model_output_dir, 'config.json'), 'w') as f:
         json.dump(_config, f, indent=4, sort_keys=True)
 
@@ -57,15 +64,15 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
     estimator_config = tf.estimator.RunConfig().replace(session_config=session_config,
                                                         save_summary_steps=10,
                                                         keep_checkpoint_max=1)
-    estimator = tf.estimator.Estimator(model.model_fn, model_dir=model_output_dir,
+    estimator = tf.estimator.Estimator(estimator_fn.model_fn, model_dir=model_output_dir,
                                        params=_config, config=estimator_config)
 
     train_images_dir, train_labels_dir = os.path.join(train_dir, 'images'), os.path.join(train_dir, 'labels')
-    eval_images_dir, eval_labels_dir = os.path.join(eval_dir, 'images'), os.path.join(eval_dir, 'labels')
-
-    # Check if training and eval dir exists
+    # Check if training dir exists
     assert os.path.isdir(train_images_dir)
-    assert os.path.isdir(eval_images_dir)
+    if eval_dir is not None:
+        eval_images_dir, eval_labels_dir = os.path.join(eval_dir, 'images'), os.path.join(eval_dir, 'labels')
+        assert os.path.isdir(eval_images_dir)
 
     for i in trange(0, training_params.n_epochs, training_params.evaluate_every_epoch, desc='Evaluated epochs'):
         # Train for one epoch
@@ -84,20 +91,21 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
         exported_path = exported_path.decode()
         timestamp_exported = os.path.split(exported_path)[-1]
 
-        try:  # There should be no evaluation when input_resize_size is too big (e.g -1)
-            # Save predictions
-            filenames_evaluation = glob(os.path.join(eval_images_dir, '*.jpg')) \
-                                   + glob(os.path.join(eval_images_dir, '*.png'))
-            exported_files_eval_dir = os.path.join(model_output_dir, 'eval',
-                                                   'epoch_{:03d}_{}'.format(i+training_params.evaluate_every_epoch,
-                                                                            timestamp_exported))
-            os.makedirs(exported_files_eval_dir, exist_ok=True)
-            # Predict and save probs
-            prediction_input_fn = input.input_fn(filenames_evaluation, num_epochs=1, batch_size=1,
-                                                 data_augmentation=False, make_patches=False, params=_config)
-            for filename, predicted_probs in zip(filenames_evaluation,
-                                                 estimator.predict(prediction_input_fn, predict_keys=['probs'])):  # tqdm(filenames_evaluation):
-                np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
-                        np.uint8(255 * predicted_probs['probs']))
-        except Exception as e:
-            print(e)
+        if eval_dir is not None:
+            try:  # There should be no evaluation when input_resize_size is too big (e.g -1)
+                # Save predictions
+                filenames_evaluation = glob(os.path.join(eval_images_dir, '*.jpg')) \
+                                       + glob(os.path.join(eval_images_dir, '*.png'))
+                exported_files_eval_dir = os.path.join(model_output_dir, 'eval',
+                                                       'epoch_{:03d}_{}'.format(i+training_params.evaluate_every_epoch,
+                                                                                timestamp_exported))
+                os.makedirs(exported_files_eval_dir, exist_ok=True)
+                # Predict and save probs
+                prediction_input_fn = input.input_fn(filenames_evaluation, num_epochs=1, batch_size=1,
+                                                     data_augmentation=False, make_patches=False, params=_config)
+                for filename, predicted_probs in zip(filenames_evaluation,
+                                                     estimator.predict(prediction_input_fn, predict_keys=['probs'])):  # tqdm(filenames_evaluation):
+                    np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
+                            np.uint8(255 * predicted_probs['probs']))
+            except Exception as e:
+                print(e)

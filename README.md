@@ -1,6 +1,9 @@
-# DocumentSegmentation
+# dhSegment
 
-DocumentSegmentation allows you to extract content (segment regions) from different type of documents.
+dhSegment allows you to extract content (segment regions) from different type of documents. See [some examples here](https://dhlab-epfl.github.io/dhSegment/).
+
+It was created by [Benoit Seguin](https://twitter.com/Seguin_Be) and Sofia Oliveira Ares at DHLAB, EPFL.
+
 It is inspired by the paper [_U-Net: Convolutional Networks for Biomedical Image Segmentation_](https://arxiv.org/pdf/1505.04597.pdf) but uses a pretrained network for encoding.
 
 ## Installation and requirements
@@ -26,18 +29,31 @@ In order to limit memory usage, the images in the dataset we provide have been d
 
 __How to__
 
+
 1. Get the annotated dataset [here](https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/pages.zip), which already contains the folders `images` and `labels` for training, validation and testing set. Unzip it into `model/pages`. 
+```
+cd demo/
+wget https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/pages.zip
+unzip pages.zip
+cd ..
+```
 2. Download the pretrained weights for ResNet :
 ```
 cd pretrained_models/
 python download_resnet_pretrained_model.py
 cd ..
 ```
-
-3. You can train the model from scratch with 
-    `python train.py with demo/demo_config.json`
-    or skip this step and use directly the [provided model](https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/model.zip) (download and unzip it in `demo/model`)
-4. Run `python demo.py`
-5. Have a look at the results in `demo/processed_images`
+3. You can train the model from scratch with: 
+    `python train.py with demo/demo_config.json` but because this takes quite some time,
+    we recommend you to skip this and just download the [provided model](https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/model.zip) (download and unzip it in `demo/model`)
+```
+cd demo/
+wget https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/model.zip
+unzip model.zip
+cd ..
+```
+4. (Only if training from scratch) You can visualize the progresses in tensorboard by running `tensorboard --logdir .` in the `demo` folder.
+5. Run `python demo.py`
+6. Have a look at the results in `demo/processed_images`
 
 
