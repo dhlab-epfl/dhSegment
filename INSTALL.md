@@ -12,3 +12,7 @@ export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/e
 export CUDA_HOME=/usr/local/cuda
 ```
 
+- To be able to import the package (i.e `import dh_segment`) in your code, you have to run :
+```
+python setup.py install
+```

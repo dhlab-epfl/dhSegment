@@ -2,12 +2,12 @@
 
 dhSegment allows you to extract content (segment regions) from different type of documents. See [some examples here](https://dhlab-epfl.github.io/dhSegment/).
 
-It was created by [Benoit Seguin](https://twitter.com/Seguin_Be) and Sofia Oliveira Ares at DHLAB, EPFL.
+It was created by [Benoit Seguin](https://twitter.com/Seguin_Be) and Sofia Ares Oliveira at DHLAB, EPFL.
 
 It is inspired by the paper [_U-Net: Convolutional Networks for Biomedical Image Segmentation_](https://arxiv.org/pdf/1505.04597.pdf) but uses a pretrained network for encoding.
 
 ## Installation and requirements
- See `INSTALL.md` and `environment.yml`.
+ See `INSTALL.md` to install environment and to use `dh_segment` package.
 
 ## Usage
 #### Training
