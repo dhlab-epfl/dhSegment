@@ -74,11 +74,11 @@ class BaseElement:
 class TextLine(BaseElement):
     tag = 'TextLine'
 
-    def __init__(self, id=None, coords=None, baseline=None, text_equiv=''):
-        self.coords = coords if coords is not None else []  # type: List[Point]
-        self.baseline = baseline if baseline is not None else []  # type: List[Point]
-        self.id = id  # type: Optional[str]
-        self.text_equiv = text_equiv  # type: str
+    def __init__(self, id: str=None, coords: List[Point]=None, baseline: List[Point]=None, text_equiv: str=''):
+        self.coords = coords if coords is not None else []
+        self.baseline = baseline if baseline is not None else []
+        self.id = id
+        self.text_equiv = text_equiv
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'TextLine':
@@ -101,6 +101,7 @@ class TextLine(BaseElement):
         )
 
     @classmethod
+    # TODO : When is this called ? (Seems deprecated)
     def from_coords_array(cls, coords: np.array=None, baseline_coords: np.array=None,  # shape [N, 1, 2]
                    text_equiv: str=None, id: str=None):
         return TextLine(
@@ -162,11 +163,11 @@ class GraphicRegion(BaseElement):
 class TextRegion(BaseElement):
     tag = 'TextRegion'
 
-    def __init__(self, id=None, coords=None, text_lines=None, text_equiv=''):
-        self.id = id  # type: Optional[str]
-        self.coords = coords if coords is not None else []  # type: List[Point]
-        self.text_equiv = text_equiv  # type: str
-        self.text_lines = text_lines if text_lines is not None else []  # type: List[TextLine]
+    def __init__(self, id: str=None, coords: List[Point]=None, text_lines: List[TextLine]=None, text_equiv: str=''):
+        self.id = id
+        self.coords = coords if coords is not None else []
+        self.text_equiv = text_equiv
+        self.text_lines = text_lines if text_lines is not None else []
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'TextRegion':
@@ -195,13 +196,13 @@ class TextRegion(BaseElement):
 class Page(BaseElement):
     tag = 'Page'
 
-    def __init__(self, image_filename=None, image_width=None, image_height=None,
-                 text_regions=None, graphic_regions=None):
-        self.image_filename = image_filename  # type: Optional[str]
-        self.image_width = _try_to_int(image_width)  # type: Optional[int]
-        self.image_height = _try_to_int(image_height)  # type: Optional[int]
-        self.text_regions = text_regions if text_regions is not None else []  # type: List[TextRegion]
-        self.graphic_regions = graphic_regions if graphic_regions is not None else []  # type: List[GraphicRegion]
+    def __init__(self, image_filename: str=None, image_width: int=None, image_height: int=None,
+                 text_regions: List[TextRegion]=None, graphic_regions: List[GraphicRegion]=None):
+        self.image_filename = image_filename
+        self.image_width = _try_to_int(image_width)
+        self.image_height = _try_to_int(image_height)
+        self.text_regions = text_regions if text_regions is not None else []
+        self.graphic_regions = graphic_regions if graphic_regions is not None else []
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'Page':
@@ -236,7 +237,7 @@ class Page(BaseElement):
         # TODO : complete graphic regions
         return page_et
 
-    def write_to_file(self, filename, creator_name='DocSeg'):
+    def write_to_file(self, filename, creator_name='dhSegment'):
         root = ET.Element('PcGts')
         root.set('xmlns', _ns['p'])
         # Metadata
@@ -245,6 +246,7 @@ class Page(BaseElement):
         creator = ET.SubElement(metadata, 'Creator')
         creator.text = creator_name
         created = ET.SubElement(metadata, 'Created')
+        # TODO : Consider the case where the file already exists and only an update needs to be done
         created.text = generated_on
         last_change = ET.SubElement(metadata, 'LastChange')
         last_change.text = generated_on
@@ -306,30 +308,30 @@ def save_baselines(filename, baselines, ratio=(1, 1), initial_shape=None):
     page.write_to_file(filename)
 
 
-def create_xml_page(dictionary: dict, creator_name='DocSeg') -> 'Page':
-    """
-    DEPRECATED look at Page.write_to_file
-    :param dictionary:
-    :param creator_name:
-    :return:
-    """
-    page = Page.from_dict(dictionary)
-
-    # Create xml
-    root = ET.Element('PcGts')
-    root.set('xmlns', _ns['p'])
-    # Metadata
-    generated_on = str(datetime.datetime.now())
-    metadata = ET.SubElement(root, 'Metadata')
-    creator = ET.SubElement(metadata, 'Creator')
-    creator.text = creator_name
-    created = ET.SubElement(metadata, 'Created')
-    created.text = generated_on
-    last_change = ET.SubElement(metadata, 'LastChange')
-    last_change.text = generated_on
-
-    root.append(page.to_xml())
-    for k, v in _attribs.items():
-        root.attrib[k] = v
-
-    return root
+# def create_xml_page(dictionary: dict, creator_name='DocSeg') -> 'Page':
+#     """
+#     DEPRECATED look at Page.write_to_file
+#     :param dictionary:
+#     :param creator_name:
+#     :return:
+#     """
+#     page = Page.from_dict(dictionary)
+#
+#     # Create xml
+#     root = ET.Element('PcGts')
+#     root.set('xmlns', _ns['p'])
+#     # Metadata
+#     generated_on = str(datetime.datetime.now())
+#     metadata = ET.SubElement(root, 'Metadata')
+#     creator = ET.SubElement(metadata, 'Creator')
+#     creator.text = creator_name
+#     created = ET.SubElement(metadata, 'Created')
+#     created.text = generated_on
+#     last_change = ET.SubElement(metadata, 'LastChange')
+#     last_change.text = generated_on
+#
+#     root.append(page.to_xml())
+#     for k, v in _attribs.items():
+#         root.attrib[k] = v
+#
+#     return root
