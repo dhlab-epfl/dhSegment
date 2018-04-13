@@ -3,14 +3,12 @@ __author__ = 'solivr'
 
 import os
 from glob import glob
-
 import cv2
 import numpy as np
 from scipy.misc import imread, imsave
 from tqdm import tqdm
-
-from doc_seg.post_processing.boxes_detection import find_box
-from exps.evaluation.base import Metrics, format_quad_to_string, compare_bin_prediction_to_label
+from dh_segment.post_processing.boxes_detection import find_boxes
+from exps.evaluation.base import Metrics, format_quad_to_string, compare_bin_prediction_to_label, intersection_over_union
 
 
 def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise: bool=True,
@@ -49,8 +47,8 @@ def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise: bo
             metric = compare_bin_prediction_to_label(bin_upscaled, label_image)
             global_metrics += metric
 
-        pred_box = find_box(np.uint8(bin_upscaled), mode='quadrilateral')
-        label_box = find_box(np.uint8(label_image), mode='quadrilateral', min_area=0.0)
+        pred_box = find_boxes(np.uint8(bin_upscaled), mode='quadrilateral')
+        label_box = find_boxes(np.uint8(label_image), mode='quadrilateral', min_area=0.0)
 
         if debug_folder is not None:
             imsave(os.path.join(debug_folder, '{}_bin.png'.format(basename)), np.uint8(bin_upscaled*255))
@@ -67,21 +65,14 @@ def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise: bo
 
             list_boxes.append((basename, pred_box))
 
-        def intersection_over_union(cnt1, cnt2):
-            mask1 = np.zeros_like(label_image)
-            mask1 = cv2.fillConvexPoly(mask1, cnt1.astype(np.int32), 1).astype(np.int8)
-            mask2 = np.zeros_like(label_image)
-            mask2 = cv2.fillConvexPoly(mask2, cnt2.astype(np.int32), 1).astype(np.int8)
-            return np.sum(mask1 & mask2) / np.sum(mask1 | mask2)
         if pred_box is not None and label_box is not None:
-            iou = intersection_over_union(label_box[:, None, :], pred_box[:, None, :])
+            iou = intersection_over_union(label_box[:, None, :], pred_box[:, None, :], label_image.shape)
             global_metrics.IOU_list.append(iou)
         else:
             global_metrics.IOU_list.append(0)
             if verbose:
                 print('No box found for {}'.format(basename))
 
-    # TODO export filename : 4 corners to txt file
     if debug_folder:
         with open(os.path.join(debug_folder, 'predicted_boxes.txt'), 'w') as f:
             for b in list_boxes:
@@ -89,8 +80,6 @@ def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise: bo
                 f.write(s)
 
     if pixel_wise:
-        # global_metrics.compute_mse()
-        # global_metrics.compute_psnr()
         global_metrics.compute_prf()
 
         print('EVAL --- R : {}, P : {}, FM : {}\n'.format(global_metrics.recall, global_metrics.precision,

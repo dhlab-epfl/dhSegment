@@ -39,19 +39,6 @@ if __name__ == '__main__':
     os.makedirs(output_label_dir, exist_ok=True)
 
     for line in tqdm(open(args.get('file'), 'r')):
-        # line = line[:-1]
-        # splits = line.split(',')
-        # full_filename = splits[0]
-        # splits = splits[1:]
-        # if splits[-1] in ['SINGLE', 'ABNORMAL']:
-        #     coords_simple = np.reshape(np.array(splits[:-1], dtype=int), (4, 2))
-        #     # coords_double = None
-        #     coords = coords_simple
-        # else:
-        #     coords_simple = np.reshape(np.array(splits[:8], dtype=int), (4, 2))
-        #     # coords_double = np.reshape(np.array(splits[-4:], dtype=int), (2, 2))
-        #     # coords = (coords_simple, coords_double)
-        #     coords = coords_simple
         coords, full_filename = get_coords_form_txt_line(line)
 
         try:

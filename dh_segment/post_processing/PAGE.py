@@ -112,6 +112,7 @@ class TextLine(BaseElement):
         )
 
     @classmethod
+    # TODO this is duplicate from from_array()
     def from_cv2_array(cls, cv2_coords: np.array=None, baseline_coords: np.array=None,  # shape [N, 1, 2]
                    text_equiv: str=None, id: str=None):
         return TextLine(

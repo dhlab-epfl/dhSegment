@@ -5,7 +5,7 @@ import os
 import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)))
-from doc_seg.loader import LoadedModel
+from dh_segment.loader import LoadedModel
 from cbad_post_processing import line_extraction_v1
 from cbad_evaluation import cbad_evaluate_folder
 
@@ -17,8 +17,8 @@ from glob import glob
 from scipy.misc import imread, imresize, imsave
 import tempfile
 import json
-from doc_seg.post_processing import PAGE
-from doc_seg.utils import hash_dict, dump_json
+from dh_segment.post_processing import PAGE
+from dh_segment.utils import hash_dict, dump_json
 
 
 def predict_on_set(filenames_to_predict, model_dir, output_dir):

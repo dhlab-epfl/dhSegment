@@ -1,6 +1,7 @@
 import json
 import tempfile
 import os
+import cv2
 import numpy as np
 from glob import glob
 from tqdm import tqdm
@@ -133,3 +134,11 @@ def compare_bin_prediction_to_label(prediction: np.array, gt_image: np.array):
     metrics.true_negatives = np.sum(np.logical_and(np.logical_not(gt_image), np.logical_not(prediction)))
 
     return metrics
+
+
+def intersection_over_union(cnt1, cnt2, shape_mask):
+    mask1 = np.zeros(shape_mask, np.uint8)
+    mask1 = cv2.fillConvexPoly(mask1, cnt1.astype(np.int32), 1).astype(np.int8)
+    mask2 = np.zeros(shape_mask, np.uint8)
+    mask2 = cv2.fillConvexPoly(mask2, cnt2.astype(np.int32), 1).astype(np.int8)
+    return np.sum(mask1 & mask2) / np.sum(mask1 | mask2)
