@@ -80,7 +80,7 @@ def model_fn(mode, features, labels, params):
     elif prediction_type == PredictionType.MULTILABEL:
         with tf.name_scope('prediction_ops'):
             prediction_probs = tf.nn.sigmoid(network_output, name='sigmoid')  # [B,H,W,C]
-            prediction_labels = tf.greater_equal(prediction_probs, 0.5, name='labels')  # [B,H,W,C]
+            prediction_labels = tf.cast(tf.greater_equal(prediction_probs, 0.5, name='labels'), tf.int32)  # [B,H,W,C]
             predictions = {'probs': prediction_probs, 'labels': prediction_labels}
     else:
         raise NotImplementedError
