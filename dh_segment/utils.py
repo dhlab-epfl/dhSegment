@@ -4,6 +4,7 @@ import os
 import json
 import pickle
 from hashlib import sha1
+import warnings
 
 
 class PredictionType:
@@ -131,8 +132,11 @@ class ModelParams(BaseParams):
                 '{} != {}'.format(len(self.upscale_params),
                                   len(self.selected_levels_upscaling))
 
-            assert os.path.isfile(self.pretrained_model_file), \
-                'Pretrained weights file {} not found'.format(self.pretrained_model_file)
+            # assert os.path.isfile(self.pretrained_model_file), \
+            #     'Pretrained weights file {} not found'.format(self.pretrained_model_file)
+            if not os.path.isfile(self.pretrained_model_file):
+                warnings.warn('WARNING - Default pretrained weights file in {} was not found. '
+                              'Have you changed the default pretrained file ?'.format(self.pretrained_model_file))
 
 
 class TrainingParams(BaseParams):
@@ -150,7 +154,6 @@ class TrainingParams(BaseParams):
         self.data_augmentation_max_scaling = 0.05  # range : [0, 1]
         self.make_patches = True
         self.patch_shape = (300, 300)
-        # self.input_resized_shape = (480, 320)  # Deprecated
         # If input_resized_size == -1, no resizing is done
         self.input_resized_size = int(72e4)  # (600*1200) # type: int
         self.weights_labels = None

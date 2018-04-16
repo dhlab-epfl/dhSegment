@@ -1,12 +1,8 @@
 import os
-# Logging level
-# 0: all
-# 1: filter INFO
-# 2: filter WARNING
-# 3: filter ERROR
-# TODO does not seem to work :(
-#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import tensorflow as tf
+# Tensorflow logging level
+from logging import WARNING  # import  DEBUG, INFO, ERROR for more/less verbosity
+tf.logging.set_verbosity(WARNING)
 from dh_segment import estimator_fn, input, utils
 import json
 from glob import glob
