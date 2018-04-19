@@ -47,7 +47,7 @@ class Point:
         return result
 
     @classmethod
-    def list_to_cv2poly(cls, list_points: List['Point']):
+    def list_to_cv2poly(cls, list_points: List['Point']) -> np.array:
         return np.array([(p.x, p.y) for p in list_points], dtype=np.int32).reshape([-1, 1, 2])
 
     @classmethod
@@ -55,7 +55,7 @@ class Point:
         return [Point(p[0, 1], p[0, 0]) for p in cv2_array]
 
     @classmethod
-    def list_point_to_string(cls, list_points: List['Point']):
+    def list_point_to_string(cls, list_points: List['Point']) -> str:
         return ' '.join(['{},{}'.format(p.x, p.y) for p in list_points])
 
 
@@ -63,7 +63,7 @@ class BaseElement:
     tag = None
 
     @classmethod
-    def full_tag(cls):
+    def full_tag(cls) -> str:
         return '{{{}}}{}'.format(_ns['p'], cls.tag)
 
     @classmethod
@@ -83,7 +83,7 @@ class Region(BaseElement):
         return {'id': e.attrib.get('id'),
                 'coords': Point.list_from_xml(e.find('p:Coords', _ns))}
 
-    def to_xml(self, name_element: str=None):
+    def to_xml(self, name_element: str=None) -> ET.Element:
         et = ET.Element(name_element if name_element is not None else '')
         et.set('id', self.id if self.id is not None else '')
         if not not self.coords:
@@ -104,7 +104,7 @@ class TextLine(Region):
     def from_xml(cls, e: ET.Element) -> 'TextLine':
         cls.check_tag(e.tag)
         return TextLine(
-            *super().from_xml(e),
+            **super().from_xml(e),
             baseline=Point.list_from_xml(e.find('p:Baseline', _ns)),
             text_equiv=_get_text_equiv(e)
         )
@@ -141,7 +141,7 @@ class TextLine(Region):
             text_equiv=text_equiv
         )
 
-    def to_xml(self, name_element='TextLine'):
+    def to_xml(self, name_element='TextLine') -> ET.Element:
         line_et = super().to_xml(name_element=name_element)
         if not not self.baseline:
             line_baseline = ET.SubElement(line_et, 'Baseline')
@@ -161,6 +161,9 @@ class TextLine(Region):
 
 
 class GraphicRegion(Region):
+    """
+    Regions containing simple graphics, such as a company logo, should be marked as graphic regions.
+    """
     tag = 'GraphicRegion'
 
     def __init__(self, id: str=None, coords: List[Point]=None,):
@@ -169,10 +172,9 @@ class GraphicRegion(Region):
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'GraphicRegion':
         cls.check_tag(e.tag)
-        return GraphicRegion(*super().from_xml(e))
+        return GraphicRegion(**super().from_xml(e))
 
-    def to_xml(self, name_element='GraphicRegion'):
-        # TODO : This must be updated
+    def to_xml(self, name_element='GraphicRegion') -> ET.Element:
         graph_et = super().to_xml(name_element)
 
         return graph_et
@@ -190,12 +192,12 @@ class TextRegion(Region):
     def from_xml(cls, e: ET.Element) -> 'TextRegion':
         cls.check_tag(e.tag)
         return TextRegion(
-            *super().from_xml(e),
+            **super().from_xml(e),
             text_lines=[TextLine.from_xml(tl) for tl in e.findall('p:TextLine', _ns)],
             text_equiv=_get_text_equiv(e)
         )
 
-    def to_xml(self, name_element='TextRegion'):
+    def to_xml(self, name_element='TextRegion') -> ET.Element:
         text_et = super().to_xml(name_element=name_element)
         for tl in self.text_lines:
             text_et.append(tl.to_xml())
@@ -207,8 +209,11 @@ class TextRegion(Region):
 
 
 class TableRegion(Region):
-    # Tabular data in any form is represented with a table region. Rows and columns may or may not have separator
-    # lines; these lines are not separator regions.
+    """
+    Tabular data in any form is represented with a table region. Rows and columns may or may not have separator
+    lines; these lines are not separator regions.
+    """
+
     tag = 'TableRegion'
 
     def __init__(self, id: str=None, coords: List[Point]=None, rows: int=None, columns: int=None,
@@ -222,13 +227,13 @@ class TableRegion(Region):
     def from_xml(cls, e: ET.Element) -> 'TableRegion':
         cls.check_tag(e.tag)
         return TableRegion(
-            *super().from_xml(e),
+            **super().from_xml(e),
             rows=e.attrib.get('rows'),
             columns=e.attrib.get('columns'),
             embeded_text=e.attrib.get('embText')
         )
 
-    def to_xml(self, name_element='TableRegion'):
+    def to_xml(self, name_element='TableRegion') -> ET.Element:
         table_et = super().to_xml(name_element)
         table_et.set('rows', self.rows if self.rows is not None else 0)
         table_et.set('columns', self.columns if self.columns is not None else 0)
@@ -237,8 +242,11 @@ class TableRegion(Region):
 
 
 class SeparatorRegion(Region):
-    # Separators are lines that lie between columns and paragraphs and can be used to logically separate
-    # different articles from each other.
+    """
+    Separators are lines that lie between columns and paragraphs and can be used to logically separate
+    different articles from each other.
+    """
+
     tag = 'SeparatorRegion'
 
     def __init__(self, id: str, coords: List[Point]=None):
@@ -247,15 +255,18 @@ class SeparatorRegion(Region):
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'SeparatorRegion':
         cls.check_tag(e.tag)
-        return SeparatorRegion(*super().from_xml(e))
+        return SeparatorRegion(**super().from_xml(e))
 
-    def to_xml(self, name_element='SeparatorRegion'):
+    def to_xml(self, name_element='SeparatorRegion') -> ET.Element:
         separator_et = super().to_xml(name_element)
         return separator_et
 
 
 class Border(BaseElement):
-    # Border of the actual page (if the scanned image contains parts not belonging to the page).
+    """
+    Border of the actual page (if the scanned image contains parts not belonging to the page).
+    """
+
     tag = 'Border'
 
     def __init__(self, coords: List[Point]=None):
@@ -268,7 +279,7 @@ class Border(BaseElement):
             coords=Point.list_from_xml(e.find('p:Coords', _ns))
         )
 
-    def to_xml(self):
+    def to_xml(self) -> ET.Element:
         border_et = ET.Element('Border')
         if not not self.coords:
             border_coords = ET.SubElement(border_et, 'Coords')
@@ -301,7 +312,7 @@ class Page(BaseElement):
             image_height=e.attrib.get('imageHeight'),
             text_regions=[TextRegion.from_xml(tr) for tr in e.findall('p:TextRegion', _ns)],
             graphic_regions=[GraphicRegion.from_xml(tr) for tr in e.findall('p:GraphicRegion', _ns)],
-            page_border=e.find('p:Border', _ns),
+            page_border=Border.from_xml(e.find('p:Border', _ns)),
             separator_regions=[SeparatorRegion.from_xml(sep) for sep in e.findall('p:SeparatorRegion', _ns)],
             table_regions=[TableRegion.from_xml(tr) for tr in e.findall('p:TableRegion', _ns)]
         )
@@ -318,7 +329,7 @@ class Page(BaseElement):
                     table_regions=dictionary.get('table_regions')
                     )
 
-    def to_xml(self):
+    def to_xml(self) -> ET.Element:
         page_et = ET.Element('Page')
         if self.image_filename:
             page_et.set('imageFilename', self.image_filename)
@@ -375,7 +386,7 @@ class Page(BaseElement):
             cv2.circle(img_canvas, (coords[-1, 0, 0], coords[-1, 0, 1]),
                        radius=endpoint_radius, color=color, thickness=-1)
 
-    def draw_textregions(self, img_canvas, color=(255, 0, 0), autoscale=True, fill=True):
+    def draw_text_regions(self, img_canvas, color=(255, 0, 0), autoscale=True, fill=True):
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
@@ -398,11 +409,13 @@ class Page(BaseElement):
         else:
             ratio = (1, 1)
 
-        border = (Point.list_to_cv2poly(self.border) * ratio).astype(np.int32) if len(self.border) > 0 else []
+        border_coords = (Point.list_to_cv2poly(self.border.coords) * ratio).astype(np.int32) \
+            if len(self.border.coords) > 0 else []
+        print([border_coords])
         if fill:
-            cv2.fillPoly(img_canvas, border, color)
+            cv2.fillPoly(img_canvas, [border_coords], color)
         else:
-            cv2.polylines(img_canvas, border, True, color, thickness=3)
+            cv2.polylines(img_canvas, [border_coords], True, color, thickness=5)
 
     def draw_separator_lines(self, img_canvas: np.array, color: Tuple[int, int, int]=(0, 255, 0),
                          thickness: int=3, autoscale: bool=True):
@@ -413,9 +426,24 @@ class Page(BaseElement):
         else:
             ratio = (1, 1)
 
-        gr_coords = [(Point.list_to_cv2poly(gr.coords) * ratio).astype(np.int32) for gr in self.graphic_regions
+        sep_coords = [(Point.list_to_cv2poly(sep.coords) * ratio).astype(np.int32) for sep in self.separator_regions
+                      if len(sep.coords) > 0]
+        cv2.polylines(img_canvas, sep_coords, True, color, thickness=thickness)
+
+    def draw_graphic_regions(self, img_canvas, color=(255, 0, 0), autoscale=True, fill=True):
+        if autoscale:
+            assert self.image_height is not None
+            assert self.image_width is not None
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
+        else:
+            ratio = (1, 1)
+
+        gr_coords = [(Point.list_to_cv2poly(gr.coords)*ratio).astype(np.int32) for gr in self.graphic_regions
                      if len(gr.coords) > 0]
-        cv2.polylines(img_canvas, gr_coords, True, color, thickness=thickness)
+        if fill:
+            cv2.fillPoly(img_canvas, gr_coords, color)
+        else:
+            cv2.polylines(img_canvas, gr_coords, True, color, thickness=3)
 
 
 def parse_file(filename: str) -> Page:
