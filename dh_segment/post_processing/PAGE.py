@@ -369,6 +369,17 @@ class Page(BaseElement):
         ET.ElementTree(element=root).write(filename)
 
     def draw_baselines(self, img_canvas, color=(255, 0, 0), thickness=2, endpoint_radius=4, autoscale=True):
+        """
+        Given an image, draws the TextLines.baselines.
+        :param img_canvas: 3 channel image in which the region will be drawn
+        :param color: (R, G, B) value color
+        :param thickness: the thickness of the line
+        :param endpoint_radius: the radius of the endpoints of line s(first and last coordinates of line)
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
+        provided in Page.image_width and Page.image_height to compute the scaling ratio
+        :return: img_canvas is updated inplace
+        """
+
         text_lines = [tl for tr in self.text_regions for tl in tr.text_lines]
         if autoscale:
             assert self.image_height is not None
@@ -386,7 +397,19 @@ class Page(BaseElement):
             cv2.circle(img_canvas, (coords[-1, 0, 0], coords[-1, 0, 1]),
                        radius=endpoint_radius, color=color, thickness=-1)
 
-    def draw_text_regions(self, img_canvas, color=(255, 0, 0), autoscale=True, fill=True):
+    def draw_text_regions(self, img_canvas, color: Tuple[int, int, int]=(255, 0, 0), fill: bool=True,
+                          thickness: int=3, autoscale: bool=True):
+        """
+        Given an image, draws the TextRegions, either fills it (fill=True) or draws the contours (fill=False)
+        :param img_canvas: 3 channel image in which the region will be drawn
+        :param color: (R, G, B) value color
+        :param fill: either to fill the region (True) of only draw the external contours (False)
+        :param thickness: in case fill=True the thickness of the line
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
+        provided in Page.image_width and Page.image_height to compute the scaling ratio
+        :return: img_canvas is updated inplace
+        """
+
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
@@ -399,9 +422,21 @@ class Page(BaseElement):
         if fill:
             cv2.fillPoly(img_canvas, tr_coords, color)
         else:
-            cv2.polylines(img_canvas, tr_coords, True, color, thickness=3)
+            cv2.polylines(img_canvas, tr_coords, True, color, thickness=thickness)
 
-    def draw_page_border(self, img_canvas, color=(255, 0, 0), autoscale=True, fill=True):
+    def draw_page_border(self, img_canvas, color: Tuple[int, int, int]=(255, 0, 0), fill: bool=True,
+                         thickness: int=5, autoscale: bool=True):
+        """
+        Given an image, draws the page border, either fills it (fill=True) or draws the contours (fill=False)
+        :param img_canvas: 3 channel image in which the region will be drawn
+        :param color: (R, G, B) value color
+        :param fill: either to fill the region (True) of only draw the external contours (False)
+        :param thickness: in case fill=True the thickness of the line
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
+        provided in Page.image_width and Page.image_height to compute the scaling ratio
+        :return: img_canvas is updated inplace
+        """
+
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
@@ -411,14 +446,25 @@ class Page(BaseElement):
 
         border_coords = (Point.list_to_cv2poly(self.border.coords) * ratio).astype(np.int32) \
             if len(self.border.coords) > 0 else []
-        print([border_coords])
         if fill:
             cv2.fillPoly(img_canvas, [border_coords], color)
         else:
-            cv2.polylines(img_canvas, [border_coords], True, color, thickness=5)
+            cv2.polylines(img_canvas, [border_coords], True, color, thickness=thickness)
 
     def draw_separator_lines(self, img_canvas: np.array, color: Tuple[int, int, int]=(0, 255, 0),
-                         thickness: int=3, autoscale: bool=True):
+                             thickness: int=3, filter_by_id: str='', autoscale: bool=True):
+        """
+        Given an image, draws the SeparatorRegion.
+        :param img_canvas: 3 channel image in which the region will be drawn
+        :param color: (R, G, B) value color
+        :param thickness: thickness of the line
+        :param filter_by_id: string to filter the lines by id. For example vertical/horizontal lines can be filtered
+                if 'vertical' or 'horizontal' is mentioned in the id.
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
+        provided in Page.image_width and Page.image_height to compute the scaling ratio
+        :return: img_canvas is updated inplace
+        """
+
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
@@ -427,10 +473,22 @@ class Page(BaseElement):
             ratio = (1, 1)
 
         sep_coords = [(Point.list_to_cv2poly(sep.coords) * ratio).astype(np.int32) for sep in self.separator_regions
-                      if len(sep.coords) > 0]
+                      if len(sep.coords) > 0 and filter_by_id in sep.id]
         cv2.polylines(img_canvas, sep_coords, True, color, thickness=thickness)
 
-    def draw_graphic_regions(self, img_canvas, color=(255, 0, 0), autoscale=True, fill=True):
+    def draw_graphic_regions(self, img_canvas, color: Tuple[int, int, int]=(255, 0, 0),
+                             fill: bool=True, thickness: int=3, autoscale: bool=True):
+        """
+        Given an image, draws the GraphicRegions, either fills it (fill=True) or draws the contours (fill=False)
+        :param img_canvas: 3 channel image in which the region will be drawn
+        :param color: (R, G, B) value color
+        :param fill: either to fill the region (True) of only draw the external contours (False)
+        :param thickness: in case fill=True the thickness of the line
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
+        provided in Page.image_width and Page.image_height to compute the scaling ratio
+        :return: img_canvas is updated inplace
+        """
+
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
@@ -443,10 +501,15 @@ class Page(BaseElement):
         if fill:
             cv2.fillPoly(img_canvas, gr_coords, color)
         else:
-            cv2.polylines(img_canvas, gr_coords, True, color, thickness=3)
+            cv2.polylines(img_canvas, gr_coords, True, color, thickness=thickness)
 
 
 def parse_file(filename: str) -> Page:
+    """
+
+    :param filename: PAGE xml to parse
+    :return: Page object containg all the parsed elements
+    """
     xml_page = ET.parse(filename)
     page_elements = xml_page.findall('p:Page', _ns)
     # can there be multiple pages in a single XML file? -> I don't think so
