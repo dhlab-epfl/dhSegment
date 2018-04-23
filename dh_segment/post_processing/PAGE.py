@@ -274,6 +274,8 @@ class Border(BaseElement):
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'Border':
+        if e is None:
+            return None
         cls.check_tag(e.tag)
         return Border(
             coords=Point.list_from_xml(e.find('p:Coords', _ns))
@@ -396,6 +398,33 @@ class Page(BaseElement):
                        radius=endpoint_radius, color=color, thickness=-1)
             cv2.circle(img_canvas, (coords[-1, 0, 0], coords[-1, 0, 1]),
                        radius=endpoint_radius, color=color, thickness=-1)
+
+    def draw_lines(self, img_canvas, color=(255, 0, 0), thickness=2, fill: bool=True, autoscale=True):
+        """
+        Given an image, draws the polgons cotaining text lines, i.e TextLines.coords
+        :param img_canvas: 3 channel image in which the region will be drawn
+        :param color: (R, G, B) value color
+        :param thickness: the thickness of the line
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
+        provided in Page.image_width and Page.image_height to compute the scaling ratio
+        :return: img_canvas is updated inplace
+        """
+
+        text_lines = [tl for tr in self.text_regions for tl in tr.text_lines]
+        if autoscale:
+            assert self.image_height is not None
+            assert self.image_width is not None
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
+        else:
+            ratio = (1, 1)
+
+        tl_coords = [(Point.list_to_cv2poly(tl.coords)*ratio).astype(np.int32) for tl in text_lines
+                     if len(tl.coords) > 0]
+
+        if fill:
+            cv2.fillPoly(img_canvas, tl_coords, color)
+        else:
+            cv2.polylines(img_canvas, tl_coords, False, color, thickness=thickness)
 
     def draw_text_regions(self, img_canvas, color: Tuple[int, int, int]=(255, 0, 0), fill: bool=True,
                           thickness: int=3, autoscale: bool=True):
