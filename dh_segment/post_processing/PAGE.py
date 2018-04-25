@@ -422,9 +422,11 @@ class Page(BaseElement):
                      if len(tl.coords) > 0]
 
         if fill:
-            cv2.fillPoly(img_canvas, tl_coords, color)
+            for tl in tl_coords:  # For loop to avoid black regions when lines overlap
+                cv2.fillPoly(img_canvas, [tl], color)
         else:
-            cv2.polylines(img_canvas, tl_coords, False, color, thickness=thickness)
+            for tl in tl_coords:  # For loop to avoid black regions when lines overlap
+                cv2.polylines(img_canvas, [tl], False, color, thickness=thickness)
 
     def draw_text_regions(self, img_canvas, color: Tuple[int, int, int]=(255, 0, 0), fill: bool=True,
                           thickness: int=3, autoscale: bool=True):
