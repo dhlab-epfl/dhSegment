@@ -5,6 +5,8 @@ import numpy as np
 import tempfile
 from scipy.misc import imsave, imread
 
+_original_shape_key = 'original_shape'
+
 
 class LoadedModel:
     def __init__(self, model_base_dir, predict_mode='filename', num_parallel_predictions=2):
@@ -60,12 +62,12 @@ class LoadedModel:
     def predict_with_tiles(self, filename: str, resized_size: int=None, tile_size: int=500,
                            min_overlap: float=0.2, linear_interpolation: bool=True):
 
-        #TODO this part should only happen if self.predict_mode == 'resized_images'
+        # TODO this part should only happen if self.predict_mode == 'resized_images'
 
         if resized_size is None or resized_size < 0:
             image_np = imread(filename)
             h, w = image_np.shape[:2]
-            b = 1
+            batch_size = 1
         else:
             raise NotImplementedError
         assert h > tile_size, w > tile_size
@@ -86,7 +88,8 @@ class LoadedModel:
                 all_outputs.append(inside_list)
 
         def _merge_x(full_output, assigned_up_to, new_input, begin_position):
-            assert full_output.shape[1] == new_input.shape[1]
+            assert full_output.shape[1] == new_input.shape[1], \
+                "Shape full output is {}, but shape new_input is {}".format(full_output.shape[1], new_input.shape[1])
             overlap_size = assigned_up_to - begin_position
             normal_part_size = new_input.shape[2] - overlap_size
             assert normal_part_size > 0
@@ -109,13 +112,14 @@ class LoadedModel:
                                                                                                begin_position:assigned_up_to] + \
                                                                 weights[:, None, None] * new_input[:, :overlap_size]
 
-        result = {k: np.empty([b, h, w] + list(v.shape[3:]), v.dtype) for k, v in all_outputs[0][0].items()}
+        result = {k: np.empty([batch_size, h, w] + list(v.shape[3:]), v.dtype) for k, v in all_outputs[0][0].items()
+                  if k != _original_shape_key}  # do not try to merge 'original_shape' content...
         if linear_interpolation:
             for k in result.keys():
                 assigned_up_to_y = 0
                 for y, y_outputs in zip(y_pos, all_outputs):
                     s = list(result[k].shape)
-                    tmp = np.zeros([b, tile_size] + s[2:], result[k].dtype)
+                    tmp = np.zeros([batch_size, tile_size] + s[2:], result[k].dtype)
                     assigned_up_to_x = 0
                     for x, output in zip(x_pos, y_outputs):
                         _merge_x(tmp, assigned_up_to_x, output[k], x)
@@ -127,6 +131,8 @@ class LoadedModel:
                 for y, y_outputs in zip(y_pos, all_outputs):
                     for x, output in zip(x_pos, y_outputs):
                         result[k][:, y:y + tile_size, x:x + tile_size] = output[k]
+
+        result[_original_shape_key] = np.array([h, w], np.uint)
         return result
 
 

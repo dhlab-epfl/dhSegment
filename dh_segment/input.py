@@ -195,7 +195,11 @@ def serving_input_filename(resized_size):
         decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=3,
                                                          try_recover_truncated=True))
         original_shape = tf.shape(decoded_image)[:2]
-        image = resize_image(decoded_image, resized_size)
+
+        if resized_size is not None and resized_size > 0:
+            image = resize_image(decoded_image, resized_size)
+        else:
+            image = decoded_image
 
         image_batch = image[None]
         features = {'images': image_batch, 'original_shape': original_shape}
