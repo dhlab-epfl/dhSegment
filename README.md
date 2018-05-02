@@ -39,7 +39,7 @@ wget https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/pages.zip
 unzip pages.zip
 cd ..
 ```
-2. Download the pretrained weights for ResNet :
+2. (Only needed if training from scratch) Download the pretrained weights for ResNet :
 ```
 cd pretrained_models/
 python download_resnet_pretrained_model.py
