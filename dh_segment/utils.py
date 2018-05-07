@@ -73,7 +73,7 @@ class ResNetModelParams:
         # (Filter size (depth bottleneck's output), number of bottleneck)
         (32, 0),
         (64, 0),
-        (126, 0),
+        (128, 0),
         (256, 0),
         (512, 0)
     ]

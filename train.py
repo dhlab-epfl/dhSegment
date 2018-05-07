@@ -15,7 +15,7 @@ except ImportError:
 from tqdm import trange
 from sacred import Experiment
 
-ex = Experiment('DocumentSegmentation_experiment')
+ex = Experiment('dhSegment_experiment')
 
 
 @ex.config

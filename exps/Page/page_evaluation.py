@@ -47,8 +47,8 @@ def page_evaluate_folder(output_folder: str, validation_dir: str, pixel_wise: bo
             metric = compare_bin_prediction_to_label(bin_upscaled, label_image)
             global_metrics += metric
 
-        pred_box = find_boxes(np.uint8(bin_upscaled), mode='quadrilateral')
-        label_box = find_boxes(np.uint8(label_image), mode='quadrilateral', min_area=0.0)
+        pred_box = find_boxes(np.uint8(bin_upscaled), mode='quadrilateral', n_max_boxes=1)
+        label_box = find_boxes(np.uint8(label_image), mode='quadrilateral', min_area=0.0, n_max_boxes=1)
 
         if debug_folder is not None:
             imsave(os.path.join(debug_folder, '{}_bin.png'.format(basename)), np.uint8(bin_upscaled*255))

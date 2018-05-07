@@ -119,28 +119,6 @@ class TextLine(Region):
             text_equiv=text_equiv
         )
 
-    # @classmethod
-    # # TODO : When is this called ? (Seems deprecated)
-    # def from_coords_array(cls, coords: np.array=None, baseline_coords: np.array=None,  # shape [N, 1, 2]
-    #                text_equiv: str=None, id: str=None):
-    #     return TextLine(
-    #         id=id,
-    #         coords=Point.arr_to_point_list(coords) if coords is not None else [],
-    #         baseline=Point.arr_to_point_list(baseline_coords) if baseline_coords is not None else [],
-    #         text_equiv=text_equiv
-    #     )
-
-    @classmethod
-    # TODO this is duplicate from from_array()
-    def from_cv2_array(cls, cv2_coords: np.array=None, baseline_coords: np.array=None,  # cv2_coords shape [N, 1, 2]
-                       text_equiv: str=None, id: str=None):
-        return TextLine(
-            id=id,
-            coords=Point.cv2_to_point_list(cv2_coords) if cv2_coords is not None else [],
-            baseline=Point.cv2_to_point_list(baseline_coords) if baseline_coords is not None else [],
-            text_equiv=text_equiv
-        )
-
     def to_xml(self, name_element='TextLine') -> ET.Element:
         line_et = super().to_xml(name_element=name_element)
         if not not self.baseline:
@@ -401,7 +379,7 @@ class Page(BaseElement):
 
     def draw_lines(self, img_canvas, color=(255, 0, 0), thickness=2, fill: bool=True, autoscale=True):
         """
-        Given an image, draws the polgons cotaining text lines, i.e TextLines.coords
+        Given an image, draws the polygons containing text lines, i.e TextLines.coords
         :param img_canvas: 3 channel image in which the region will be drawn
         :param color: (R, G, B) value color
         :param thickness: the thickness of the line
@@ -539,7 +517,7 @@ def parse_file(filename: str) -> Page:
     """
 
     :param filename: PAGE xml to parse
-    :return: Page object containg all the parsed elements
+    :return: Page object containing all the parsed elements
     """
     xml_page = ET.parse(filename)
     page_elements = xml_page.findall('p:Page', _ns)
