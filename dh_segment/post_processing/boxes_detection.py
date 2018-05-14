@@ -1,33 +1,42 @@
 import cv2
 import numpy as np
+import math
+from shapely import geometry
 from scipy.spatial import KDTree
 
 
 def find_boxes(boxes_mask: np.array, mode: str= 'min_rectangle', min_area: float=0.2,
-               p_arc_length: float=0.01, n_max_boxes=1):
+               p_arc_length: float=0.01, n_max_boxes=math.inf):
     """
 
     :param boxes_mask: Uint8 binary 2D array
     :param mode: 'min_rectangle', 'quadrilateral', 'rectangle'
     :param min_area:
     :param p_arc_length: when 'qualidrateral' mode is chosen
-    :param n_max_boxes:
+    :param n_max_boxes: maximum number of boxes that can be found (default inf).
+                        This will select n_max_boxes with largest area.
     :return: n_max_boxes of 4 corners [[x1,y2], [x2,y2], ... ]
     """
+
+    assert len(boxes_mask.shape) == 2, \
+        'Input mask must be a 2D array ! Mask is now of shape {}'.format(boxes_mask.shape)
+
     _, contours, _ = cv2.findContours(boxes_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if contours is None:
         print('No contour found')
         return None
-    # found_box = None
     found_boxes = list()
 
     h_img, w_img = boxes_mask.shape[:2]
 
     def validate_box(box: np.array) -> (np.array, float):
-        # Aproximate area computation (TODO eventually make a proper area computation)
-        approx_area = (np.max(box[:, 0]) - np.min(box[:, 0])) * (np.max(box[:, 1] - np.min(box[:, 1])))
-        # if approx_area > min_area * boxes_mask.size and approx_area > biggest_area:
-        if approx_area > min_area * boxes_mask.size:
+        """
+
+        :param box: array of 4 coordinates with format [[x1,y1], ..., [x4,y4]]
+        :return: (box, area)
+        """
+        polygon = geometry.Polygon([point for point in box])
+        if polygon.area > min_area * boxes_mask.size:
 
             # Correct out of range corners
             box = np.maximum(box, 0)
@@ -35,7 +44,7 @@ def find_boxes(boxes_mask: np.array, mode: str= 'min_rectangle', min_area: float
                             np.minimum(box[:, 1], boxes_mask.shape[0])), axis=1)
 
             # return box
-            return box, approx_area
+            return box, polygon.area
 
     if mode not in ['quadrilateral', 'min_rectangle', 'rectangle']:
         raise NotImplementedError
@@ -74,19 +83,17 @@ def find_boxes(boxes_mask: np.array, mode: str= 'min_rectangle', min_area: float
         for c in contours:
             rect = cv2.minAreaRect(c)
             box = np.int0(cv2.boxPoints(rect))
-            # found_box = validate_box(box)
             found_boxes.append(validate_box(box))
     elif mode == 'rectangle':
         for c in contours:
             x, y, w, h = cv2.boundingRect(c)
             box = np.array([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], dtype=int)
-            # found_box = validate_box(box)
             found_boxes.append(validate_box(box))
     # sort by area
     found_boxes = [fb for fb in found_boxes if fb is not None]
     found_boxes = sorted(found_boxes, key=lambda x: x[1], reverse=True)
     if n_max_boxes == 1:
-        if found_boxes != []:
+        if found_boxes:
             return found_boxes[0][0]
         else:
             return None
