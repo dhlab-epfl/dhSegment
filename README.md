@@ -6,8 +6,6 @@ The corresponding paper is now available on [arxiv](https://arxiv.org/abs/1804.1
 
 It was created by [Benoit Seguin](https://twitter.com/Seguin_Be) and Sofia Ares Oliveira at DHLAB, EPFL.
 
-It is inspired by the paper [_U-Net: Convolutional Networks for Biomedical Image Segmentation_](https://arxiv.org/pdf/1505.04597.pdf) but uses a pretrained network for encoding.
-
 ## Installation and requirements
  See `INSTALL.md` to install environment and to use `dh_segment` package.
  
@@ -41,7 +39,7 @@ wget https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/pages.zip
 unzip pages.zip
 cd ..
 ```
-2. Download the pretrained weights for ResNet :
+2. (Only needed if training from scratch) Download the pretrained weights for ResNet :
 ```
 cd pretrained_models/
 python download_resnet_pretrained_model.py
