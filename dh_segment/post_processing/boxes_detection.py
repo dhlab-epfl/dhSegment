@@ -12,10 +12,10 @@ def find_boxes(boxes_mask: np.array, mode: str= 'min_rectangle', min_area: float
     :param boxes_mask: Uint8 binary 2D array
     :param mode: 'min_rectangle', 'quadrilateral', 'rectangle'
     :param min_area:
-    :param p_arc_length: when 'qualidrateral' mode is chosen
+    :param p_arc_length: when 'quadrilateral' mode is chosen
     :param n_max_boxes: maximum number of boxes that can be found (default inf).
                         This will select n_max_boxes with largest area.
-    :return: n_max_boxes of 4 corners [[x1,y2], [x2,y2], ... ]
+    :return: list of length n_max_boxes containing boxes with 4 corners [[x1,y1], ..., [x4,y4]]
     """
 
     assert len(boxes_mask.shape) == 2, \
