@@ -1,5 +1,7 @@
 import tensorflow as tf
 from tensorflow.contrib.image import rotate as tf_rotate
+from scipy import ndimage
+import numpy as np
 
 
 def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor,
@@ -111,3 +113,34 @@ def extract_patches_fn(image: tf.Tensor, patch_shape: list, offsets) -> tf.Tenso
         patches_shape = tf.shape(patches)
         return tf.reshape(patches, [tf.reduce_prod(patches_shape[:3]), h, w, int(c)])  # returns [batch_patches, h, w, c]
 
+
+def local_entropy(tf_binary_img: tf.Tensor, sigma=3):
+    tf_binary_img.get_shape().assert_has_rank(2)
+
+    def get_gaussian_filter_1d(sigma):
+        sigma_r = int(np.round(sigma))
+        x = np.zeros(6 * sigma_r + 1, dtype=np.float32)
+        x[3 * sigma_r] = 1
+        return ndimage.filters.gaussian_filter(x, sigma=sigma)
+
+    def _fn(img):
+        labelled, nb_components = ndimage.measurements.label(img)
+        lut = np.concatenate(
+            [np.array([0], np.int32), np.random.randint(20, size=nb_components + 1, dtype=np.int32) + 1])
+        output = lut[labelled]
+        return output
+
+    label_components = tf.py_func(_fn, [tf_binary_img], tf.int32)
+    label_components.set_shape([None, None])
+    one_hot_components = tf.one_hot(label_components, tf.reduce_max(label_components))
+    one_hot_components = tf.transpose(one_hot_components, [2, 0, 1])
+
+    local_components_avg = tf.nn.conv2d(one_hot_components[:, :, :, None],
+                                        get_gaussian_filter_1d(sigma)[None, :, None, None], (1, 1, 1, 1),
+                                        padding='SAME')
+    local_components_avg = tf.nn.conv2d(local_components_avg, get_gaussian_filter_1d(sigma)[:, None, None, None],
+                                        (1, 1, 1, 1), padding='SAME')
+    local_components_avg = tf.transpose(local_components_avg[:, :, :, 0], [1, 2, 0])
+    local_components_avg = tf.pow(local_components_avg, 1 / 1.4)
+    local_components_avg = local_components_avg / (tf.reduce_sum(local_components_avg, axis=2, keep_dims=True) + 1e-6)
+    return -tf.reduce_sum(local_components_avg * tf.log(local_components_avg + 1e-6), axis=2)
