@@ -42,15 +42,22 @@ def default_config():
 
 @ex.automain
 def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
-    # Save config
+
+    # Create output directory
     if not os.path.isdir(model_output_dir):
         os.makedirs(model_output_dir)
     else:
         assert _config.get('restore_model'), \
-            '{} already exists, you cannot use it as output directory. ' \
-            'Set "restore_model=True" to continue training, or delete dir "rm -r {}"'.format(model_output_dir, model_output_dir)
+            '{0} already exists, you cannot use it as output directory. ' \
+            'Set "restore_model=True" to continue training, or delete dir "rm -r {0}"'.format(model_output_dir)
+    # Save config
     with open(os.path.join(model_output_dir, 'config.json'), 'w') as f:
         json.dump(_config, f, indent=4, sort_keys=True)
+
+    # Create export directory for saved models
+    saved_model_dir = os.path.join(model_output_dir, 'export')
+    if not os.path.isdir(saved_model_dir):
+        os.makedirs(saved_model_dir)
 
     training_params = utils.TrainingParams.from_dict(training_params)
 
@@ -82,7 +89,7 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
                                        params=_config))
 
         # Export model (filename, batch_size = 1) and predictions
-        exported_path = estimator.export_savedmodel(os.path.join(model_output_dir, 'export'),
+        exported_path = estimator.export_savedmodel(saved_model_dir,
                                                     input.serving_input_filename(training_params.input_resized_size))
         exported_path = exported_path.decode()
         timestamp_exported = os.path.split(exported_path)[-1]
