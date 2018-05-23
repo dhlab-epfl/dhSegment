@@ -8,7 +8,7 @@ from glob import glob
 import numpy as np
 import os
 import cv2
-from scipy.misc import imread, imsave
+from imageio import imread, imsave
 
 # To output results in PAGE XML format (http://www.primaresearch.org/schema/PAGE/gts/pagecontent/2013-07-15/)
 PAGE_XML_DIR = './page_xml'

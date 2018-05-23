@@ -3,7 +3,7 @@ import os
 from threading import Semaphore
 import numpy as np
 import tempfile
-from scipy.misc import imsave, imread
+from imageio import imsave, imread
 
 _original_shape_key = 'original_shape'
 
