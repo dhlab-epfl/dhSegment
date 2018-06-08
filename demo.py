@@ -81,7 +81,7 @@ if __name__ == '__main__':
                                                           mode='min_rectangle', n_max_boxes=1)
 
             # Draw page box on original image and export it. Add also box coordinates to the txt file
-            original_img = imread(filename, mode='RGB')
+            original_img = imread(filename, pilmode='RGB')
             if pred_page_coords is not None:
                 cv2.polylines(original_img, [pred_page_coords[:, None, :]], True, (0, 0, 255), thickness=5)
                 # Write corners points into a .txt file

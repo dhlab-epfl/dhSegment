@@ -333,7 +333,7 @@ class Page(BaseElement):
         root = ET.Element('PcGts')
         root.set('xmlns', _ns['p'])
         # Metadata
-        generated_on = str(datetime.datetime.now())
+        generated_on = str(datetime.datetime.now().isoformat())
         metadata = ET.SubElement(root, 'Metadata')
         creator = ET.SubElement(metadata, 'Creator')
         creator.text = creator_name
