@@ -2,7 +2,7 @@
 
 dhSegment allows you to extract content (segment regions) from different type of documents. See [some examples here](https://dhlab-epfl.github.io/dhSegment/).
 
-The corresponding paper is now available on [arxiv](https://arxiv.org/abs/1804.10371).
+The corresponding paper is now available on [arxiv](https://arxiv.org/abs/1804.10371), to be presented as oral at [ICFHR2018](http://icfhr2018.org/).
 
 It was created by [Benoit Seguin](https://twitter.com/Seguin_Be) and Sofia Ares Oliveira at DHLAB, EPFL.
 
