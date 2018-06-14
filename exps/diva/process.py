@@ -1,11 +1,32 @@
 #!/usr/bin/env python
-__author__ = 'solivr'
+__author__ = "solivr"
+__license__ = "GPL"
 
+import tensorflow as tf
+from dh_segment.loader import LoadedModel
+from glob import glob
 import numpy as np
-import cv2
-from scipy.misc import imsave, imread
-from typing import List
+from tqdm import tqdm
 import os
+import cv2
+from typing import List
+from imageio import imsave
+
+
+def prediction_fn(model_dir: str, input_dir: str, output_dir: str=None):
+
+    if not output_dir:
+        # For model_dir of style model_name/export/timestamp/ this will create a folder model_name/predictions'
+        output_dir = '{}'.format(os.path.sep).join(model_dir.split(os.path.sep)[:-3] + ['predictions'])
+
+    os.makedirs(output_dir, exist_ok=True)
+    filenames_to_predict = glob(os.path.join(input_dir, '*.jpg'))
+    # Load model
+    with tf.Session():
+        m = LoadedModel(model_dir, 'filename_original_shape')
+        for filename in tqdm(filenames_to_predict, desc='Prediction'):
+            pred = m.predict(filename)['probs'][0]
+            np.save(os.path.join(output_dir, os.path.basename(filename).split('.')[0]), np.uint8(255 * pred))
 
 
 def diva_post_processing_fn(probs: np.array, thresholds: List[float]=[0.5, 0.5, 0.5], min_cc: int=0,
