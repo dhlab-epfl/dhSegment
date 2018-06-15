@@ -20,7 +20,7 @@ def eval_fn(input_dir: str, groundtruth_dir: str, post_process_params: dict=PP_P
     :param input_dir: directory containing the predictions .npy files (range [0, 255])
     :param groundtruth_dir: directory containing the ground truth images (.png) (must have the same name as predictions
                             files in input_dir)
-    :params post_process_params: params for post processing fn
+    :param post_process_params: params for post processing fn
     :return: Metrics object containing all the necessary metrics
     """
     global_metrics = Metrics()

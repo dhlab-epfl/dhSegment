@@ -13,11 +13,11 @@ from dh_segment.post_processing import binarization
 from dh_segment.post_processing.boxes_detection import find_boxes
 
 
-def prediction_fn(model_dir: str, input_dir: str, output_dir: str=None):
+def prediction_fn(model_dir: str, input_dir: str, output_dir: str=None) -> None:
     """
     Given a model directory this function will load the model and apply it to the files (.jpg, .png) found in input_dir.
-    The prediction swill be save din output_dir as .npy files (values ranging [0,255])
-    :param model_dir: Directory containing the saved model is
+    The predictions will be saved in output_dir as .npy files (values ranging [0,255])
+    :param model_dir: Directory containing the saved model
     :param input_dir: input directory where the images to predict are
     :param output_dir: output directory to save the predictions (probability images)
     :return:
