@@ -12,7 +12,7 @@ from exps import cbad_post_processing_fn, dibco_binarization_fn, cini_post_proce
     page_post_processing_fn, diva_post_processing_fn, ornaments_post_processing_fn
 from exps import cbad_evaluate_folder, dibco_evaluate_folder, cini_evaluate_folder, \
     page_evaluate_folder, diva_evaluate_folder, ornament_evaluate_folder, evaluate_epoch
-from doc_seg.utils import parse_json
+from dh_segment.utils import parse_json
 from tqdm import tqdm
 from functools import partial
 
