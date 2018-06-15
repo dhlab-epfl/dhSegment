@@ -4,6 +4,7 @@ import numpy as np
 import datetime
 import cv2
 
+# https://docs.python.org/3.5/library/xml.etree.elementtree.html#parsing-xml-with-namespaces
 _ns = {'p': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'}
 _attribs = {'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
             'xsi:schemaLocation': "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 "
@@ -42,7 +43,7 @@ class Point:
         for p in t.split(' '):
             values = p.split(',')
             assert len(values) == 2
-            x, y = int(values[0]), int(values[1])
+            x, y = int(float(values[0])), int(float(values[1]))
             result.append(Point(y, x))
         return result
 
@@ -527,7 +528,6 @@ def parse_file(filename: str) -> Page:
 
 
 def save_baselines(filename, baselines, ratio=(1, 1), initial_shape=None):
-    # Todo : maybe add image width and height when creating the PAGE xml
     txt_lines = [TextLine.from_array(baseline_coords=b, id='line_{}'.format(i)) for i, b in enumerate(baselines)]
     for l in txt_lines:
         l.scale_baseline_points(ratio)
