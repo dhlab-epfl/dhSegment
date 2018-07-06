@@ -268,13 +268,53 @@ class Border(BaseElement):
         return border_et
 
 
+class Metadata(BaseElement):
+    """
+    Metadata of PAGE XML
+    """
+    tag = 'Metadata'
+
+    def __init__(self, creator: str=None, created: str=None, last_change: str=None, comments: str=None):
+        self.creator = creator
+        self.created = created
+        self.last_change = last_change
+        self.comments = comments
+
+    @classmethod
+    def from_xml(cls, e: ET.Element) -> 'Metadata':
+        if e is None:
+            return None
+        cls.check_tag(e.tag)
+        creator_et = e.find('p:Creator', _ns)
+        created_et = e.find('p:Created', _ns)
+        last_change_et = e.find('p:LastChange', _ns)
+        comments_et = e.find('p:Comments', _ns)
+        return Metadata(creator=creator_et.text if creator_et is not None else None,
+                        created=created_et.text if created_et is not None else None,
+                        last_change=last_change_et.text if last_change_et is not None else None,
+                        comments=comments_et.text if comments_et is not None else None)
+
+    def to_xml(self) -> ET.Element:
+        metadata_et = ET.Element('Metadata')
+        creator_et = ET.SubElement(metadata_et, 'Creator')
+        creator_et.text = self.creator if self.creator is not None else ''
+        created_et = ET.SubElement(metadata_et, 'Created')
+        created_et.text = self.created if self.created is not None else ''
+        last_change_et = ET.SubElement(metadata_et, 'LastChange')
+        last_change_et.text = self.last_change if self.last_change is not None else ''
+        comments_et = ET.SubElement(metadata_et, 'Comments')
+        comments_et.text = self.comments if self.comments is not None else ''
+
+        return metadata_et
+
+
 class Page(BaseElement):
     tag = 'Page'
 
     def __init__(self, image_filename: str=None, image_width: int=None, image_height: int=None,
                  text_regions: List[TextRegion]=None, graphic_regions: List[GraphicRegion]=None,
                  page_border: Border=None, separator_regions: List[SeparatorRegion]=None,
-                 table_regions: List[TableRegion]=None):
+                 table_regions: List[TableRegion]=None, metadata: Metadata=None):
         self.image_filename = image_filename
         self.image_width = _try_to_int(image_width)
         self.image_height = _try_to_int(image_height)
@@ -283,6 +323,7 @@ class Page(BaseElement):
         self.border = page_border if page_border is not None else []
         self.separator_regions = separator_regions if separator_regions is not None else []
         self.table_regions = table_regions if table_regions is not None else []
+        self.metadata = metadata if metadata is not None else []
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'Page':
@@ -307,7 +348,8 @@ class Page(BaseElement):
                     graphic_regions=dictionary.get('graphic_regions'),
                     page_border=dictionary.get('page_border'),
                     separator_regions=dictionary.get('separator_regions'),
-                    table_regions=dictionary.get('table_regions')
+                    table_regions=dictionary.get('table_regions'),
+                    metadata=dictionary.get('metadata')
                     )
 
     def to_xml(self) -> ET.Element:
@@ -328,22 +370,24 @@ class Page(BaseElement):
             page_et.append(sep.to_xml())
         for tr in self.table_regions:
             page_et.append(tr.to_xml())
+        # if self.metadata:
+        #     page_et.append(self.metadata.to_xml())
         return page_et
 
     def write_to_file(self, filename, creator_name='dhSegment'):
         root = ET.Element('PcGts')
         root.set('xmlns', _ns['p'])
-        # Metadata
-        generated_on = str(datetime.datetime.now().isoformat())
-        metadata = ET.SubElement(root, 'Metadata')
-        creator = ET.SubElement(metadata, 'Creator')
-        creator.text = creator_name
-        created = ET.SubElement(metadata, 'Created')
-        # TODO : Consider the case where the file already exists and only an update needs to be done
-        created.text = generated_on
-        last_change = ET.SubElement(metadata, 'LastChange')
-        last_change.text = generated_on
 
+        # Updating metadata
+        if self.metadata.creator is None:
+            self.metadata.creator = creator_name
+        generated_on = str(datetime.datetime.now().isoformat())
+        if self.metadata.created is None:
+            self.metadata.created = generated_on
+        else:
+            self.metadata.last_change = generated_on
+
+        root.append(self.metadata.to_xml())
         root.append(self.to_xml())
         for k, v in _attribs.items():
             root.attrib[k] = v
@@ -521,10 +565,11 @@ def parse_file(filename: str) -> Page:
     :return: Page object containing all the parsed elements
     """
     xml_page = ET.parse(filename)
-    page_elements = xml_page.findall('p:Page', _ns)
-    # can there be multiple pages in a single XML file? -> I don't think so
-    assert len(page_elements) == 1
-    return Page.from_xml(page_elements[0])
+    page_elements = xml_page.find('p:Page', _ns)
+    metadata_et = xml_page.find('p:Metadata', _ns)
+    page = Page.from_xml(page_elements)
+    page.metadata = Metadata.from_xml(metadata_et)
+    return page
 
 
 def save_baselines(filename, baselines, ratio=(1, 1), initial_shape=None):
