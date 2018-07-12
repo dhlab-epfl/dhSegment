@@ -323,7 +323,7 @@ class Page(BaseElement):
         self.border = page_border if page_border is not None else []
         self.separator_regions = separator_regions if separator_regions is not None else []
         self.table_regions = table_regions if table_regions is not None else []
-        self.metadata = metadata if metadata is not None else []
+        self.metadata = metadata if metadata is not None else Metadata()
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'Page':
@@ -379,8 +379,7 @@ class Page(BaseElement):
         root.set('xmlns', _ns['p'])
 
         # Updating metadata
-        if self.metadata.creator is None:
-            self.metadata.creator = creator_name
+        self.metadata.creator = creator_name
         generated_on = str(datetime.datetime.now().isoformat())
         if self.metadata.created is None:
             self.metadata.created = generated_on
