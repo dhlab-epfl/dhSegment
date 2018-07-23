@@ -3,6 +3,10 @@ from typing import List, Optional, Union, Tuple
 import numpy as np
 import datetime
 import cv2
+import os
+import json
+from uuid import uuid4
+from shapely.geometry import Polygon
 
 # https://docs.python.org/3.5/library/xml.etree.elementtree.html#parsing-xml-with-namespaces
 _ns = {'p': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'}
@@ -59,6 +63,43 @@ class Point:
     def list_point_to_string(cls, list_points: List['Point']) -> str:
         return ' '.join(['{},{}'.format(p.x, p.y) for p in list_points])
 
+    @classmethod
+    def array_to_list(cls, array: np.ndarray) -> list:
+        """
+        :param array: Array must be of shape (N, 2)
+        :return: list of shape (N,2)
+        """
+        return [list(pt) for pt in array]
+
+    @classmethod
+    def list_to_point(cls, list_coords: np.ndarray) -> List['Point']:
+        """
+        :param list_coords: list of shape (N, 2)
+        :return: list of Points
+        """
+        return [cls(coord[1], coord[0]) for coord in list_coords if list_coords]
+
+    @classmethod
+    def point_to_list(cls, points: List['Point']) -> list:
+        """
+        :param points: list of Points
+        :return: list of shape (N,2)
+        """
+        return [[pt.x, pt.y] for pt in points]
+
+    def to_dict(self):
+        return [int(self.x), int(self.y)]
+
+
+class Text:
+    def __init__(self, text_equiv: str=None, alternatives: List[str]=None, score: float=None):
+        self.text_equiv = text_equiv  # if text_equiv is not None else ''
+        self.alternatives = alternatives  # if alternatives is not None else []
+        self.score = score  # if score is not None else ''
+
+    def to_dict(self):
+        return vars(self)
+
 
 class BaseElement:
     tag = None
@@ -92,14 +133,30 @@ class Region(BaseElement):
             coords.set('points', Point.list_point_to_string(self.coords))
         return et
 
+    def to_dict(self, non_serializable_keys: List[str]=list()) -> dict:
+        if 'coords' in vars(self).keys() and 'coords' not in non_serializable_keys:
+            non_serializable_keys += ['coords']
+        return json_serialize(vars(self), non_serializable_keys=non_serializable_keys)
+
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> dict:
+        return {'id': dictionary.get('id'),
+                'coords': Point.list_to_point(dictionary.get('coords'))
+                }
+
 
 class TextLine(Region):
     tag = 'TextLine'
 
-    def __init__(self, id: str=None, coords: List[Point]=None, baseline: List[Point]=None, text_equiv: str=''):
-        super().__init__(id=id, coords=coords)
+    # def __init__(self, id: str=None, coords: List[Point]=None, baseline: List[Point]=None, text_equiv: str=''):
+    def __init__(self, id: str = None, coords: List[Point] = None, baseline: List[Point] = None, text: Text = None,
+                 line_group_id: str = None, column_group_id: str = None):
+        super().__init__(id=id if id is not None else str(uuid4()), coords=coords)
         self.baseline = baseline if baseline is not None else []
-        self.text_equiv = text_equiv
+        # self.text_equiv = text_equiv if text_equiv is not None else ''
+        self.text = text if text is not None else Text()
+        self.line_group_id = line_group_id if line_group_id is not None else ''
+        self.column_group_id = column_group_id if column_group_id is not None else ''
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'TextLine':
@@ -107,7 +164,7 @@ class TextLine(Region):
         return TextLine(
             **super().from_xml(e),
             baseline=Point.list_from_xml(e.find('p:Baseline', _ns)),
-            text_equiv=_get_text_equiv(e)
+            text=Text(text_equiv=_get_text_equiv(e))
         )
 
     @classmethod
@@ -117,7 +174,7 @@ class TextLine(Region):
             id=id,
             coords=Point.cv2_to_point_list(cv2_coords) if cv2_coords is not None else [],
             baseline=Point.cv2_to_point_list(baseline_coords) if baseline_coords is not None else [],
-            text_equiv=text_equiv
+            text=Text(text_equiv=text_equiv)
         )
 
     def to_xml(self, name_element='TextLine') -> ET.Element:
@@ -127,8 +184,8 @@ class TextLine(Region):
             line_baseline.set('points', Point.list_point_to_string(self.baseline))
         line_text_equiv = ET.SubElement(line_et, 'TextEquiv')
         text_unicode = ET.SubElement(line_text_equiv, 'Unicode')
-        if not not self.text_equiv:
-            text_unicode.text = self.text_equiv
+        if not not self.text.text_equiv:
+            text_unicode.text = self.text.text_equiv
         return line_et
 
     def scale_baseline_points(self, ratio):
@@ -137,6 +194,18 @@ class TextLine(Region):
             scaled_points.append(Point(int(pt.y * ratio[0]), int(pt.x * ratio[1])))
 
         self.baseline = scaled_points
+
+    def to_dict(self, non_serializable_keys: List[str]=list()):
+        return super().to_dict(non_serializable_keys=['text', 'baseline'])
+
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> 'TextLine':
+        return cls(**super().from_dict(dictionary),
+                   baseline=Point.list_to_point(dictionary.get('baseline')),
+                   text=Text(**dictionary.get('text', dict())),
+                   line_group_id=dictionary.get('line_group_id'),
+                   column_group_id=dictionary.get('column_group_id')
+                   )
 
 
 class GraphicRegion(Region):
@@ -158,13 +227,17 @@ class GraphicRegion(Region):
 
         return graph_et
 
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> 'GraphicRegion':
+        return cls(**super().from_dict(dictionary))
+
 
 class TextRegion(Region):
     tag = 'TextRegion'
 
     def __init__(self, id: str=None, coords: List[Point]=None, text_lines: List[TextLine]=None, text_equiv: str=''):
         super().__init__(id=id, coords=coords)
-        self.text_equiv = text_equiv
+        self.text_equiv = text_equiv if text_equiv is not None else ''
         self.text_lines = text_lines if text_lines is not None else []
 
     @classmethod
@@ -185,6 +258,16 @@ class TextRegion(Region):
         if not not self.text_equiv:
             text_unicode.text = self.text_equiv
         return text_et
+
+    def to_dict(self, non_serializable_keys: List[str]=list()):
+        return super().to_dict(non_serializable_keys=['text_lines'])
+
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> 'TextRegion':
+        return cls(**super().from_dict(dictionary),
+                   text_lines=[TextLine.from_dict(tl) for tl in dictionary.get('text_lines', list())],
+                   text_equiv=dictionary.get('text_equiv')
+                   )
 
 
 class TableRegion(Region):
@@ -219,6 +302,13 @@ class TableRegion(Region):
         table_et.set('embText', self.embText if self.embText is not None else False)
         return table_et
 
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> 'TableRegion':
+        return cls(**super().from_dict(dictionary),
+                   rows=dictionary.get('rows'),
+                   columns=dictionary.get('columns'),
+                   embeded_text=dictionary.get('embeded_text'))
+
 
 class SeparatorRegion(Region):
     """
@@ -240,6 +330,10 @@ class SeparatorRegion(Region):
         separator_et = super().to_xml(name_element)
         return separator_et
 
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> 'SeparatorRegion':
+        return cls(**super().from_dict(dictionary))
+
 
 class Border(BaseElement):
     """
@@ -248,7 +342,7 @@ class Border(BaseElement):
 
     tag = 'Border'
 
-    def __init__(self, coords: List[Point]=None):
+    def __init__(self, coords: List[Point]=None, id: str = None):
         self.coords = coords if coords is not None else []
 
     @classmethod
@@ -267,6 +361,15 @@ class Border(BaseElement):
             border_coords.set('points', Point.list_point_to_string(self.coords))
         return border_et
 
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> 'Border':
+        return cls(coords=Point.list_to_point(dictionary.get('coords')))
+
+    def to_dict(self, non_serializable_keys: List[str]=list()) -> dict:
+        if 'coords' in vars(self).keys() and 'coords' not in non_serializable_keys:
+            non_serializable_keys += ['coords']
+        return json_serialize(vars(self), non_serializable_keys=non_serializable_keys)
+
 
 class Metadata(BaseElement):
     """
@@ -278,7 +381,7 @@ class Metadata(BaseElement):
         self.creator = creator
         self.created = created
         self.last_change = last_change
-        self.comments = comments
+        self.comments = comments if comments is not None else ''
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'Metadata':
@@ -307,6 +410,32 @@ class Metadata(BaseElement):
 
         return metadata_et
 
+    def to_dict(self):
+        return vars(self)
+
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> 'Metadata':
+        return cls(created=dictionary.get('created'),
+                   creator=dictionary.get('creator'),
+                   last_change=dictionary.get('last_change'),
+                   comments=dictionary.get('comments')
+                   )
+
+
+class GroupSegment(Region):
+    """
+    Only for JSON export (no PAGE XML correspondence).
+    GroupSegment is a region containing several TextLineRegions and that form a bigger region.
+    It is used mainly to make line / column regions.
+    """
+    def __init__(self, id: str = None, coords: List[Point] = None, segment_ids: List[str] = None):
+        super().__init__(id=id, coords=coords)
+        self.segment_ids = segment_ids if segment_ids is not None else []
+
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> 'GroupSegment':
+        return cls(**super().from_dict(dictionary))
+
 
 class Page(BaseElement):
     tag = 'Page'
@@ -314,16 +443,19 @@ class Page(BaseElement):
     def __init__(self, image_filename: str=None, image_width: int=None, image_height: int=None,
                  text_regions: List[TextRegion]=None, graphic_regions: List[GraphicRegion]=None,
                  page_border: Border=None, separator_regions: List[SeparatorRegion]=None,
-                 table_regions: List[TableRegion]=None, metadata: Metadata=None):
+                 table_regions: List[TableRegion]=None, metadata: Metadata=None,
+                 line_groups: List[GroupSegment]=None, column_groups: List[GroupSegment]=None):
         self.image_filename = image_filename
         self.image_width = _try_to_int(image_width)
         self.image_height = _try_to_int(image_height)
         self.text_regions = text_regions if text_regions is not None else []
         self.graphic_regions = graphic_regions if graphic_regions is not None else []
-        self.border = page_border if page_border is not None else []
+        self.page_border = page_border if page_border is not None else []
         self.separator_regions = separator_regions if separator_regions is not None else []
         self.table_regions = table_regions if table_regions is not None else []
         self.metadata = metadata if metadata is not None else Metadata()
+        self.line_groups = line_groups if line_groups is not None else []
+        self.column_groups = column_groups if column_groups is not None else []
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'Page':
@@ -341,16 +473,18 @@ class Page(BaseElement):
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> 'Page':
-        return Page(image_filename=dictionary.get('image_filename'),
-                    image_width=dictionary.get('image_width'),
-                    image_height=dictionary.get('image_height'),
-                    text_regions=dictionary.get('text_regions'),
-                    graphic_regions=dictionary.get('graphic_regions'),
-                    page_border=dictionary.get('page_border'),
-                    separator_regions=dictionary.get('separator_regions'),
-                    table_regions=dictionary.get('table_regions'),
-                    metadata=dictionary.get('metadata')
-                    )
+        return cls(image_filename=dictionary.get('image_filename'),
+                   image_height=dictionary.get('image_height'),
+                   image_width=dictionary.get('image_width'),
+                   metadata=Metadata.from_dict(dictionary.get('metadata')),
+                   text_regions=[TextRegion.from_dict(tr) for tr in dictionary.get('text_regions', list())],
+                   page_border=Border.from_dict(dictionary.get('page_border', dict())),
+                   separator_regions=[SeparatorRegion.from_dict(sep) for sep in dictionary.get('separator_regions', list())],
+                   graphic_regions=[GraphicRegion.from_dict(gr) for gr in dictionary.get('graphic_regions', list())],
+                   table_regions=[TableRegion.from_dict(tr) for tr in dictionary.get('table_regions', list())],
+                   line_groups=[GroupSegment.from_dict(lr) for lr in dictionary.get('line_groups', list())],
+                   column_groups=[GroupSegment.from_dict(cr) for cr in dictionary.get('column_groups', list())]
+                   )
 
     def to_xml(self) -> ET.Element:
         page_et = ET.Element('Page')
@@ -364,8 +498,8 @@ class Page(BaseElement):
             page_et.append(tr.to_xml())
         for gr in self.graphic_regions:
             page_et.append(gr.to_xml())
-        if self.border:
-            page_et.append(self.border.to_xml())
+        if self.page_border:
+            page_et.append(self.page_border.to_xml())
         for sep in self.separator_regions:
             page_et.append(sep.to_xml())
         for tr in self.table_regions:
@@ -374,23 +508,47 @@ class Page(BaseElement):
         #     page_et.append(self.metadata.to_xml())
         return page_et
 
-    def write_to_file(self, filename, creator_name='dhSegment'):
-        root = ET.Element('PcGts')
-        root.set('xmlns', _ns['p'])
+    def write_to_file(self, filename, creator_name='dhSegment', comments=''):
+
+        def _write_xml():
+            root = ET.Element('PcGts')
+            root.set('xmlns', _ns['p'])
+
+            root.append(self.metadata.to_xml())
+            root.append(self.to_xml())
+            for k, v in _attribs.items():
+                root.attrib[k] = v
+            ET.ElementTree(element=root).write(filename)
+
+        def _write_json():
+            self_dict = vars(self)
+
+            # json_dict = dict()
+            serializable_keys = ['image_filename', 'image_height', 'image_width']
+            json_dict = json_serialize(self_dict, [k for k in self_dict.keys() if k not in serializable_keys])
+
+            with open(filename, 'w', encoding='utf8') as file:
+                json.dump(json_dict, file, indent=4, sort_keys=True, allow_nan=False)
 
         # Updating metadata
         self.metadata.creator = creator_name
+        self.metadata.comments += comments
         generated_on = str(datetime.datetime.now().isoformat())
         if self.metadata.created is None:
             self.metadata.created = generated_on
         else:
             self.metadata.last_change = generated_on
 
-        root.append(self.metadata.to_xml())
-        root.append(self.to_xml())
-        for k, v in _attribs.items():
-            root.attrib[k] = v
-        ET.ElementTree(element=root).write(filename)
+        # Depending on the extension write xml or json file
+        extension = os.path.splitext(filename)[1]
+
+        if extension == '.xml':
+            _write_xml()
+        elif extension == '.json':
+            _write_json()
+        else:
+            print('WARN : No extension for export, XML export by default')
+            _write_xml()
 
     def draw_baselines(self, img_canvas, color=(255, 0, 0), thickness=2, endpoint_radius=4, autoscale=True):
         """
@@ -497,8 +655,8 @@ class Page(BaseElement):
         else:
             ratio = (1, 1)
 
-        border_coords = (Point.list_to_cv2poly(self.border.coords) * ratio).astype(np.int32) \
-            if len(self.border.coords) > 0 else []
+        border_coords = (Point.list_to_cv2poly(self.page_border.coords) * ratio).astype(np.int32) \
+            if len(self.page_border.coords) > 0 else []
         if fill:
             cv2.fillPoly(img_canvas, [border_coords], color)
         else:
@@ -556,19 +714,109 @@ class Page(BaseElement):
         else:
             cv2.polylines(img_canvas, gr_coords, True, color, thickness=thickness)
 
+    def draw_text(self, img_canvas, color: Tuple[int, int, int]=(255, 0, 0), thickness: int=5,
+                  font=cv2.FONT_HERSHEY_SIMPLEX, font_scale: float=1.0, autoscale: bool=True):
+        text_lines = [tl for tr in self.text_regions for tl in tr.text_lines]
+        if autoscale:
+            assert self.image_height is not None
+            assert self.image_width is not None
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
+        else:
+            ratio = (1, 1)
+
+        tl_tuple_coords_text = [((np.array(Point.point_to_list(tl.coords)) * ratio).astype(np.int32),
+                                 tl.text.text_equiv) for tl in text_lines if len(tl.coords) > 0]
+
+        for coords, text in tl_tuple_coords_text:
+            polyline = Polygon(coords)
+            xmin, ymin, xmax, ymax = polyline.bounds
+            ymin = np.maximum(0, ymin - 20)
+
+            cv2.putText(img_canvas, text, (int(xmin), int(ymin)), fontFace=font, fontScale=font_scale, color=color,
+                        thickness=thickness)
+
+    def draw_line_groups(self, img_canvas: np.array, color: Tuple[int, int, int]=(0, 255, 0), fill: bool=False,
+                         thickness: int=5,  autoscale: bool=True):
+        """
+        This is only valid when parsing JSON files
+        :param img_canvas:
+        :param color:
+        :param fill:
+        :param thickness:
+        :param autoscale:
+        :return:
+        """
+        assert self.line_groups, "There is no Line group"
+
+        if autoscale:
+            assert self.image_height is not None
+            assert self.image_width is not None
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
+        else:
+            ratio = (1, 1)
+
+        lg_coords = [(Point.list_to_cv2poly(lg.coords)*ratio).astype(np.int32) for lg in self.line_groups
+                     if len(lg.coords) > 0]
+        if fill:
+            cv2.fillPoly(img_canvas, lg_coords, color)
+        else:
+            cv2.polylines(img_canvas, lg_coords, True, color, thickness=thickness)
+
+    def draw_column_groups(self, img_canvas: np.array, color: Tuple[int, int, int]=(0, 255, 0), fill: bool=False,
+                           thickness: int=5,  autoscale: bool=True):
+
+        assert self.column_groups, "There is no Line group"
+
+        if autoscale:
+            assert self.image_height is not None
+            assert self.image_width is not None
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
+        else:
+            ratio = (1, 1)
+
+        cg_coords = [(Point.list_to_cv2poly(cg.coords)*ratio).astype(np.int32) for cg in self.column_groups
+                     if len(cg.coords) > 0]
+        if fill:
+            cv2.fillPoly(img_canvas, cg_coords, color)
+        else:
+            cv2.polylines(img_canvas, cg_coords, True, color, thickness=thickness)
+
 
 def parse_file(filename: str) -> Page:
     """
-
-    :param filename: PAGE xml to parse
+    Parses the files to create the corresponding Page object. The files can be a .xml or a .json.
+    :param filename: file to parse (either json of page xml)
     :return: Page object containing all the parsed elements
     """
-    xml_page = ET.parse(filename)
-    page_elements = xml_page.find('p:Page', _ns)
-    metadata_et = xml_page.find('p:Metadata', _ns)
-    page = Page.from_xml(page_elements)
-    page.metadata = Metadata.from_xml(metadata_et)
-    return page
+    extension = os.path.splitext(filename)[1]
+
+    if extension == '.xml':
+        xml_page = ET.parse(filename)
+        page_elements = xml_page.find('p:Page', _ns)
+        metadata_et = xml_page.find('p:Metadata', _ns)
+        page = Page.from_xml(page_elements)
+        page.metadata = Metadata.from_xml(metadata_et)
+        return page
+    elif extension == '.json':
+        with open(filename, 'r', encoding='utf8') as file:
+            json_dict = json.load(file)
+        return Page.from_dict(json_dict)
+    else:
+        raise NotImplementedError
+
+
+def json_serialize(dict_to_serialize: dict, non_serializable_keys: List[str]=list()) -> dict:
+
+    new_dict = dict_to_serialize.copy()
+    for key in non_serializable_keys:
+        if isinstance(new_dict[key], list):
+            new_dict[key] = [elem.to_dict() for elem in new_dict[key]] if new_dict[key] else []
+        elif isinstance(new_dict[key], np.ndarray):
+            new_dict[key] = new_dict[key].tolist()
+        else:
+            new_dict[key] = new_dict[key].to_dict()
+
+    return new_dict
 
 
 def save_baselines(filename, baselines, ratio=(1, 1), initial_shape=None):
