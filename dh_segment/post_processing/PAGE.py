@@ -528,7 +528,7 @@ class Page(BaseElement):
             json_dict = json_serialize(self_dict, [k for k in self_dict.keys() if k not in serializable_keys])
 
             with open(filename, 'w', encoding='utf8') as file:
-                json.dump(json_dict, file, indent=4, sort_keys=True)
+                json.dump(json_dict, file, indent=4, sort_keys=True, allow_nan=False)
 
         # Updating metadata
         self.metadata.creator = creator_name
@@ -730,7 +730,7 @@ class Page(BaseElement):
         for coords, text in tl_tuple_coords_text:
             polyline = Polygon(coords)
             xmin, ymin, xmax, ymax = polyline.bounds
-            ymin = np.max(0, ymin - 20)
+            ymin = np.maximum(0, ymin - 20)
 
             cv2.putText(img_canvas, text, (int(xmin), int(ymin)), fontFace=font, fontScale=font_scale, color=color,
                         thickness=thickness)
