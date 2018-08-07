@@ -50,7 +50,7 @@ Additionally, a text file encoding the RGB values of the classes needs to be pro
 
 ![](assets/images/page.jpg){: .center-image .w-50}
 
-Dataset : READ-BAD [1] annotated by [2].
+Dataset : READ-BAD [2] annotated by [1].
 
 
 ## Layout Analysis
