@@ -10,6 +10,7 @@ import numpy as np
 def find_lines(lines_mask: np.ndarray):
     """
     Returns the longest central line for each connected component in the given binary mask.
+
     :param lines_mask: Binary mask of the detected line-areas
     :return: a list of Opencv-style polygonal lines (each contour encoded as [N,1,2] elements where each tuple is (x,y) )
     """

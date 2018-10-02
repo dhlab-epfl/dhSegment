@@ -106,9 +106,10 @@ def inference_resnet_v1_50(images, params, num_classes, use_batch_norm=False, we
     else:
         batch_norm_fn = None
 
-    def upsample_conv(input_tensor, previous_intermediate_layer, layer_params, number):
+    def upsample_conv(input_tensor, previous_intermediate_layer, layer_params, number) -> tf.Tensor:
         """
         Deconvolution (upscaling) layers
+
         :param input_tensor:
         :param previous_intermediate_layer:
         :param layer_params:

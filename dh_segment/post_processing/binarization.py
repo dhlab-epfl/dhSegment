@@ -5,11 +5,13 @@ from scipy.ndimage import label
 
 def thresholding(probs: np.ndarray, threshold: float=-1) -> np.ndarray:
     """
-    Computes the binary mask of the detected Page from the probabilities outputed by network
+    Computes the binary mask of the detected Page from the probabilities output by network
+
     :param probs: array in range [0, 1] of shape HxWx2
     :param threshold: threshold between [0 and 1], if negative Otsu's adaptive threshold will be used
     :return: binary mask
     """
+
     if threshold < 0:  # Otsu's thresholding
         probs = np.uint8(probs * 255)
         #TODO Correct that weird gaussianBlur

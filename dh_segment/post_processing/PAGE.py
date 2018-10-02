@@ -66,6 +66,7 @@ class Point:
     @classmethod
     def array_to_list(cls, array: np.ndarray) -> list:
         """
+
         :param array: Array must be of shape (N, 2)
         :return: list of shape (N,2)
         """
@@ -74,6 +75,7 @@ class Point:
     @classmethod
     def list_to_point(cls, list_coords: np.ndarray) -> List['Point']:
         """
+
         :param list_coords: list of shape (N, 2)
         :return: list of Points
         """
@@ -82,6 +84,7 @@ class Point:
     @classmethod
     def point_to_list(cls, points: List['Point']) -> list:
         """
+
         :param points: list of Points
         :return: list of shape (N,2)
         """
@@ -550,15 +553,18 @@ class Page(BaseElement):
             print('WARN : No extension for export, XML export by default')
             _write_xml()
 
-    def draw_baselines(self, img_canvas, color=(255, 0, 0), thickness=2, endpoint_radius=4, autoscale=True):
+    def draw_baselines(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(255, 0, 0), thickness: int=2,
+                       endpoint_radius: int=4, autoscale: bool=True):
         """
         Given an image, draws the TextLines.baselines.
+
         :param img_canvas: 3 channel image in which the region will be drawn
         :param color: (R, G, B) value color
         :param thickness: the thickness of the line
         :param endpoint_radius: the radius of the endpoints of line s(first and last coordinates of line)
-        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
-        provided in Page.image_width and Page.image_height to compute the scaling ratio
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
+                          it will use the dimensions provided in Page.image_width and Page.image_height
+                          to compute the scaling ratio
         :return: img_canvas is updated inplace
         """
 
@@ -579,14 +585,18 @@ class Page(BaseElement):
             cv2.circle(img_canvas, (coords[-1, 0, 0], coords[-1, 0, 1]),
                        radius=endpoint_radius, color=color, thickness=-1)
 
-    def draw_lines(self, img_canvas, color=(255, 0, 0), thickness=2, fill: bool=True, autoscale=True):
+    def draw_lines(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(255, 0, 0), thickness: int=2,
+                   fill: bool=True, autoscale: bool=True):
         """
         Given an image, draws the polygons containing text lines, i.e TextLines.coords
+
         :param img_canvas: 3 channel image in which the region will be drawn
         :param color: (R, G, B) value color
         :param thickness: the thickness of the line
-        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
-        provided in Page.image_width and Page.image_height to compute the scaling ratio
+        :param fill: if True fills the polygon
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
+                          it will use the dimensions provided in Page.image_width and Page.image_height
+                          to compute the scaling ratio
         :return: img_canvas is updated inplace
         """
 
@@ -608,16 +618,18 @@ class Page(BaseElement):
             for tl in tl_coords:  # For loop to avoid black regions when lines overlap
                 cv2.polylines(img_canvas, [tl], False, color, thickness=thickness)
 
-    def draw_text_regions(self, img_canvas, color: Tuple[int, int, int]=(255, 0, 0), fill: bool=True,
+    def draw_text_regions(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(255, 0, 0), fill: bool=True,
                           thickness: int=3, autoscale: bool=True):
         """
         Given an image, draws the TextRegions, either fills it (fill=True) or draws the contours (fill=False)
+
         :param img_canvas: 3 channel image in which the region will be drawn
         :param color: (R, G, B) value color
         :param fill: either to fill the region (True) of only draw the external contours (False)
         :param thickness: in case fill=True the thickness of the line
-        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
-        provided in Page.image_width and Page.image_height to compute the scaling ratio
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
+                          it will use the dimensions provided in Page.image_width and Page.image_height
+                          to compute the scaling ratio
         :return: img_canvas is updated inplace
         """
 
@@ -639,12 +651,14 @@ class Page(BaseElement):
                          thickness: int=5, autoscale: bool=True):
         """
         Given an image, draws the page border, either fills it (fill=True) or draws the contours (fill=False)
+
         :param img_canvas: 3 channel image in which the region will be drawn
         :param color: (R, G, B) value color
         :param fill: either to fill the region (True) of only draw the external contours (False)
         :param thickness: in case fill=True the thickness of the line
-        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
-        provided in Page.image_width and Page.image_height to compute the scaling ratio
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
+                          it will use the dimensions provided in Page.image_width and Page.image_height
+                          to compute the scaling ratio
         :return: img_canvas is updated inplace
         """
 
@@ -662,17 +676,19 @@ class Page(BaseElement):
         else:
             cv2.polylines(img_canvas, [border_coords], True, color, thickness=thickness)
 
-    def draw_separator_lines(self, img_canvas: np.array, color: Tuple[int, int, int]=(0, 255, 0),
+    def draw_separator_lines(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(0, 255, 0),
                              thickness: int=3, filter_by_id: str='', autoscale: bool=True):
         """
         Given an image, draws the SeparatorRegion.
+
         :param img_canvas: 3 channel image in which the region will be drawn
         :param color: (R, G, B) value color
         :param thickness: thickness of the line
         :param filter_by_id: string to filter the lines by id. For example vertical/horizontal lines can be filtered
-                if 'vertical' or 'horizontal' is mentioned in the id.
-        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
-        provided in Page.image_width and Page.image_height to compute the scaling ratio
+                             if 'vertical' or 'horizontal' is mentioned in the id.
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
+                          it will use the dimensions provided in Page.image_width and Page.image_height
+                          to compute the scaling ratio
         :return: img_canvas is updated inplace
         """
 
@@ -687,16 +703,18 @@ class Page(BaseElement):
                       if len(sep.coords) > 0 and filter_by_id in sep.id]
         cv2.polylines(img_canvas, sep_coords, True, color, thickness=thickness)
 
-    def draw_graphic_regions(self, img_canvas, color: Tuple[int, int, int]=(255, 0, 0),
+    def draw_graphic_regions(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(255, 0, 0),
                              fill: bool=True, thickness: int=3, autoscale: bool=True):
         """
         Given an image, draws the GraphicRegions, either fills it (fill=True) or draws the contours (fill=False)
+
         :param img_canvas: 3 channel image in which the region will be drawn
         :param color: (R, G, B) value color
         :param fill: either to fill the region (True) of only draw the external contours (False)
         :param thickness: in case fill=True the thickness of the line
-        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True, it will use the dimensions
-        provided in Page.image_width and Page.image_height to compute the scaling ratio
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
+                          it will use the dimensions provided in Page.image_width and Page.image_height
+                          to compute the scaling ratio
         :return: img_canvas is updated inplace
         """
 
@@ -738,12 +756,15 @@ class Page(BaseElement):
     def draw_line_groups(self, img_canvas: np.array, color: Tuple[int, int, int]=(0, 255, 0), fill: bool=False,
                          thickness: int=5,  autoscale: bool=True):
         """
-        This is only valid when parsing JSON files
-        :param img_canvas:
-        :param color:
-        :param fill:
-        :param thickness:
-        :param autoscale:
+        This is only valid when parsing JSON files. It will draw line groups
+
+        :param img_canvas: 3 channel image in which the region will be drawn
+        :param color: (R, G, B) value color
+        :param fill: either to fill the region (True) of only draw the external contours (False)
+        :param thickness: in case fill=False the thickness of the line
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
+                          it will use the dimensions provided in Page.image_width and Page.image_height
+                          to compute the scaling ratio
         :return:
         """
         assert self.line_groups, "There is no Line group"
@@ -785,6 +806,7 @@ class Page(BaseElement):
 def parse_file(filename: str) -> Page:
     """
     Parses the files to create the corresponding Page object. The files can be a .xml or a .json.
+
     :param filename: file to parse (either json of page xml)
     :return: Page object containing all the parsed elements
     """

@@ -94,7 +94,7 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
         return tf.data.Dataset.from_tensor_slices((batch_image, batch_label))
 
     # Data augmentation
-    def augment_data_fn(input_image, label_image): \
+    def _augment_data_fn(input_image, label_image): \
         return data_augmentation_fn(input_image, label_image, training_params.data_augmentation_flip_lr,
                                     training_params.data_augmentation_flip_ud, training_params.data_augmentation_color)
 
@@ -182,7 +182,7 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
             dataset = dataset.map(_load_image_fn, num_threads).flat_map(_scaling_and_patch_fn)
 
             if data_augmentation:
-                dataset = dataset.map(augment_data_fn, num_threads)
+                dataset = dataset.map(_augment_data_fn, num_threads)
             dataset = dataset.map(_assign_color_to_class_id, num_threads)
 
         # Save original size of images
