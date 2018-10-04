@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
-import tensorflow as tf
-from dh_segment.loader import LoadedModel
-from dh_segment.post_processing import boxes_detection, binarization, PAGE
-from tqdm import tqdm
-from glob import glob
-import numpy as np
 import os
+from glob import glob
+
 import cv2
+import numpy as np
+import tensorflow as tf
 from imageio import imread, imsave
+from tqdm import tqdm
+
+from dh_segment.io import PAGE
+from dh_segment.network import LoadedModel
+from dh_segment.post_processing import boxes_detection, binarization
 
 # To output results in PAGE XML format (http://www.primaresearch.org/schema/PAGE/gts/pagecontent/2013-07-15/)
 PAGE_XML_DIR = './page_xml'

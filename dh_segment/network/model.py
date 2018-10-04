@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import tensorflow as tf
-from .utils import ModelParams, get_image_shape_tensor
+from ..utils import ModelParams
 from tensorflow.contrib import layers  # TODO migration to tf.layers ?
 from tensorflow.contrib.slim.nets import resnet_v1
 from tensorflow.contrib.slim import arg_scope
@@ -232,6 +232,15 @@ def conv_bn_layer(input_tensor, kernel_size, output_channels, stride=1, bn=False
     return conv_layer
 
 
+def _get_image_shape_tensor(tensor: tf.Tensor):
+    if tensor.get_shape()[1].value and \
+                    tensor.get_shape()[2].value:
+        target_shape = tensor.get_shape()[1:3]
+    else:
+        target_shape = tf.shape(tensor)[1:3]
+    return target_shape
+
+
 def inference_u_net(images: tf.Tensor, params: ModelParams, num_classes: int, use_batch_norm=False, weight_decay=0.0,
                     is_training=False) -> tf.Tensor:
     enc_layers = OrderedDict()
@@ -272,7 +281,7 @@ def inference_u_net(images: tf.Tensor, params: ModelParams, num_classes: int, us
                                                              output_channels=512,
                                                              bn=True, is_training=is_training, relu=True)
 
-            reduced_patchsize = get_image_shape_tensor(enc_layers['conv_layer_enc_512'])
+            reduced_patchsize = _get_image_shape_tensor(enc_layers['conv_layer_enc_512'])
             dec_layers['conv_layer_dec_512'] = tf.image.resize_images(dec_layers['conv_layer_dec_512'], size=reduced_patchsize,
                                                                       method=tf.image.ResizeMethod.BILINEAR)
 
@@ -291,7 +300,7 @@ def inference_u_net(images: tf.Tensor, params: ModelParams, num_classes: int, us
                         output_channels=n_feat / 2,
                         bn=True, is_training=is_training, relu=True)
 
-                    reduced_patchsize = get_image_shape_tensor(enc_layers['conv_layer_enc_' + str(int(n_feat / 2))])
+                    reduced_patchsize = _get_image_shape_tensor(enc_layers['conv_layer_enc_' + str(int(n_feat / 2))])
                     dec_layers['conv_layer_dec_' + str(int(n_feat / 2))] = tf.image.resize_images(
                         dec_layers['conv_layer_dec_' + str(int(n_feat / 2))],
                         size=reduced_patchsize,

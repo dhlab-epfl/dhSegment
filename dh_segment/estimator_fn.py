@@ -1,8 +1,8 @@
 import tensorflow as tf
-from .utils import PredictionType, class_to_label_image, ModelParams, TrainingParams
-from . import utils
+from .utils import PredictionType, ModelParams, TrainingParams, \
+    class_to_label_image, multiclass_to_label_image
 import numpy as np
-from .model import inference_resnet_v1_50, inference_vgg16, inference_u_net
+from .network.model import inference_resnet_v1_50, inference_vgg16, inference_u_net
 
 
 def model_fn(mode, features, labels, params):
@@ -188,7 +188,7 @@ def model_fn(mode, features, labels, params):
                 tf.summary.image('output/prediction', summary_img, max_outputs=1)
             elif prediction_type == PredictionType.MULTILABEL:
                 labels_visualization = tf.cast(prediction_labels, tf.int32)
-                labels_visualization = utils.multiclass_to_label_image(labels_visualization, classes_file)
+                labels_visualization = multiclass_to_label_image(labels_visualization, classes_file)
                 tf.summary.image('output/prediction_image',
                                  tf.image.resize_images(labels_visualization,
                                                         tf.cast(tf.shape(labels_visualization)[1:3] / 3, tf.int32)),

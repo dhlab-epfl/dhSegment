@@ -2,7 +2,7 @@ from glob import glob
 import os
 import tensorflow as tf
 import numpy as np
-from . import utils
+from .. import utils
 from tqdm import tqdm
 from typing import Union, List
 from enum import Enum

@@ -6,5 +6,8 @@ Reference guide
 
 .. toctree::
 
-    dhsegment_core
+    network
+    io
+    inference
     post_processing
+    utils

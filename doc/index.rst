@@ -9,6 +9,7 @@ Welcome to dhSegment's documentation!
 .. toctree::
    :maxdepth: 2
 
+   home
    reference/index
 
 
