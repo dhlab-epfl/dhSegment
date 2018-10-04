@@ -148,10 +148,10 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
 
     # Read image filenames and labels in case of csv file
     if input_case == InputCase.INPUT_CSV:
-        df = pd.read_csv(input_data, header=False, names=['images', 'labels'])
+        df = pd.read_csv(input_data, header=None, names=['images', 'labels'])
         input_image_filenames = list(df.images.values)
         # If the label column exists
-        if not np.alltrue(np.isnan(df.labels.values)):
+        if not np.alltrue(pd.isnull(df.labels.values)):
             label_image_filenames = list(df.labels.values)
             has_labelled_data = True
 
