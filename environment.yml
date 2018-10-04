@@ -4,16 +4,17 @@ channels:
 dependencies:
   - imageio=2.3.0=py35_0
   - opencv=3.4.1=py35h6fd60c2_1
+  - pandas=0.23.0=py35h637b7d7_0
+  - pillow=5.1.0=py35h3deb7b8_0
   - python=3.5.5=hc3d631a_4
   - scikit-image=0.13.1=py35h14c3975_1
   - scikit-learn=0.19.1=py35hbf1f462_0
   - scipy=1.1.0=py35hfc37229_0
+  - setuptools=39.1.0=py35_0
   - shapely=1.6.4=py35h0c48222_0
-  - tensorboard=1.7.0=py35hf484d3e_1
-  - tensorflow-gpu=1.7.0=0
   - tqdm=4.23.3=py35_0
   - pip:
     - better-exceptions==0.2.1
     - sacred==0.7.3
-prefix: /home/user/anaconda3/envs/dh_segment
+    - tensorflow-gpu==1.10.1
 

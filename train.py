@@ -14,14 +14,15 @@ except ImportError:
     pass
 from tqdm import trange
 from sacred import Experiment
+import pandas as pd
 
 ex = Experiment('dhSegment_experiment')
 
 
 @ex.config
 def default_config():
-    train_dir = None  # Directory with training data
-    eval_dir = None  # Directory with validation data
+    train_data = None  # Directory with training data
+    eval_data = None  # Directory with validation data
     model_output_dir = None  # Directory to output tf model
     restore_model = False  # Set to true to continue training
     classes_file = None  # txt file with classes values (unused for REGRESSION)
@@ -41,7 +42,7 @@ def default_config():
 
 
 @ex.automain
-def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
+def run(train_data, eval_data, model_output_dir, gpu, training_params, _config):
 
     # Create output directory
     if not os.path.isdir(model_output_dir):
@@ -70,23 +71,35 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
     estimator = tf.estimator.Estimator(estimator_fn.model_fn, model_dir=model_output_dir,
                                        params=_config, config=estimator_config)
 
-    train_images_dir, train_labels_dir = os.path.join(train_dir, 'images'), os.path.join(train_dir, 'labels')
-    # Check if training dir exists
-    assert os.path.isdir(train_images_dir)
-    if eval_dir is not None:
-        eval_images_dir, eval_labels_dir = os.path.join(eval_dir, 'images'), os.path.join(eval_dir, 'labels')
-        assert os.path.isdir(eval_images_dir)
+    def get_dirs_or_files(input_data):
+        if os.path.isdir(input_data):
+            train_input, train_labels_input = os.path.join(input_data, 'images'), os.path.join(input_data, 'labels')
+            # Check if training dir exists
+            if not os.path.isdir(train_input):
+                raise FileNotFoundError(train_input)
+            if not os.path.isdir(train_labels_input):
+                raise FileNotFoundError(train_labels_input)
+        elif os.path.isfile(train_data) and train_data.endswith('.csv'):
+            train_input = train_data
+            train_labels_input = None
+        else:
+            raise TypeError('input_data {} is neither a directory nor a csv file'.format(input_data))
+        return train_input, train_labels_input
+
+    train_input, train_labels_input = get_dirs_or_files(train_data)
+    if eval_data is not None:
+        eval_input, eval_labels_input = get_dirs_or_files(eval_data)
 
     for i in trange(0, training_params.n_epochs, training_params.evaluate_every_epoch, desc='Evaluated epochs'):
-        # Train for one epoch
-        estimator.train(input.input_fn(train_images_dir,
-                                       input_label_dir=train_labels_dir,
+        estimator.train(input.input_fn(train_input,
+                                       input_label_dir=train_labels_input,
                                        num_epochs=training_params.evaluate_every_epoch,
                                        batch_size=training_params.batch_size,
                                        data_augmentation=training_params.data_augmentation,
                                        make_patches=training_params.make_patches,
                                        image_summaries=True,
-                                       params=_config))
+                                       params=_config,
+                                       num_threads=32))
 
         # Export model (filename, batch_size = 1) and predictions
         exported_path = estimator.export_savedmodel(saved_model_dir,
@@ -94,21 +107,26 @@ def run(train_dir, eval_dir, model_output_dir, gpu, training_params, _config):
         exported_path = exported_path.decode()
         timestamp_exported = os.path.split(exported_path)[-1]
 
-        if eval_dir is not None:
+        if eval_data is not None:
             try:  # There should be no evaluation when input_resize_size is too big (e.g -1)
                 # Save predictions
-                filenames_evaluation = glob(os.path.join(eval_images_dir, '*.jpg')) \
-                                       + glob(os.path.join(eval_images_dir, '*.png'))
                 exported_files_eval_dir = os.path.join(model_output_dir, 'eval',
                                                        'epoch_{:03d}_{}'.format(i+training_params.evaluate_every_epoch,
                                                                                 timestamp_exported))
                 os.makedirs(exported_files_eval_dir, exist_ok=True)
                 # Predict and save probs
-                prediction_input_fn = input.input_fn(filenames_evaluation, num_epochs=1, batch_size=1,
-                                                     data_augmentation=False, make_patches=False, params=_config)
-                for filename, predicted_probs in zip(filenames_evaluation,
-                                                     estimator.predict(prediction_input_fn, predict_keys=['probs'])):  # tqdm(filenames_evaluation):
-                    np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
-                            np.uint8(255 * predicted_probs['probs']))
+                #prediction_input_fn = input.input_fn(filenames_evaluation, num_epochs=1, batch_size=1,
+                #                                     data_augmentation=False, make_patches=False, params=_config,
+                #                                     num_threads=32)
+                #for filename, predicted_probs in zip(filenames_evaluation,
+                #                                     estimator.predict(prediction_input_fn, predict_keys=['probs'])):
+                #    np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
+                #            np.uint8(255 * predicted_probs['probs']))
+                # estimator.evaluate(input.input_fn(eval_input,
+                #                                   input_label_dir=eval_labels_input,
+                #                                   num_epochs=1,
+                #                                   batch_size=training_params.batch_size,
+                #                                   params=_config,
+                #                                   num_threads=32))
             except Exception as e:
                 print(e)
