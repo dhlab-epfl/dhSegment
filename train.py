@@ -21,8 +21,8 @@ ex = Experiment('dhSegment_experiment')
 
 @ex.config
 def default_config():
-    train_dir_or_csv = None  # Directory with training data
-    eval_dir_or_csv = None  # Directory with validation data
+    train_data = None  # Directory with training data
+    eval_data = None  # Directory with validation data
     model_output_dir = None  # Directory to output tf model
     restore_model = False  # Set to true to continue training
     classes_file = None  # txt file with classes values (unused for REGRESSION)
@@ -42,7 +42,7 @@ def default_config():
 
 
 @ex.automain
-def run(train_dir_or_csv, eval_dir_or_csv, model_output_dir, gpu, training_params, _config):
+def run(train_data, eval_data, model_output_dir, gpu, training_params, _config):
 
     # Create output directory
     if not os.path.isdir(model_output_dir):
@@ -71,25 +71,24 @@ def run(train_dir_or_csv, eval_dir_or_csv, model_output_dir, gpu, training_param
     estimator = tf.estimator.Estimator(estimator_fn.model_fn, model_dir=model_output_dir,
                                        params=_config, config=estimator_config)
 
-    if os.path.isdir(train_dir_or_csv):
-        train_input, train_labels_input = os.path.join(train_dir_or_csv, 'images'), os.path.join(train_dir_or_csv, 'labels')
-        # Check if training dir exists
-        assert os.path.isdir(train_input)
-        if eval_dir_or_csv is not None:
-            eval_images_dir, eval_labels_dir = os.path.join(eval_dir_or_csv, 'images'), os.path.join(eval_dir_or_csv, 'labels')
-            assert os.path.isdir(eval_images_dir)
-            filenames_evaluation = glob(os.path.join(eval_images_dir, '*.jpg')) \
-                                   + glob(os.path.join(eval_images_dir, '*.png'))
-    elif os.path.isfile(train_dir_or_csv):
-        train_input = train_dir_or_csv
-        train_labels_input = None
-        eval_input = eval_dir_or_csv
-        eval_labels_input = None
-        # Get filenames for evaluation
-        df = pd.read_csv(eval_dir_or_csv, header=None, names=['images', 'labels'])
-        filenames_evaluation = list(df.images)
-    else:
-        raise TypeError('train_dir_or_csv is neither a directory yor a csv file')
+    def get_dirs_or_files(input_data):
+        if os.path.isdir(input_data):
+            train_input, train_labels_input = os.path.join(input_data, 'images'), os.path.join(input_data, 'labels')
+            # Check if training dir exists
+            if not os.path.isdir(train_input):
+                raise FileNotFoundError(train_input)
+            if not os.path.isdir(train_labels_input):
+                raise FileNotFoundError(train_labels_input)
+        elif os.path.isfile(train_data) and train_data.endswith('.csv'):
+            train_input = train_data
+            train_labels_input = None
+        else:
+            raise TypeError('input_data {} is neither a directory nor a csv file'.format(input_data))
+        return train_input, train_labels_input
+
+    train_input, train_labels_input = get_dirs_or_files(train_data)
+    if eval_data is not None:
+        eval_input, eval_labels_input = get_dirs_or_files(eval_data)
 
     for i in trange(0, training_params.n_epochs, training_params.evaluate_every_epoch, desc='Evaluated epochs'):
         estimator.train(input.input_fn(train_input,
@@ -108,7 +107,7 @@ def run(train_dir_or_csv, eval_dir_or_csv, model_output_dir, gpu, training_param
         exported_path = exported_path.decode()
         timestamp_exported = os.path.split(exported_path)[-1]
 
-        if eval_dir_or_csv is not None:
+        if eval_data is not None:
             try:  # There should be no evaluation when input_resize_size is too big (e.g -1)
                 # Save predictions
                 exported_files_eval_dir = os.path.join(model_output_dir, 'eval',
@@ -116,13 +115,13 @@ def run(train_dir_or_csv, eval_dir_or_csv, model_output_dir, gpu, training_param
                                                                                 timestamp_exported))
                 os.makedirs(exported_files_eval_dir, exist_ok=True)
                 # Predict and save probs
-                prediction_input_fn = input.input_fn(filenames_evaluation, num_epochs=1, batch_size=1,
-                                                     data_augmentation=False, make_patches=False, params=_config,
-                                                     num_threads=32)
-                for filename, predicted_probs in zip(filenames_evaluation,
-                                                     estimator.predict(prediction_input_fn, predict_keys=['probs'])):
-                    np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
-                            np.uint8(255 * predicted_probs['probs']))
+                #prediction_input_fn = input.input_fn(filenames_evaluation, num_epochs=1, batch_size=1,
+                #                                     data_augmentation=False, make_patches=False, params=_config,
+                #                                     num_threads=32)
+                #for filename, predicted_probs in zip(filenames_evaluation,
+                #                                     estimator.predict(prediction_input_fn, predict_keys=['probs'])):
+                #    np.save(os.path.join(exported_files_eval_dir, os.path.basename(filename).split('.')[0]),
+                #            np.uint8(255 * predicted_probs['probs']))
                 # estimator.evaluate(input.input_fn(eval_input,
                 #                                   input_label_dir=eval_labels_input,
                 #                                   num_epochs=1,

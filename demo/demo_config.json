@@ -15,8 +15,8 @@
   },
   "pretrained_model_name" : "resnet50",
   "prediction_type": "CLASSIFICATION",
-  "train_dir_or_csv" : "demo/pages/train/",
-  "eval_dir_or_csv" : "demo/pages/val_a1",
+  "train_data" : "demo/pages/train/",
+  "eval_data" : "demo/pages/val_a1",
   "classes_file" : "demo/pages/classes.txt",
   "model_output_dir" : "demo/page_model",
   "gpu" : "0"

@@ -5,22 +5,24 @@ import numpy as np
 from . import utils
 from tqdm import tqdm
 from typing import Union, List
+from enum import Enum
+import pandas as pd
 from .input_utils import data_augmentation_fn, extract_patches_fn, load_and_resize_image, \
     rotate_crop, resize_image, local_entropy
 
 
-class InputCase:
+class InputCase(Enum):
     INPUT_LIST = 'INPUT_LIST'
     INPUT_DIR = 'INPUT_DIR'
     INPUT_CSV = 'INPUT_CSV'
 
 
-def input_fn(input_image_dir_or_filenames_or_csv_file: Union[str, List[str]], params: dict, input_label_dir: str=None,
+def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: str=None,
              data_augmentation: bool=False, batch_size: int=5, make_patches: bool=False, num_epochs: int=None,
              num_threads: int=4, image_summaries: bool=False):
     """
     Input_fn for estimator
-    :param input_image_dir_or_filenames_or_csv_file: input data. It can be a directory containing the images, it can be
+    :param input_data: input data. It can be a directory containing the images, it can be
         a list of image filenames, or it can be a path to a csv file.
     :param params: params from utils.Params object
     :param input_label_dir: directory containing the label images
@@ -112,42 +114,59 @@ def input_fn(input_image_dir_or_filenames_or_csv_file: Union[str, List[str]], pa
     # ---
 
     # Finding the list of images to be used
-    if isinstance(input_image_dir_or_filenames_or_csv_file, list):
+    if isinstance(input_data, list):
         input_case = InputCase.INPUT_LIST
-        input_image_filenames = input_image_dir_or_filenames_or_csv_file
+        input_image_filenames = input_data
         print('Found {} images'.format(len(input_image_filenames)))
 
-    elif os.path.isdir(input_image_dir_or_filenames_or_csv_file):
+    elif os.path.isdir(input_data):
         input_case = InputCase.INPUT_DIR
-        input_image_filenames = glob(os.path.join(input_image_dir_or_filenames_or_csv_file, '**', '*.jpg'),
+        input_image_filenames = glob(os.path.join(input_data, '**', '*.jpg'),
                                      recursive=True) + \
-                                glob(os.path.join(input_image_dir_or_filenames_or_csv_file, '**', '*.png'),
+                                glob(os.path.join(input_data, '**', '*.png'),
                                      recursive=True)
         print('Found {} images'.format(len(input_image_filenames)))
 
-    elif os.path.isfile(input_image_dir_or_filenames_or_csv_file):
+    elif os.path.isfile(input_data) and \
+            input_data.endswith('.csv'):
         input_case = InputCase.INPUT_CSV
-        input_image_filenames = None
     else:
-        raise NotImplementedError
+        raise NotImplementedError('Input data should be a directory, a csv file or a list of filenames but got {}'.format(input_data))
 
     # Finding the list of labelled images if available
+    has_labelled_data = False
     if input_label_dir and input_case in [InputCase.INPUT_LIST, InputCase.INPUT_DIR]:
-        label_images = []
+        label_image_filenames = []
         for input_image_filename in input_image_filenames:
             label_image_filename = os.path.join(input_label_dir, os.path.basename(input_image_filename))
             if not os.path.exists(label_image_filename):
                 filename, extension = os.path.splitext(os.path.basename(input_image_filename))
                 new_extension = '.png' if extension == '.jpg' else '.jpg'
                 label_image_filename = os.path.join(input_label_dir, filename + new_extension)
-                if not os.path.exists(label_image_filename):
-                    raise FileNotFoundError(label_image_filename)
+            label_image_filenames.append(label_image_filename)
+        has_labelled_data = True
 
-            label_images.append(label_image_filename)
+    # Read image filenames and labels in case of csv file
+    if input_case == InputCase.INPUT_CSV:
+        df = pd.read_csv(input_data, header=False, names=['images', 'labels'])
+        input_image_filenames = list(df.images.values)
+        # If the label column exists
+        if not np.alltrue(np.isnan(df.labels.values)):
+            label_image_filenames = list(df.labels.values)
+            has_labelled_data = True
+
+    # Checks that all image files can be found
+    for img_filename in input_image_filenames:
+        if not os.path.exists(img_filename):
+            raise FileNotFoundError(img_filename)
+    if has_labelled_data:
+        for img_filename in input_image_filenames:
+            if not os.path.exists(img_filename):
+                raise FileNotFoundError(img_filename)
 
     # Tensorflow input_fn
     def fn():
-        if not input_label_dir and input_case in [InputCase.INPUT_DIR, InputCase.INPUT_LIST]:
+        if not has_labelled_data:
             encoded_filenames = [f.encode() for f in input_image_filenames]
             dataset = tf.data.Dataset.from_generator(lambda: tqdm(encoded_filenames, desc='Dataset'),
                                                      tf.string, tf.TensorShape([]))
@@ -155,20 +174,9 @@ def input_fn(input_image_dir_or_filenames_or_csv_file: Union[str, List[str]], pa
             dataset = dataset.map(lambda filename: {'images': load_and_resize_image(filename, 3,
                                                                                     training_params.input_resized_size)})
         else:
-
-            # Create either dataset from filename, or from csv
-            if input_case in [InputCase.INPUT_LIST, InputCase.INPUT_DIR]:
-                encoded_filenames = [(i.encode(), l.encode()) for i, l in zip(input_image_filenames, label_images)]
-                dataset = tf.data.Dataset.from_generator(lambda: tqdm(encoded_filenames, desc='Dataset'),
+            encoded_filenames = [(i.encode(), l.encode()) for i, l in zip(input_image_filenames, label_image_filenames)]
+            dataset = tf.data.Dataset.from_generator(lambda: tqdm(encoded_filenames, desc='Dataset'),
                                                          (tf.string, tf.string), (tf.TensorShape([]), tf.TensorShape([])))
-
-            elif input_case in [InputCase.INPUT_CSV]:
-                dataset = tf.contrib.data.CsvDataset(input_image_dir_or_filenames_or_csv_file,
-                                                     record_defaults=[['None'], ['None']], header=False,
-                                                     field_delim=',', use_quote_delim=True)
-
-            else:
-                raise NotImplementedError
 
             dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=1024, count=num_epochs))
             dataset = dataset.map(_load_image_fn, num_threads).flat_map(_scaling_and_patch_fn)
