@@ -175,10 +175,10 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
                                                                                     training_params.input_resized_size)})
         else:
             encoded_filenames = [(i.encode(), l.encode()) for i, l in zip(input_image_filenames, label_image_filenames)]
-            dataset = tf.data.Dataset.from_generator(lambda: tqdm(encoded_filenames, desc='Dataset'),
+            dataset = tf.data.Dataset.from_generator(lambda: tqdm(utils.shuffled(encoded_filenames), desc='Dataset'),
                                                          (tf.string, tf.string), (tf.TensorShape([]), tf.TensorShape([])))
 
-            dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=1024, count=num_epochs))
+            dataset = dataset.repeat(count=num_epochs)
             dataset = dataset.map(_load_image_fn, num_threads).flat_map(_scaling_and_patch_fn)
 
             if data_augmentation:
@@ -205,7 +205,7 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
         if 'weight_maps' in dataset.output_shapes.keys():
             padded_shapes['weight_maps'] = base_shape_images
 
-        dataset = dataset.padded_batch(batch_size=batch_size, padded_shapes=padded_shapes).prefetch(32)
+        dataset = dataset.padded_batch(batch_size=batch_size, padded_shapes=padded_shapes).prefetch(8)
         prepared_batch = dataset.make_one_shot_iterator().get_next()
 
         # Summaries for checking that the loading and data augmentation goes fine

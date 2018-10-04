@@ -5,6 +5,7 @@ import json
 import pickle
 from hashlib import sha1
 import warnings
+from random import shuffle
 
 
 class PredictionType:
@@ -277,3 +278,9 @@ def dump_pickle(filename, obj):
 
 def hash_dict(params):
     return sha1(json.dumps(params, sort_keys=True).encode()).hexdigest()
+
+
+def shuffled(l: list) -> list:
+    ll = l.copy()
+    shuffle(ll)
+    return ll
