@@ -3,18 +3,27 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to dhSegment's documentation!
-=====================================
+================================================================
+dhSegment : Generic framework for historical document processing
+================================================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   home
+   intro
+   start/index
    reference/index
+   references
 
+**dhSegment** is a tool for Historical Document Processing. Its generic approach allows to segment regions and
+extract content from different type of documents. See some example of applications in the :ref:`usecases-label` section.
+
+The complete description of the system can be found in the corresponding `paper`_ :cite:`oliveiraseguin2018dhsegment` .
+
+.. _paper: https://arxiv.org/abs/1804.10371
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`

@@ -22,6 +22,7 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
              num_threads: int=4, image_summaries: bool=False):
     """
     Input_fn for estimator
+    
     :param input_data: input data. It can be a directory containing the images, it can be
         a list of image filenames, or it can be a path to a csv file.
     :param params: params from utils.Params object

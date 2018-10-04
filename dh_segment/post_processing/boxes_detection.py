@@ -5,14 +5,18 @@ from shapely import geometry
 from scipy.spatial import KDTree
 
 
-def find_boxes(boxes_mask: np.array, mode: str= 'min_rectangle', min_area: float=0.2,
-               p_arc_length: float=0.01, n_max_boxes=math.inf):
+def find_boxes(boxes_mask: np.ndarray, mode: str= 'min_rectangle', min_area: float=0.2,
+               p_arc_length: float=0.01, n_max_boxes=math.inf) -> list:
     """
+    Finds the coordinates of the box in the binary image `boxes_mask`.
 
-    :param boxes_mask: Uint8 binary 2D array
-    :param mode: 'min_rectangle', 'quadrilateral', 'rectangle'
-    :param min_area:
-    :param p_arc_length: when 'quadrilateral' mode is chosen
+    :param boxes_mask: Binary image: the mask of the box to find. uint8, 2D array
+    :param mode: 'min_rectangle' : minimum enclosing rectangle, can be rotated
+                 'rectangle' : minimum enclosing rectangle, not rotated
+                 'quadrilateral' : minimum polygon approximated by a quadrilateral
+    :param min_area: minimum area of the box to be found. A value in percentage of the total area of the image.
+    :param p_arc_length: used to compute the epsilon value to approximate the polygon with a quadrilateral.
+                         Only used when 'quadrilateral' mode is chosen.
     :param n_max_boxes: maximum number of boxes that can be found (default inf).
                         This will select n_max_boxes with largest area.
     :return: list of length n_max_boxes containing boxes with 4 corners [[x1,y1], ..., [x4,y4]]

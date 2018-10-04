@@ -26,7 +26,7 @@ def page_make_binary_mask(probs: np.ndarray, threshold: float=-1) -> np.ndarray:
     """
 
     mask = binarization.thresholding(probs, threshold)
-    mask = binarization.cleaning_binary(mask, size=5)
+    mask = binarization.cleaning_binary(mask, kernel_size=5)
     return mask
 
 

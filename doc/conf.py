@@ -42,6 +42,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.coverage',
     'sphinx.ext.githubpages',
+    'sphinxcontrib.bibtex',  # for bibtex
     'sphinx_autodoc_typehints'  # for typing
 ]
 

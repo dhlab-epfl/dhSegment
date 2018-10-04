@@ -20,7 +20,6 @@ _LABELS = [
 ]
 
 _MISC = [
-    '_get_image_shape_tensor',
     'parse_json',
     'dump_json',
     'load_pickle',

@@ -10,28 +10,28 @@ _INPUT = [
     'local_entropy'
 ]
 
-_PAGE_OBJECTS = [
-    'Point',
-    'Text',
-    'Region',
-    'TextLine',
-    'GraphicRegion',
-    'TextRegion',
-    'TableRegion',
-    'SeparatorRegion',
-    'Border',
-    'Metadata',
-    'GroupSegment',
-    'Page'
-]
+# _PAGE_OBJECTS = [
+#     'Point',
+#     'Text',
+#     'Region',
+#     'TextLine',
+#     'GraphicRegion',
+#     'TextRegion',
+#     'TableRegion',
+#     'SeparatorRegion',
+#     'Border',
+#     'Metadata',
+#     'GroupSegment',
+#     'Page'
+# ]
+#
+# _PAGE_FN = [
+#     'parse_file',
+#     'json_serialize'
+# ]
 
-_PAGE_FN = [
-    'parse_file',
-    'json_serialize'
-]
-
-__all__ = _INPUT + _PAGE_OBJECTS + _PAGE_FN
+__all__ = _INPUT  # + _PAGE_OBJECTS + _PAGE_FN
 
 from .input import *
 from .input_utils import *
-from .PAGE import *
+from . import PAGE
