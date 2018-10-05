@@ -97,7 +97,7 @@ def model_fn(mode, features, labels, params):
                 if training_params.focal_loss_gamma > 0.0:
                     # Probability per pixel of getting the correct label
                     probs_correct_label = tf.reduce_max(tf.multiply(prediction_probs, onehot_labels))
-                    modulation = tf.pow((1. - prediction_probs), training_params.focal_loss_gamma)
+                    modulation = tf.pow((1. - probs_correct_label), training_params.focal_loss_gamma)
                     per_pixel_loss = tf.multiply(per_pixel_loss, modulation)
 
                 if training_params.weights_labels is not None:
