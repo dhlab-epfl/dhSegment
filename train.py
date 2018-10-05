@@ -93,7 +93,7 @@ def run(train_data, eval_data, model_output_dir, gpu, training_params, _config):
 
     # Configure exporter
     serving_input_fn = input.serving_input_filename(training_params.input_resized_size)
-    exporter = tf.estimator.BestExporter(serving_input_receiver_fn=serving_input_fn)
+    exporter = tf.estimator.BestExporter(serving_input_receiver_fn=serving_input_fn, exports_to_keep=2)
 
     for i in trange(0, training_params.n_epochs, training_params.evaluate_every_epoch, desc='Evaluated epochs'):
         estimator.train(input.input_fn(train_input,
