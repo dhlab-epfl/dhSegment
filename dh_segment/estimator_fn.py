@@ -95,9 +95,9 @@ def model_fn(mode, features, labels, params):
                 per_pixel_loss = tf.nn.softmax_cross_entropy_with_logits(logits=network_output,
                                                                          labels=onehot_labels, name='per_pixel_loss')
                 if training_params.focal_loss_gamma > 0.0:
-                    modulation = tf.pow(tf.reduce_max(
-                        tf.multiply(-training_params.focal_loss_alpha*(1. - prediction_probs), onehot_labels)),
-                                        training_params.focal_loss_gamma)
+                    # Probability per pixel of getting the correct label
+                    probs_correct_label = tf.reduce_max(tf.multiply(prediction_probs, onehot_labels))
+                    modulation = tf.pow((1. - prediction_probs), training_params.focal_loss_gamma)
                     per_pixel_loss = tf.multiply(per_pixel_loss, modulation)
 
                 if training_params.weights_labels is not None:
@@ -207,9 +207,9 @@ def model_fn(mode, features, labels, params):
     # ----------
     if mode == tf.estimator.ModeKeys.EVAL:
         if prediction_type == PredictionType.CLASSIFICATION:
-            metrics = {'accuracy': tf.metrics.accuracy(labels, predictions=prediction_labels)}
+            metrics = {'eval/accuracy': tf.metrics.accuracy(labels, predictions=prediction_labels)}
         elif prediction_type == PredictionType.REGRESSION:
-            metrics = {'accuracy': tf.metrics.mean_squared_error(labels, predictions=prediction_labels)}
+            metrics = {'eval/accuracy': tf.metrics.mean_squared_error(labels, predictions=prediction_labels)}
         elif prediction_type == PredictionType.MULTILABEL:
             metrics = {'eval/MSE': tf.metrics.mean_squared_error(tf.cast(labels, tf.float32),
                                                                  predictions=prediction_probs),

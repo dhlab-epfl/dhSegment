@@ -18,7 +18,7 @@ class InputCase(Enum):
 
 
 def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: str=None,
-             data_augmentation: bool=False, batch_size: int=5, make_patches: bool=False, num_epochs: int=None,
+             data_augmentation: bool=False, batch_size: int=5, make_patches: bool=False, num_epochs: int=1,
              num_threads: int=4, image_summaries: bool=False):
     """
     Input_fn for estimator
@@ -30,7 +30,7 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
     :param data_augmentation: boolean, if True will scale, roatate, ... the images
     :param batch_size: size of the bach
     :param make_patches: bool, whether to make patches (crop image in smaller pieces) or not
-    :param num_epochs: number of epochs to cycle trough data
+    :param num_epochs: number of epochs to cycle trough data (set it to None for infinite repeat)
     :param num_threads: number of thread to use in parallele when usin tf.data.Dataset.map
     :param image_summaries: boolean, whether to make tf.Summary to watch on tensorboard
     :return: fn

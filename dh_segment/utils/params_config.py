@@ -161,7 +161,6 @@ class TrainingParams(BaseParams):
         self.local_entropy_ratio = 0.0
         self.local_entropy_sigma = 3
         self.focal_loss_gamma = 0.0
-        self.focal_loss_alpha = -1.0
 
     def check_params(self):
         assert self.training_margin*2 < min(self.patch_shape)
