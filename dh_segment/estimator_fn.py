@@ -216,7 +216,6 @@ def model_fn(mode, features, labels, params):
                        'eval/accuracy': tf.metrics.accuracy(tf.cast(labels, tf.bool),
                                                             predictions=tf.cast(prediction_labels, tf.bool))
                        }
-        metrics['eval/loss'] = tf.metrics.mean(loss)
     else:
         metrics = None
 
