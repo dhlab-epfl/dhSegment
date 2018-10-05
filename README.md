@@ -17,7 +17,10 @@ The installation procedure and examples of usage can be found in the documentati
 The documentation will be shortly online on readthedocs.org.
 In the meantime you can compile it yourself using `Sphinx`.
 
-* Install Sphinx : `pip install Sphinx`
+* Install Sphinx and some extensions : 
+```
+pip install Sphinx sphinxcontrib-bibtex sphinx-autodoc-typehints sphinx_rtd_theme
+```
 
 * Compile documentation :
 ```
