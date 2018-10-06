@@ -3,7 +3,7 @@ channels:
   - defaults
 dependencies:
   - imageio=2.3.0
-  - opencv=3.4.1
+  - opencv=3.4.2
   - pandas=0.23.0
   - pillow=5.1.0
   - python=3.6
@@ -13,8 +13,8 @@ dependencies:
   - setuptools=39.1.0
   - shapely=1.6.4
   - tqdm=4.23.3
+  - tensorflow-gpu=1.10
   - pip:
     - better-exceptions==0.2.1
     - sacred==0.7.3
-    - tensorflow-gpu==1.11
 
