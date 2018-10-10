@@ -28,3 +28,10 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+
+Acknowledgement
+^^^^^^^^^^^^^^^
+
+This work has been partly funded by the European Union’s Horizon 2020 research and
+innovation programme under grant agreement No 674943.
