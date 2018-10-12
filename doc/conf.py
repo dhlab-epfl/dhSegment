@@ -40,10 +40,11 @@ release = ''
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.coverage',
     'sphinx.ext.githubpages',
     'sphinxcontrib.bibtex',  # for bibtex
-    'sphinx_autodoc_typehints'  # for typing
+    'sphinx_autodoc_typehints',  # for typing
 ]
 
 # Add any paths that contain templates here, relative to this directory.

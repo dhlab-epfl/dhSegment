@@ -7,6 +7,7 @@ import os
 import json
 from uuid import uuid4
 from shapely.geometry import Polygon
+from abc import ABC
 
 # https://docs.python.org/3.5/library/xml.etree.elementtree.html#parsing-xml-with-namespaces
 _ns = {'p': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'}
@@ -33,16 +34,27 @@ def _get_text_equiv(e: ET.Element) -> str:
 
 
 class Point:
+    """Point (x,y) class.
+
+    :param y: vertical coordinate
+    :param x: horizontal coordinate
+
+    """
     def __init__(self, y: int, x: int):
         self.y = y
         self.x = x
 
     @classmethod
-    def list_from_xml(cls, e: ET.Element) -> List['Point']:
-        if e is None:
+    def list_from_xml(cls, etree_elem: ET.Element) -> List['Point']:
+        """Converts a PAGEXML-formatted set of coordinates to a list of `Point`
+
+        :param etree_elem: etree XML element containing a set of coordinates
+        :return: a list of coordinates as `Point`
+        """
+        if etree_elem is None:
             # print('warning, trying to construct list of points from None, defaulting to []')
             return []
-        t = e.attrib['points']
+        t = etree_elem.attrib['points']
         result = []
         for p in t.split(' '):
             values = p.split(',')
@@ -52,38 +64,53 @@ class Point:
         return result
 
     @classmethod
-    def list_to_cv2poly(cls, list_points: List['Point']) -> np.array:
+    def list_to_cv2poly(cls, list_points: List['Point']) -> np.ndarray:
+        """Converts a list of `Point` to opencv format set of coordinates
+
+        :param list_points: set of coordinates
+        :return: opencv-formatted set of points, shape (N,1,2)
+        """
         return np.array([(p.x, p.y) for p in list_points], dtype=np.int32).reshape([-1, 1, 2])
 
     @classmethod
-    def cv2_to_point_list(cls, cv2_array) -> List['Point']:
+    def cv2_to_point_list(cls, cv2_array: np.ndarray) -> List['Point']:
+        """Converts an opencv-formatted set of coordinates to a list of `Point`
+
+        :param cv2_array: opencv-formatted set of coordinates, shape (N,1,2)
+        :return: list of `Point`
+        """
         return [Point(p[0, 1], p[0, 0]) for p in cv2_array]
 
     @classmethod
     def list_point_to_string(cls, list_points: List['Point']) -> str:
+        """Converts a list of `Point` to a string 'x,y'
+
+        :param list_points: list of coordinates with `Point` format
+        :return: a string with the coordinates
+        """
         return ' '.join(['{},{}'.format(p.x, p.y) for p in list_points])
 
     @classmethod
     def array_to_list(cls, array: np.ndarray) -> list:
-        """
+        """Converts an `np.array` to a list of coordinates
 
-        :param array: Array must be of shape (N, 2)
-        :return: list of shape (N,2)
+        :param array: an array of coordinates. Must be of shape (N, 2)
+        :return: list of coordinates, shape (N,2)
         """
         return [list(pt) for pt in array]
 
     @classmethod
-    def list_to_point(cls, list_coords: np.ndarray) -> List['Point']:
-        """
+    def list_to_point(cls, list_coords: list) -> List['Point']:
+        """Converts a list of coordinates to a list of `Point`
 
-        :param list_coords: list of shape (N, 2)
+        :param list_coords: list of coordinates, shape (N, 2)
         :return: list of Points
         """
         return [cls(coord[1], coord[0]) for coord in list_coords if list_coords]
 
     @classmethod
     def point_to_list(cls, points: List['Point']) -> list:
-        """
+        """Converts a list of `Point` to a list of coordinates
 
         :param points: list of Points
         :return: list of shape (N,2)
@@ -91,20 +118,30 @@ class Point:
         return [[pt.x, pt.y] for pt in points]
 
     def to_dict(self):
+        # TODO: this does not return a dictionary...
         return [int(self.x), int(self.y)]
 
 
 class Text:
+    """Text entity produced by a transcription system.
+
+    :param text_equiv: the transcription of the text
+    :param alternatives: alternative transcriptions
+    :param score: the confidence of the transcription output by the transcription system
+    """
     def __init__(self, text_equiv: str=None, alternatives: List[str]=None, score: float=None):
         self.text_equiv = text_equiv  # if text_equiv is not None else ''
         self.alternatives = alternatives  # if alternatives is not None else []
         self.score = score  # if score is not None else ''
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return vars(self)
 
 
-class BaseElement:
+class BaseElement(ABC):
+    """
+    Base page element class. (Abstract)
+    """
     tag = None
 
     @classmethod
@@ -117,6 +154,13 @@ class BaseElement:
 
 
 class Region(BaseElement):
+    """
+    Region base class. (Abstract)
+    This is the superclass for all the extracted regions
+
+    :param id: identifier of the `Region`
+    :param coords: coordinates of the `Region`
+    """
     tag = 'Region'
 
     def __init__(self, id: str=None, coords: List[Point]=None):
@@ -124,11 +168,21 @@ class Region(BaseElement):
         self.id = id
 
     @classmethod
-    def from_xml(cls, e: ET.Element) -> dict:
-        return {'id': e.attrib.get('id'),
-                'coords': Point.list_from_xml(e.find('p:Coords', _ns))}
+    def from_xml(cls, etree_element: ET.Element) -> dict:
+        """Creates a dictionary from a XML structure in order to create the inherited objects
+
+        :param etree_element: a xml etree
+        :return: a dictionary with keys 'id' and 'coords'
+        """
+        return {'id': etree_element.attrib.get('id'),
+                'coords': Point.list_from_xml(etree_element.find('p:Coords', _ns))}
 
     def to_xml(self, name_element: str=None) -> ET.Element:
+        """Converts a `Region` object to a xml structure
+
+        :param name_element: name of the object (optional)
+        :return: a etree structure
+        """
         et = ET.Element(name_element if name_element is not None else '')
         et.set('id', self.id if self.id is not None else '')
         if not not self.coords:
@@ -137,37 +191,56 @@ class Region(BaseElement):
         return et
 
     def to_dict(self, non_serializable_keys: List[str]=list()) -> dict:
+        """Converts a `Region` object to a dictionary.
+
+        :param non_serializable_keys: list of keys that can't be directly serialized and that need some
+                                      internal serialization
+        :return: a dictionary with the atributes of the object serialized
+        """
         if 'coords' in vars(self).keys() and 'coords' not in non_serializable_keys:
             non_serializable_keys += ['coords']
         return json_serialize(vars(self), non_serializable_keys=non_serializable_keys)
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> dict:
+        """From a seralized dictionary creates a dictionary of the atributes (non serialized)
+
+        :param dictionary: serialized dictionary
+        :return: non serialized dictionary
+        """
         return {'id': dictionary.get('id'),
                 'coords': Point.list_to_point(dictionary.get('coords'))
                 }
 
 
 class TextLine(Region):
+    """Region corresponding to a text line.
+
+    :param id: identifier of the `TextLine`
+    :param coords: coordinates of the `Texline` line
+    :param baseline: coordinates of the `Texline` baseline
+    :param text: `Text` class containing the transcription of the `TextLine`
+    :param line_group_id: identifier of the line group the instance belongs to
+    :param column_group_id: identifier of the column group the instance belongs to
+
+    """
     tag = 'TextLine'
 
-    # def __init__(self, id: str=None, coords: List[Point]=None, baseline: List[Point]=None, text_equiv: str=''):
     def __init__(self, id: str = None, coords: List[Point] = None, baseline: List[Point] = None, text: Text = None,
                  line_group_id: str = None, column_group_id: str = None):
         super().__init__(id=id if id is not None else str(uuid4()), coords=coords)
         self.baseline = baseline if baseline is not None else []
-        # self.text_equiv = text_equiv if text_equiv is not None else ''
         self.text = text if text is not None else Text()
         self.line_group_id = line_group_id if line_group_id is not None else ''
         self.column_group_id = column_group_id if column_group_id is not None else ''
 
     @classmethod
-    def from_xml(cls, e: ET.Element) -> 'TextLine':
-        cls.check_tag(e.tag)
+    def from_xml(cls, etree_element: ET.Element) -> 'TextLine':
+        cls.check_tag(etree_element.tag)
         return TextLine(
-            **super().from_xml(e),
-            baseline=Point.list_from_xml(e.find('p:Baseline', _ns)),
-            text=Text(text_equiv=_get_text_equiv(e))
+            **super().from_xml(etree_element),
+            baseline=Point.list_from_xml(etree_element.find('p:Baseline', _ns)),
+            text=Text(text_equiv=_get_text_equiv(etree_element))
         )
 
     @classmethod
@@ -191,7 +264,11 @@ class TextLine(Region):
             text_unicode.text = self.text.text_equiv
         return line_et
 
-    def scale_baseline_points(self, ratio):
+    def scale_baseline_points(self, ratio: float):
+        """Scales the points of the baseline by a factor `ratio`.
+
+        :param ratio: factor to rescale the baseline coordinates
+        """
         scaled_points = list()
         for pt in self.baseline:
             scaled_points.append(Point(int(pt.y * ratio[0]), int(pt.x * ratio[1])))
@@ -212,8 +289,10 @@ class TextLine(Region):
 
 
 class GraphicRegion(Region):
-    """
-    Regions containing simple graphics, such as a company logo, should be marked as graphic regions.
+    """Region containing simple graphics. Company logos for example should be marked as graphic regions.
+
+    :param id: identifier of the `GraphicRegion`
+    :param coords: coordinates of the `GraphicRegion`
     """
     tag = 'GraphicRegion'
 
@@ -236,6 +315,13 @@ class GraphicRegion(Region):
 
 
 class TextRegion(Region):
+    """Region containing text lines. It can represent a paragraph or a page for instance.
+
+    :param id: identifier of the `TextRegion`
+    :param coords: coordinates of the `TextRegion`
+    :param text_equiv: the resulting text of the `Text` contained in the `TextLines`
+    :param text_lines: a list of `TextLine` objects
+    """
     tag = 'TextRegion'
 
     def __init__(self, id: str=None, coords: List[Point]=None, text_lines: List[TextLine]=None, text_equiv: str=''):
@@ -275,18 +361,25 @@ class TextRegion(Region):
 
 class TableRegion(Region):
     """
-    Tabular data in any form is represented with a table region. Rows and columns may or may not have separator
-    lines; these lines are not separator regions.
+    Tabular data in any form.
+    Tabular data is represented with a table region. Rows and columns may or may not have separator lines;
+    these lines are not separator regions.
+
+    :param id: identifier of the `TableRegion`
+    :param coords: coordinates of the `TableRegion`
+    :param rows: number of rows in the table
+    :param columns: number of columns in the table
+    :param embedded_text: if text is embedded in the table
     """
 
     tag = 'TableRegion'
 
     def __init__(self, id: str=None, coords: List[Point]=None, rows: int=None, columns: int=None,
-                 embeded_text: bool=None):
+                 embedded_text: bool=None):
         super().__init__(id=id, coords=coords)
         self.rows = rows
         self.columns = columns
-        self.embText = embeded_text
+        self.embedded_text = embedded_text
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'TableRegion':
@@ -295,14 +388,14 @@ class TableRegion(Region):
             **super().from_xml(e),
             rows=e.attrib.get('rows'),
             columns=e.attrib.get('columns'),
-            embeded_text=e.attrib.get('embText')
+            embedded_text=e.attrib.get('embText')
         )
 
     def to_xml(self, name_element='TableRegion') -> ET.Element:
         table_et = super().to_xml(name_element)
         table_et.set('rows', self.rows if self.rows is not None else 0)
         table_et.set('columns', self.columns if self.columns is not None else 0)
-        table_et.set('embText', self.embText if self.embText is not None else False)
+        table_et.set('embText', self.embedded_text if self.embedded_text is not None else False)
         return table_et
 
     @classmethod
@@ -315,8 +408,12 @@ class TableRegion(Region):
 
 class SeparatorRegion(Region):
     """
+    Lines separating columns or paragraphs.
     Separators are lines that lie between columns and paragraphs and can be used to logically separate
     different articles from each other.
+
+    :param id: identifier of the `SeparatorRegion`
+    :param coords: coordinates of the `SeparatorRegion`
     """
 
     tag = 'SeparatorRegion'
@@ -340,7 +437,10 @@ class SeparatorRegion(Region):
 
 class Border(BaseElement):
     """
-    Border of the actual page (if the scanned image contains parts not belonging to the page).
+    Region containing the page.
+    It is the border of the actual page of the document (if the scanned image contains parts not belonging to the page).
+
+    :param coords: coordinates of the `Border` region
     """
 
     tag = 'Border'
@@ -375,8 +475,12 @@ class Border(BaseElement):
 
 
 class Metadata(BaseElement):
-    """
-    Metadata of PAGE XML
+    """Metadata information.
+
+    :param creator: name of the process of person that created the exported file
+    :param created: time of creation of the file
+    :param last_change: time of last modification of the file
+    :param comments: comments on the process
     """
     tag = 'Metadata'
 
@@ -427,9 +531,15 @@ class Metadata(BaseElement):
 
 class GroupSegment(Region):
     """
-    Only for JSON export (no PAGE XML correspondence).
-    GroupSegment is a region containing several TextLineRegions and that form a bigger region.
+    Set of regions that make a bigger region (group).
+    `GroupSegment` is a region containing several `TextLine` and that form a bigger region.
     It is used mainly to make line / column regions.
+    Only for JSON export (no PAGE XML correspondence).
+
+    :param id: identifier of the `GroupSegment`
+    :param coords: coordinates of the `GroupSegment`
+    :param segment_ids: list of the regions ids belonging to the group
+
     """
     def __init__(self, id: str = None, coords: List[Point] = None, segment_ids: List[str] = None):
         super().__init__(id=id, coords=coords)
@@ -441,6 +551,24 @@ class GroupSegment(Region):
 
 
 class Page(BaseElement):
+    """
+    Class following PAGE-XML object.
+    This class is used to represent the information of the processed image. It is possible to export this info as
+    PAGE-XML or JSON format.
+
+    :param image_filename: filename of the image
+    :param image_width: width of the original image
+    :param image_height: height of the original image
+    :param text_regions: list of `TextRegion`
+    :param graphic_regions: list of `GraphicRegion`
+    :param page_border: `Border` of the page
+    :param separator_regions: list of `SeparatorRegion`
+    :param table_regions: list of `TableRegion`
+    :param metadata: `Metadata` of the image and process
+    :param line_groups: list of `GroupSegment` forming lines
+    :param column_groups: list of `GroupSegment` forming columns
+
+    """
     tag = 'Page'
 
     def __init__(self, image_filename: str=None, image_width: int=None, image_height: int=None,
@@ -511,7 +639,15 @@ class Page(BaseElement):
         #     page_et.append(self.metadata.to_xml())
         return page_et
 
-    def write_to_file(self, filename, creator_name='dhSegment', comments=''):
+    def write_to_file(self, filename: str, creator_name: str='dhSegment', comments: str='') -> None:
+        """
+        Export Page object to json or page-xml format. Will assume the format based on the extension of the filename,
+        if there is no extension will export as an xml file.
+
+        :param filename: filename of the file to be exported
+        :param creator_name: name of the creator (process or person) creating the file
+        :param comments: optionnal comment to add to the metadata of the file.
+        """
 
         def _write_xml():
             root = ET.Element('PcGts')
@@ -558,14 +694,13 @@ class Page(BaseElement):
         """
         Given an image, draws the TextLines.baselines.
 
-        :param img_canvas: 3 channel image in which the region will be drawn
+        :param img_canvas: 3 channel image in which the region will be drawn. The image is modified inplace.
         :param color: (R, G, B) value color
         :param thickness: the thickness of the line
         :param endpoint_radius: the radius of the endpoints of line s(first and last coordinates of line)
         :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
                           it will use the dimensions provided in Page.image_width and Page.image_height
                           to compute the scaling ratio
-        :return: img_canvas is updated inplace
         """
 
         text_lines = [tl for tr in self.text_regions for tl in tr.text_lines]
@@ -590,14 +725,13 @@ class Page(BaseElement):
         """
         Given an image, draws the polygons containing text lines, i.e TextLines.coords
 
-        :param img_canvas: 3 channel image in which the region will be drawn
+        :param img_canvas: 3 channel image in which the region will be drawn. The image is modified inplace.
         :param color: (R, G, B) value color
         :param thickness: the thickness of the line
         :param fill: if True fills the polygon
         :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
                           it will use the dimensions provided in Page.image_width and Page.image_height
                           to compute the scaling ratio
-        :return: img_canvas is updated inplace
         """
 
         text_lines = [tl for tr in self.text_regions for tl in tr.text_lines]
@@ -623,14 +757,13 @@ class Page(BaseElement):
         """
         Given an image, draws the TextRegions, either fills it (fill=True) or draws the contours (fill=False)
 
-        :param img_canvas: 3 channel image in which the region will be drawn
+        :param img_canvas: 3 channel image in which the region will be drawn. The image is modified inplace.
         :param color: (R, G, B) value color
         :param fill: either to fill the region (True) of only draw the external contours (False)
         :param thickness: in case fill=True the thickness of the line
         :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
                           it will use the dimensions provided in Page.image_width and Page.image_height
                           to compute the scaling ratio
-        :return: img_canvas is updated inplace
         """
 
         if autoscale:
@@ -652,14 +785,13 @@ class Page(BaseElement):
         """
         Given an image, draws the page border, either fills it (fill=True) or draws the contours (fill=False)
 
-        :param img_canvas: 3 channel image in which the region will be drawn
+        :param img_canvas: 3 channel image in which the region will be drawn. The image is modified inplace.
         :param color: (R, G, B) value color
         :param fill: either to fill the region (True) of only draw the external contours (False)
         :param thickness: in case fill=True the thickness of the line
         :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
                           it will use the dimensions provided in Page.image_width and Page.image_height
                           to compute the scaling ratio
-        :return: img_canvas is updated inplace
         """
 
         if autoscale:
@@ -681,7 +813,7 @@ class Page(BaseElement):
         """
         Given an image, draws the SeparatorRegion.
 
-        :param img_canvas: 3 channel image in which the region will be drawn
+        :param img_canvas: 3 channel image in which the region will be drawn. The image is modified inplace.
         :param color: (R, G, B) value color
         :param thickness: thickness of the line
         :param filter_by_id: string to filter the lines by id. For example vertical/horizontal lines can be filtered
@@ -689,7 +821,6 @@ class Page(BaseElement):
         :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
                           it will use the dimensions provided in Page.image_width and Page.image_height
                           to compute the scaling ratio
-        :return: img_canvas is updated inplace
         """
 
         if autoscale:
@@ -708,14 +839,13 @@ class Page(BaseElement):
         """
         Given an image, draws the GraphicRegions, either fills it (fill=True) or draws the contours (fill=False)
 
-        :param img_canvas: 3 channel image in which the region will be drawn
+        :param img_canvas: 3 channel image in which the region will be drawn.  The image is modified inplace.
         :param color: (R, G, B) value color
         :param fill: either to fill the region (True) of only draw the external contours (False)
         :param thickness: in case fill=True the thickness of the line
         :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
                           it will use the dimensions provided in Page.image_width and Page.image_height
                           to compute the scaling ratio
-        :return: img_canvas is updated inplace
         """
 
         if autoscale:
@@ -732,8 +862,20 @@ class Page(BaseElement):
         else:
             cv2.polylines(img_canvas, gr_coords, True, color, thickness=thickness)
 
-    def draw_text(self, img_canvas, color: Tuple[int, int, int]=(255, 0, 0), thickness: int=5,
+    def draw_text(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(255, 0, 0), thickness: int=5,
                   font=cv2.FONT_HERSHEY_SIMPLEX, font_scale: float=1.0, autoscale: bool=True):
+        """
+        Writes the text of the TextLine on the given image.
+
+        :param img_canvas: 3 channel image in which the region will be drawn.  The image is modified inplace
+        :param color: (R, G, B) value color
+        :param thickness: the thickness of the characters
+        :param font: the type of font (``cv2`` constant)
+        :param font_scale: the scale of font
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
+                          it will use the dimensions provided in Page.image_width and Page.image_height
+                          to compute the scaling ratio
+        """
         text_lines = [tl for tr in self.text_regions for tl in tr.text_lines]
         if autoscale:
             assert self.image_height is not None
@@ -753,19 +895,18 @@ class Page(BaseElement):
             cv2.putText(img_canvas, text, (int(xmin), int(ymin)), fontFace=font, fontScale=font_scale, color=color,
                         thickness=thickness)
 
-    def draw_line_groups(self, img_canvas: np.array, color: Tuple[int, int, int]=(0, 255, 0), fill: bool=False,
+    def draw_line_groups(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(0, 255, 0), fill: bool=False,
                          thickness: int=5,  autoscale: bool=True):
         """
-        This is only valid when parsing JSON files. It will draw line groups
+        It will draw line groups. This is only valid when parsing JSON files.
 
-        :param img_canvas: 3 channel image in which the region will be drawn
+        :param img_canvas: 3 channel image in which the region will be drawn. The image is modified inplace.
         :param color: (R, G, B) value color
         :param fill: either to fill the region (True) of only draw the external contours (False)
         :param thickness: in case fill=False the thickness of the line
         :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
                           it will use the dimensions provided in Page.image_width and Page.image_height
                           to compute the scaling ratio
-        :return:
         """
         assert self.line_groups, "There is no Line group"
 
@@ -783,8 +924,19 @@ class Page(BaseElement):
         else:
             cv2.polylines(img_canvas, lg_coords, True, color, thickness=thickness)
 
-    def draw_column_groups(self, img_canvas: np.array, color: Tuple[int, int, int]=(0, 255, 0), fill: bool=False,
+    def draw_column_groups(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(0, 255, 0), fill: bool=False,
                            thickness: int=5,  autoscale: bool=True):
+        """
+        It will draw column groups (in case of a table). This is only valid when parsing JSON files.
+
+        :param img_canvas: 3 channel image in which the region will be drawn. The image is modified inplace
+        :param color: (R, G, B) value color
+        :param fill: either to fill the region (True) of only draw the external contours (False)
+        :param thickness: in case fill=False the thickness of the line
+        :param autoscale: whether to scale the coordinates to the size of img_canvas. If True,
+                          it will use the dimensions provided in Page.image_width and Page.image_height
+                          to compute the scaling ratio
+        """
 
         assert self.column_groups, "There is no Line group"
 
@@ -805,7 +957,7 @@ class Page(BaseElement):
 
 def parse_file(filename: str) -> Page:
     """
-    Parses the files to create the corresponding Page object. The files can be a .xml or a .json.
+    Parses the files to create the corresponding ``Page`` object. The files can be a .xml or a .json.
 
     :param filename: file to parse (either json of page xml)
     :return: Page object containing all the parsed elements
@@ -828,6 +980,13 @@ def parse_file(filename: str) -> Page:
 
 
 def json_serialize(dict_to_serialize: dict, non_serializable_keys: List[str]=list()) -> dict:
+    """
+    Serialize a dictionary in order to export it.
+
+    :param dict_to_serialize: dictionary to serialize
+    :param non_serializable_keys: keys that are not directly seriazable sucha as python objects
+    :return: the serialized dictionnary
+    """
 
     new_dict = dict_to_serialize.copy()
     for key in non_serializable_keys:
