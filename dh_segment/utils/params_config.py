@@ -42,60 +42,6 @@ class BaseParams:
         pass
 
 
-class VGG16ModelParams:
-    PRETRAINED_MODEL_FILE = 'pretrained_models/vgg_16.ckpt'
-    INTERMEDIATE_CONV = [
-        [(256, 3)]
-    ]
-    UPSCALE_PARAMS = [
-        [(32, 3)],
-        [(64, 3)],
-        [(128, 3)],
-        [(256, 3)],
-        [(512, 3)],
-        [(512, 3)]
-    ]
-    SELECTED_LAYERS_UPSCALING = [
-        True,
-        True,  # Must have same length as vgg_upscale_params
-        True,
-        True,
-        False,
-        False
-    ]
-    CORRECTED_VERSION = None
-
-
-class ResNetModelParams:
-    PRETRAINED_MODEL_FILE = 'pretrained_models/resnet_v1_50.ckpt'
-    INTERMEDIATE_CONV = None
-    UPSCALE_PARAMS = [
-        # (Filter size (depth bottleneck's output), number of bottleneck)
-        (32, 0),
-        (64, 0),
-        (128, 0),
-        (256, 0),
-        (512, 0)
-    ]
-    SELECTED_LAYERS_UPSCALING = [
-        # Must have the same length as resnet_upscale_params
-        True,
-        True,
-        True,
-        True,
-        True
-    ]
-    CORRECT_VERSION = False
-
-
-class UNetModelParams:
-    PRETRAINED_MODEL_FILE = None
-    INTERMEDIATE_CONV = None
-    UPSCALE_PARAMS = None
-    SELECTED_LAYERS_UPSCALING = None
-    CORRECT_VERSION = False
-
-
 class ModelParams(BaseParams):
     def __init__(self, **kwargs):
         self.encoder_name = kwargs.get('encoder_name', 'dh_segment.network.pretrained_models.ResnetV1_50')  # type: str
