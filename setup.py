@@ -11,4 +11,5 @@ setup(name='dh_segment',
           'Paper': 'https://arxiv.org/abs/1804.10371',
           'Source Code': 'https://github.com/dhlab-epfl/dhSegment'
       },
+      scripts=['dh_segment_train'],
       zip_safe=False)
