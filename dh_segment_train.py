@@ -103,7 +103,8 @@ def run(train_data, eval_data, model_output_dir, gpu, training_params, _config):
                                           make_patches=training_params.make_patches,
                                           image_summaries=True,
                                           params=_config,
-                                          num_threads=32))
+                                          num_threads=32,
+                                          progressbar_description="Training".format(i)))
 
         if eval_data is not None:
             eval_result = estimator.evaluate(io.input.input_fn(eval_input,
@@ -113,7 +114,8 @@ def run(train_data, eval_data, model_output_dir, gpu, training_params, _config):
                                                                make_patches=False,
                                                                image_summaries=False,
                                                                params=_config,
-                                                               num_threads=32))
+                                                               num_threads=32,
+                                                               progressbar_description="Evaluation"))
         else:
             eval_result = None
 
