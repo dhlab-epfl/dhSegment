@@ -94,6 +94,12 @@ def run(train_data, eval_data, model_output_dir, gpu, training_params, _config):
     serving_input_fn = io.input.serving_input_filename(training_params.input_resized_size)
     exporter = tf.estimator.BestExporter(serving_input_receiver_fn=serving_input_fn, exports_to_keep=2)
 
+    nb_cores = os.cpu_count()
+    if nb_cores:
+        num_threads = min(nb_cores//2, 16)
+    else:
+        num_threads = 4
+
     for i in trange(0, training_params.n_epochs, training_params.evaluate_every_epoch, desc='Evaluated epochs'):
         estimator.train(io.input.input_fn(train_input,
                                           input_label_dir=train_labels_input,
@@ -103,7 +109,7 @@ def run(train_data, eval_data, model_output_dir, gpu, training_params, _config):
                                           make_patches=training_params.make_patches,
                                           image_summaries=True,
                                           params=_config,
-                                          num_threads=32,
+                                          num_threads=num_threads,
                                           progressbar_description="Training".format(i)))
 
         if eval_data is not None:
@@ -114,7 +120,7 @@ def run(train_data, eval_data, model_output_dir, gpu, training_params, _config):
                                                                make_patches=False,
                                                                image_summaries=False,
                                                                params=_config,
-                                                               num_threads=32,
+                                                               num_threads=num_threads,
                                                                progressbar_description="Evaluation"))
         else:
             eval_result = None
