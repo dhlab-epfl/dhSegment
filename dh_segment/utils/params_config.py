@@ -2,9 +2,9 @@
 __author__ = "solivr"
 __license__ = "GPL"
 
-import os
-import warnings
-from random import shuffle
+from .misc import get_class_from_name
+from ..network.model import Encoder, Decoder
+from typing import Type
 
 
 class PredictionType:
@@ -98,45 +98,29 @@ class UNetModelParams:
 
 class ModelParams(BaseParams):
     def __init__(self, **kwargs):
-        self.batch_norm = kwargs.get('batch_norm', True)  # type: bool
-        self.batch_renorm = kwargs.get('batch_renorm', True)  # type: bool
-        self.weight_decay = kwargs.get('weight_decay', 1e-6)  # type: float
+        self.encoder_name = kwargs.get('encoder_name', 'dh_segment.network.pretrained_models.ResnetV1_50')  # type: str
+        self.encoder_params = kwargs.get('encoder_params', dict())  # type: dict
+        self.decoder_name = kwargs.get('decoder_name', 'dh_segment.network.SimpleDecoder')  # type: str
+        self.decoder_params = kwargs.get('decoder_params', {
+            'upsampling_dims': [32, 64, 128, 256, 512]
+        })  # type: dict
         self.n_classes = kwargs.get('n_classes', None)  # type: int
-        self.pretrained_model_name = kwargs.get('pretrained_model_name', None)  # type: str
-        self.max_depth = kwargs.get('max_depth', 512)  # type: int
 
-        if self.pretrained_model_name == 'vgg16':
-            model_class = VGG16ModelParams
-        elif self.pretrained_model_name == 'resnet50':
-            model_class = ResNetModelParams
-        elif self.pretrained_model_name == 'unet':
-            model_class = UNetModelParams
-        else:
-            raise NotImplementedError
-
-        self.pretrained_model_file = kwargs.get('pretrained_model_file', model_class.PRETRAINED_MODEL_FILE)
-        self.intermediate_conv = kwargs.get('intermediate_conv', model_class.INTERMEDIATE_CONV)
-        self.upscale_params = kwargs.get('upscale_params', model_class.UPSCALE_PARAMS)
-        self.selected_levels_upscaling = kwargs.get('selected_levels_upscaling', model_class.SELECTED_LAYERS_UPSCALING)
-        self.correct_resnet_version = kwargs.get('correct_resnet_version', model_class.CORRECT_VERSION)
         self.check_params()
 
+    def get_encoder(self) -> Type[Encoder]:
+        encoder = get_class_from_name(self.encoder_name)
+        assert issubclass(encoder, Encoder), "{} is not an Encoder".format(encoder)
+        return encoder
+
+    def get_decoder(self) -> Type[Decoder]:
+        decoder = get_class_from_name(self.decoder_name)
+        assert issubclass(decoder, Decoder), "{} is not a Decoder".format(decoder)
+        return decoder
+
     def check_params(self):
-        # Pretrained model name check
-        # assert self.upscale_params is not None and self.selected_levels_upscaling is not None, \
-        #     'Model parameters cannot be None'
-        if self.upscale_params is not None and self.selected_levels_upscaling is not None:
-
-            assert len(self.upscale_params) == len(self.selected_levels_upscaling), \
-                'Upscaling levels and selection levels must have the same lengths (in model_params definition), ' \
-                '{} != {}'.format(len(self.upscale_params),
-                                  len(self.selected_levels_upscaling))
-
-            # assert os.path.isfile(self.pretrained_model_file), \
-            #     'Pretrained weights file {} not found'.format(self.pretrained_model_file)
-            if not os.path.isfile(self.pretrained_model_file):
-                warnings.warn('WARNING - Default pretrained weights file in {} was not found. '
-                              'Have you changed the default pretrained file ?'.format(self.pretrained_model_file))
+        self.get_encoder()
+        self.get_decoder()
 
 
 class TrainingParams(BaseParams):
