@@ -17,13 +17,13 @@ def mean_substraction(input_tensor, means=_VGG_MEANS):
 class ResnetV1_50(Encoder):
     """ResNet-50 implementation
 
-    :param train_batchnorm: Option to use batch norm
-    :param blocks: number of blocks (resnet blocks)
-    :param weight_decay: value of weight decay
-    :param batch_renorm: Option to use batch renorm
-    :param corrected_version: option to use the original resnet implementation (True) but less efficient than
-                              `slim`'s implementation
-    :param pretrained_file: path to the file (.ckpt) containing the pretrained weights
+    :ivar train_batchnorm: Option to use batch norm
+    :ivar blocks: number of blocks (resnet blocks)
+    :ivar weight_decay: value of weight decay
+    :ivar batch_renorm: Option to use batch renorm
+    :ivar corrected_version: option to use the original resnet implementation (True) but less efficient than \
+    `slim`'s implementation
+    :ivar pretrained_file: path to the file (.ckpt) containing the pretrained weights
     """
     def __init__(self, train_batchnorm: bool=False, blocks: int=4, weight_decay: float=0.0001,
                  batch_renorm: bool=True, corrected_version: bool=False):
@@ -129,9 +129,9 @@ class ResnetV1_50(Encoder):
 class VGG16(Encoder):
     """VGG-16 implementation
 
-    :param blocks: number of blocks (vgg blocks)
-    :param weight_decay: weight decay value
-    :param pretrained_file: path to the file (.ckpt) containing the pretrained weights
+    :ivar blocks: number of blocks (vgg blocks)
+    :ivar weight_decay: weight decay value
+    :ivar pretrained_file: path to the file (.ckpt) containing the pretrained weights
     """
     def __init__(self, blocks: int=5, weight_decay: float=0.0005):
         self.blocks = blocks

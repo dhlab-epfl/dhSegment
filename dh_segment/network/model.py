@@ -42,10 +42,10 @@ class Decoder(ABC):
 class SimpleDecoder(Decoder):
     """
 
-    :param upsampling_dims:
-    :param max_depth:
-    :param weight_decay:
-    :param self.batch_norm_fn:
+    :ivar upsampling_dims:
+    :ivar max_depth:
+    :ivar weight_decay:
+    :ivar self.batch_norm_fn:
     """
     def __init__(self, upsampling_dims: List[int], max_depth: int = None, train_batchnorm: bool=False,
                  weight_decay: float=0.):
