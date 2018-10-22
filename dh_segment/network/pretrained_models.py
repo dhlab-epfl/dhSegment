@@ -15,12 +15,22 @@ def mean_substraction(input_tensor, means=_VGG_MEANS):
 
 
 class ResnetV1_50(Encoder):
-    def __init__(self, train_batchnorm=False, blocks=4, weight_decay=0.0001,
-                    renorm=True, corrected_version=False):
+    """ResNet-50 implementation
+
+    :param train_batchnorm: Option to use batch norm
+    :param blocks: number of blocks (resnet blocks)
+    :param weight_decay: value of weight decay
+    :param batch_renorm: Option to use batch renorm
+    :param corrected_version: option to use the original resnet implementation (True) but less efficient than
+                              `slim`'s implementation
+    :param pretrained_file: path to the file (.ckpt) containing the pretrained weights
+    """
+    def __init__(self, train_batchnorm: bool=False, blocks: int=4, weight_decay: float=0.0001,
+                 batch_renorm: bool=True, corrected_version: bool=False):
         self.train_batchnorm = train_batchnorm
         self.blocks = blocks
         self.weight_decay = weight_decay
-        self.renorm = renorm
+        self.batch_renorm = batch_renorm
         self.corrected_version = corrected_version
         self.pretrained_file = os.path.join(get_data_folder(), 'resnet_v1_50.ckpt')
         if not os.path.exists(self.pretrained_file):
@@ -43,23 +53,21 @@ class ResnetV1_50(Encoder):
         outputs = []
 
         with slim.arg_scope(nets.resnet_v1.resnet_arg_scope(weight_decay=self.weight_decay, batch_norm_decay=0.999)), \
-             slim.arg_scope([layers.batch_norm], renorm_decay=0.95, renorm=self.renorm):
+             slim.arg_scope([layers.batch_norm], renorm_decay=0.95, renorm=self.batch_renorm):
             mean_substracted_tensor = mean_substraction(images)
             assert 0 < self.blocks <= 4
 
             if self.corrected_version:
-                def corrected_resnet_v1_block(scope, base_depth, num_units, stride):
-                    """Helper function for creating a resnet_v1 bottleneck block.
+                def corrected_resnet_v1_block(scope: str, base_depth: int, num_units: int, stride: int) -> tf.Tensor:
+                    """
+                    Helper function for creating a resnet_v1 bottleneck block.
 
-                    Args:
-                      scope: The scope of the block.
-                      base_depth: The depth of the bottleneck layer for each unit.
-                      num_units: The number of units in the block.
-                      stride: The stride of the block, implemented as a stride in the last unit.
-                        All other units have stride=1.
-
-                    Returns:
-                      A resnet_v1 bottleneck block.
+                    :param scope: The scope of the block.
+                    :param base_depth: The depth of the bottleneck layer for each unit.
+                    :param num_units: The number of units in the block.
+                    :param stride: The stride of the block, implemented as a stride in the last unit.
+                                   All other units have stride=1.
+                    :return: A resnet_v1 bottleneck block.
                     """
                     return nets.resnet_utils.Block(scope, nets.resnet_v1.bottleneck, [{
                         'depth': base_depth * 4,
@@ -119,7 +127,13 @@ class ResnetV1_50(Encoder):
 
 
 class VGG16(Encoder):
-    def __init__(self, blocks=5, weight_decay=0.0005):
+    """VGG-16 implementation
+
+    :param blocks: number of blocks (vgg blocks)
+    :param weight_decay: weight decay value
+    :param pretrained_file: path to the file (.ckpt) containing the pretrained weights
+    """
+    def __init__(self, blocks: int=5, weight_decay: float=0.0005):
         self.blocks = blocks
         self.weight_decay = weight_decay
         self.pretrained_file = os.path.join(get_data_folder(), 'vgg_16.ckpt')
@@ -140,12 +154,12 @@ class VGG16(Encoder):
                                       and 'renorm' not in v.name]
 
     def __call__(self, images: tf.Tensor):
-        intermediate_levels = []
+        outputs = []
 
         with slim.arg_scope(nets.vgg.vgg_arg_scope(weight_decay=self.weight_decay)):
             with tf.variable_scope(None, 'vgg_16', [images]) as sc:
                 input_tensor = mean_substraction(images)
-                intermediate_levels.append(input_tensor)
+                outputs.append(input_tensor)
                 end_points_collection = sc.original_name_scope + '_end_points'
                 # Collect outputs for conv2d, fully_connected and max_pool2d.
                 with slim.arg_scope(
@@ -153,23 +167,24 @@ class VGG16(Encoder):
                         outputs_collections=end_points_collection):
                     net = layers.repeat(
                         input_tensor, 2, layers.conv2d, 64, [3, 3], scope='conv1')
-                    intermediate_levels.append(net)
+                    outputs.append(net)
                     net = layers.max_pool2d(net, [2, 2], scope='pool1')
                     if self.blocks >= 2:
                         net = layers.repeat(net, 2, layers.conv2d, 128, [3, 3], scope='conv2')
-                        intermediate_levels.append(net)
+                        outputs.append(net)
                         net = layers.max_pool2d(net, [2, 2], scope='pool2')
                     if self.blocks >= 3:
                         net = layers.repeat(net, 3, layers.conv2d, 256, [3, 3], scope='conv3')
-                        intermediate_levels.append(net)
+                        outputs.append(net)
                         net = layers.max_pool2d(net, [2, 2], scope='pool3')
                     if self.blocks >= 4:
                         net = layers.repeat(net, 3, layers.conv2d, 512, [3, 3], scope='conv4')
-                        intermediate_levels.append(net)
+                        outputs.append(net)
                         net = layers.max_pool2d(net, [2, 2], scope='pool4')
                     if self.blocks >= 5:
                         net = layers.repeat(net, 3, layers.conv2d, 512, [3, 3], scope='conv5')
-                        intermediate_levels.append(net)
+                        outputs.append(net)
                         net = layers.max_pool2d(net, [2, 2], scope='pool5')
 
-                    return intermediate_levels
+                    # TODO : the output of the last max pool is not returned, shouldn't it be ?
+                    return outputs

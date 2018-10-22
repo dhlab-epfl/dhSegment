@@ -13,7 +13,7 @@ class PredictionType:
     MULTILABEL = 'MULTILABEL'
 
     @classmethod
-    def parse(cls, prediction_type):
+    def parse(cls, prediction_type) -> 'PredictionType':
         if prediction_type == 'CLASSIFICATION':
             return PredictionType.CLASSIFICATION
         elif prediction_type == 'REGRESSION':
@@ -43,6 +43,14 @@ class BaseParams:
 
 
 class ModelParams(BaseParams):
+    """
+
+    :param encoder_name:
+    :param encoder_params:
+    :param decoder_name:
+    :param decoder_params:
+    :param n_classes:
+    """
     def __init__(self, **kwargs):
         self.encoder_name = kwargs.get('encoder_name', 'dh_segment.network.pretrained_models.ResnetV1_50')  # type: str
         self.encoder_params = kwargs.get('encoder_params', dict())  # type: dict

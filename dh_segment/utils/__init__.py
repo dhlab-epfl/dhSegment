@@ -1,8 +1,5 @@
 _PARAMSCONFIG = [
     'PredictionType',
-    'VGG16ModelParams',
-    'ResNetModelParams',
-    'UNetModelParams',
     'ModelParams',
     'TrainingParams'
 ]

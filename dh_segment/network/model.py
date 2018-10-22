@@ -13,7 +13,7 @@ class Encoder(ABC):
         """
 
         :param images: [NxHxWx3] float32 [0..255] input images
-        :return: a list of the feature maps in decreasing spatial resolution (first element is most likely the input
+        :return: a list of the feature maps in decreasing spatial resolution (first element is most likely the input \
         image itself, then the output of the first pooling op, etc...)
         """
         pass
@@ -21,7 +21,7 @@ class Encoder(ABC):
     def pretrained_information(self) -> Tuple[Optional[str], Union[None, List, Dict]]:
         """
 
-        :return: The filename of the pretrained checkpoint and the corresponding variables (List of Dict mapping)
+        :return: The filename of the pretrained checkpoint and the corresponding variables (List of Dict mapping) \
         or `None` if no-pretraining is done
         """
         return None, None
@@ -32,14 +32,23 @@ class Decoder(ABC):
     def __call__(self, feature_maps: List[tf.Tensor], num_classes: int) -> tf.Tensor:
         """
 
-        :param feature_maps: list of feature maps, in decreasing spatial resolution, first one being at the original resolution
+        :param feature_maps: list of feature maps, in decreasing spatial resolution, first one being at the original \
+        resolution
         :return: [N,H,W,num_classes] float32 tensor of logit scores
         """
         pass
 
 
 class SimpleDecoder(Decoder):
-    def __init__(self, upsampling_dims: List[int], max_depth: int = None, train_batchnorm=False, weight_decay=0.):
+    """
+
+    :param upsampling_dims:
+    :param max_depth:
+    :param weight_decay:
+    :param self.batch_norm_fn:
+    """
+    def __init__(self, upsampling_dims: List[int], max_depth: int = None, train_batchnorm: bool=False,
+                 weight_decay: float=0.):
         self.upsampling_dims = upsampling_dims
         self.max_depth = max_depth
         self.weight_decay = weight_decay
@@ -105,6 +114,7 @@ class SimpleDecoder(Decoder):
 def _get_image_shape_tensor(tensor: tf.Tensor) -> Union[Tuple[int, int], tf.Tensor]:
     """
     Get the image shape of the tensor
+
     :param tensor: Input image tensor [N,H,W,...]
     :return: a (int, int) tuple if shape is defined, otherwise the corresponding tf.Tensor value
     """
@@ -116,7 +126,7 @@ def _get_image_shape_tensor(tensor: tf.Tensor) -> Union[Tuple[int, int], tf.Tens
     return target_shape
 
 
-def _upsample_concat(pooled_layer: tf.Tensor, previous_layer: tf.Tensor, scope_name='UpsampleConcat'):
+def _upsample_concat(pooled_layer: tf.Tensor, previous_layer: tf.Tensor, scope_name: str='UpsampleConcat'):
     """
 
     :param pooled_layer: [N,H,W,C] coarse layer

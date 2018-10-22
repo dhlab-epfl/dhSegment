@@ -49,6 +49,7 @@ def get_class_from_name(full_class_name: str) -> Any:
     """
     Tries to load the class from its naming, will import the corresponding module.
     Raises an Error if it does not work.
+
     :param full_class_name: full name of the class, for instance `foo.bar.Baz`
     :return: the loaded class
     """
@@ -67,6 +68,12 @@ def get_data_folder() -> str:
 
 
 def download_file(url: str, output_file: str):
+    """
+
+    :param url:
+    :param output_file:
+    :return:
+    """
     def progress_hook(t):
         last_b = [0]
 
