@@ -36,8 +36,8 @@ def _get_text_equiv(e: ET.Element) -> str:
 class Point:
     """Point (x,y) class.
 
-    :param y: vertical coordinate
-    :param x: horizontal coordinate
+    :ivar y: vertical coordinate
+    :ivar x: horizontal coordinate
 
     """
     def __init__(self, y: int, x: int):
@@ -125,9 +125,9 @@ class Point:
 class Text:
     """Text entity produced by a transcription system.
 
-    :param text_equiv: the transcription of the text
-    :param alternatives: alternative transcriptions
-    :param score: the confidence of the transcription output by the transcription system
+    :ivar text_equiv: the transcription of the text
+    :ivar alternatives: alternative transcriptions
+    :ivar score: the confidence of the transcription output by the transcription system
     """
     def __init__(self, text_equiv: str=None, alternatives: List[str]=None, score: float=None):
         self.text_equiv = text_equiv  # if text_equiv is not None else ''
@@ -158,8 +158,8 @@ class Region(BaseElement):
     Region base class. (Abstract)
     This is the superclass for all the extracted regions
 
-    :param id: identifier of the `Region`
-    :param coords: coordinates of the `Region`
+    :ivar id: identifier of the `Region`
+    :ivar coords: coordinates of the `Region`
     """
     tag = 'Region'
 
@@ -216,12 +216,12 @@ class Region(BaseElement):
 class TextLine(Region):
     """Region corresponding to a text line.
 
-    :param id: identifier of the `TextLine`
-    :param coords: coordinates of the `Texline` line
-    :param baseline: coordinates of the `Texline` baseline
-    :param text: `Text` class containing the transcription of the `TextLine`
-    :param line_group_id: identifier of the line group the instance belongs to
-    :param column_group_id: identifier of the column group the instance belongs to
+    :ivar id: identifier of the `TextLine`
+    :ivar coords: coordinates of the `Texline` line
+    :ivar baseline: coordinates of the `Texline` baseline
+    :ivar text: `Text` class containing the transcription of the `TextLine`
+    :ivar line_group_id: identifier of the line group the instance belongs to
+    :ivar column_group_id: identifier of the column group the instance belongs to
 
     """
     tag = 'TextLine'
@@ -291,8 +291,8 @@ class TextLine(Region):
 class GraphicRegion(Region):
     """Region containing simple graphics. Company logos for example should be marked as graphic regions.
 
-    :param id: identifier of the `GraphicRegion`
-    :param coords: coordinates of the `GraphicRegion`
+    :ivar id: identifier of the `GraphicRegion`
+    :ivar coords: coordinates of the `GraphicRegion`
     """
     tag = 'GraphicRegion'
 
@@ -317,10 +317,10 @@ class GraphicRegion(Region):
 class TextRegion(Region):
     """Region containing text lines. It can represent a paragraph or a page for instance.
 
-    :param id: identifier of the `TextRegion`
-    :param coords: coordinates of the `TextRegion`
-    :param text_equiv: the resulting text of the `Text` contained in the `TextLines`
-    :param text_lines: a list of `TextLine` objects
+    :ivar id: identifier of the `TextRegion`
+    :ivar coords: coordinates of the `TextRegion`
+    :ivar text_equiv: the resulting text of the `Text` contained in the `TextLines`
+    :ivar text_lines: a list of `TextLine` objects
     """
     tag = 'TextRegion'
 
@@ -365,11 +365,11 @@ class TableRegion(Region):
     Tabular data is represented with a table region. Rows and columns may or may not have separator lines;
     these lines are not separator regions.
 
-    :param id: identifier of the `TableRegion`
-    :param coords: coordinates of the `TableRegion`
-    :param rows: number of rows in the table
-    :param columns: number of columns in the table
-    :param embedded_text: if text is embedded in the table
+    :ivar id: identifier of the `TableRegion`
+    :ivar coords: coordinates of the `TableRegion`
+    :ivar rows: number of rows in the table
+    :ivar columns: number of columns in the table
+    :ivar embedded_text: if text is embedded in the table
     """
 
     tag = 'TableRegion'
@@ -412,8 +412,8 @@ class SeparatorRegion(Region):
     Separators are lines that lie between columns and paragraphs and can be used to logically separate
     different articles from each other.
 
-    :param id: identifier of the `SeparatorRegion`
-    :param coords: coordinates of the `SeparatorRegion`
+    :ivar id: identifier of the `SeparatorRegion`
+    :ivar coords: coordinates of the `SeparatorRegion`
     """
 
     tag = 'SeparatorRegion'
@@ -440,7 +440,7 @@ class Border(BaseElement):
     Region containing the page.
     It is the border of the actual page of the document (if the scanned image contains parts not belonging to the page).
 
-    :param coords: coordinates of the `Border` region
+    :ivar coords: coordinates of the `Border` region
     """
 
     tag = 'Border'
@@ -477,10 +477,10 @@ class Border(BaseElement):
 class Metadata(BaseElement):
     """Metadata information.
 
-    :param creator: name of the process of person that created the exported file
-    :param created: time of creation of the file
-    :param last_change: time of last modification of the file
-    :param comments: comments on the process
+    :ivar creator: name of the process of person that created the exported file
+    :ivar created: time of creation of the file
+    :ivar last_change: time of last modification of the file
+    :ivar comments: comments on the process
     """
     tag = 'Metadata'
 
@@ -536,9 +536,9 @@ class GroupSegment(Region):
     It is used mainly to make line / column regions.
     Only for JSON export (no PAGE XML correspondence).
 
-    :param id: identifier of the `GroupSegment`
-    :param coords: coordinates of the `GroupSegment`
-    :param segment_ids: list of the regions ids belonging to the group
+    :ivar id: identifier of the `GroupSegment`
+    :ivar coords: coordinates of the `GroupSegment`
+    :ivar segment_ids: list of the regions ids belonging to the group
 
     """
     def __init__(self, id: str = None, coords: List[Point] = None, segment_ids: List[str] = None):
@@ -556,37 +556,33 @@ class Page(BaseElement):
     This class is used to represent the information of the processed image. It is possible to export this info as
     PAGE-XML or JSON format.
 
-    :param image_filename: filename of the image
-    :param image_width: width of the original image
-    :param image_height: height of the original image
-    :param text_regions: list of `TextRegion`
-    :param graphic_regions: list of `GraphicRegion`
-    :param page_border: `Border` of the page
-    :param separator_regions: list of `SeparatorRegion`
-    :param table_regions: list of `TableRegion`
-    :param metadata: `Metadata` of the image and process
-    :param line_groups: list of `GroupSegment` forming lines
-    :param column_groups: list of `GroupSegment` forming columns
+    :ivar image_filename: filename of the image
+    :ivar image_width: width of the original image
+    :ivar image_height: height of the original image
+    :ivar text_regions: list of `TextRegion`
+    :ivar graphic_regions: list of `GraphicRegion`
+    :ivar page_border: `Border` of the page
+    :ivar separator_regions: list of `SeparatorRegion`
+    :ivar table_regions: list of `TableRegion`
+    :ivar metadata: `Metadata` of the image and process
+    :ivar line_groups: list of `GroupSegment` forming lines
+    :ivar column_groups: list of `GroupSegment` forming columns
 
     """
     tag = 'Page'
 
-    def __init__(self, image_filename: str=None, image_width: int=None, image_height: int=None,
-                 text_regions: List[TextRegion]=None, graphic_regions: List[GraphicRegion]=None,
-                 page_border: Border=None, separator_regions: List[SeparatorRegion]=None,
-                 table_regions: List[TableRegion]=None, metadata: Metadata=None,
-                 line_groups: List[GroupSegment]=None, column_groups: List[GroupSegment]=None):
-        self.image_filename = image_filename
-        self.image_width = _try_to_int(image_width)
-        self.image_height = _try_to_int(image_height)
-        self.text_regions = text_regions if text_regions is not None else []
-        self.graphic_regions = graphic_regions if graphic_regions is not None else []
-        self.page_border = page_border if page_border is not None else []
-        self.separator_regions = separator_regions if separator_regions is not None else []
-        self.table_regions = table_regions if table_regions is not None else []
-        self.metadata = metadata if metadata is not None else Metadata()
-        self.line_groups = line_groups if line_groups is not None else []
-        self.column_groups = column_groups if column_groups is not None else []
+    def __init__(self, **kwargs):
+        self.image_filename = kwargs.get('image_filename')
+        self.image_width = _try_to_int(kwargs.get('image_width'))
+        self.image_height = _try_to_int(kwargs.get('image_height'))
+        self.text_regions = kwargs.get('text_regions', [])
+        self.graphic_regions = kwargs.get('graphic_regions', [])
+        self.page_border = kwargs.get('page_border', Border())
+        self.separator_regions = kwargs.get('separator_regions', [])
+        self.table_regions = kwargs.get('table_regions', [])
+        self.metadata = kwargs.get('metadata', Metadata())
+        self.line_groups = kwargs.get('line_groups', [])
+        self.column_groups = kwargs.get('column_groups', [])
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'Page':
