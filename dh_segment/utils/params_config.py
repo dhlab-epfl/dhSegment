@@ -9,6 +9,7 @@ from random import shuffle
 
 class PredictionType:
     """
+
     :cvar CLASSIFICATION:
     :cvar REGRESSION:
     :cvar MULTILABEL:
@@ -102,6 +103,9 @@ class UNetModelParams:
 
 
 class ModelParams(BaseParams):
+    """Parameters related to the model
+
+    """
     def __init__(self, **kwargs):
         self.batch_norm = kwargs.get('batch_norm', True)  # type: bool
         self.batch_renorm = kwargs.get('batch_renorm', True)  # type: bool
@@ -145,7 +149,7 @@ class ModelParams(BaseParams):
 
 
 class TrainingParams(BaseParams):
-    """
+    """Parameters to configure training process
 
     :ivar n_epochs: number of epoch for training
     :vartype n_epochs: int
