@@ -2,10 +2,21 @@ import tensorflow as tf
 from tensorflow.contrib.image import rotate as tf_rotate
 from scipy import ndimage
 import numpy as np
+from typing import Tuple
 
 
-def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor,
-                         flip_lr: bool=True, flip_ud: bool=True, color: bool=True) -> (tf.Tensor, tf.Tensor):
+def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor, flip_lr: bool=True,
+                         flip_ud: bool=True, color: bool=True) -> (tf.Tensor, tf.Tensor):
+    """Applies data augmentation to both images and label images.
+    Includes left-right flip, up-down flip and color change.
+
+    :param input_image: images to be augmented [B, H, W, C]
+    :param label_image: corresponding label images [B, H, W, C]
+    :param flip_lr: option to flip image in left-right direction
+    :param flip_ud: option to flip image in up-down direction
+    :param color: option to change color of images
+    :return: the tuple (augmented images, augmented label images) [B, H, W, C]
+    """
     with tf.name_scope('DataAugmentation'):
         if flip_lr:
             with tf.name_scope('random_flip_lr'):
@@ -27,9 +38,19 @@ def data_augmentation_fn(input_image: tf.Tensor, label_image: tf.Tensor,
         return input_image, label_image
 
 
-def rotate_crop(img, rotation, crop=True, minimum_shape=[0, 0], interpolation='NEAREST'):
+def rotate_crop(image: tf.Tensor, rotation: float, crop: bool=True, minimum_shape: Tuple[int, int]=[0, 0],
+                interpolation: str='NEAREST') -> tf.Tensor:
+    """Rotates and crops the images.
+
+    :param image: image to be rotated and cropped [H, W, C]
+    :param rotation: angle of rotation (in radians)
+    :param crop: option to crop rotated image to avoid black borders due to rotation
+    :param minimum_shape: minimum shape of the rotated image / cropped image
+    :param interpolation: which interpolation to use ``NEAREST`` or ``BILINEAR``
+    :return:
+    """
     with tf.name_scope('RotateCrop'):
-        rotated_image = tf_rotate(img, rotation, interpolation)
+        rotated_image = tf_rotate(image, rotation, interpolation)
         if crop:
             rotation = tf.abs(rotation)
             original_shape = tf.shape(rotated_image)[:2]
@@ -47,12 +68,21 @@ def rotate_crop(img, rotation, crop=True, minimum_shape=[0, 0], interpolation='N
             # If crop removes the entire image, keep the original image
             rotated_image = tf.cond(tf.less_equal(tf.reduce_min(tf.shape(rotated_image_crop)[:2]),
                                                   tf.reduce_max(minimum_shape)),
-                                    true_fn=lambda: img,
+                                    true_fn=lambda: image,
                                     false_fn=lambda: rotated_image_crop)
         return rotated_image
 
 
-def resize_image(image: tf.Tensor, size: int, interpolation='BILINEAR'):
+def resize_image(image: tf.Tensor, size: int, interpolation: str='BILINEAR') -> tf.Tensor:
+    """Resizes the image
+
+    :param image: image to be resized [H, W, C]
+    :param size: size of the resized image (in pixels)
+    :param interpolation: which interpolation to use, ``NEAREST`` or ``BILINEAR``
+    :return: resized image
+    """
+    assert interpolation in ['BILINEAR', 'NEAREST']
+
     with tf.name_scope('ImageRescaling'):
         input_shape = tf.cast(tf.shape(image)[:2], tf.float32)
         size = tf.cast(size, tf.float32)
@@ -69,11 +99,11 @@ def resize_image(image: tf.Tensor, size: int, interpolation='BILINEAR'):
         return tf.image.resize_images(image, new_shape, method=resize_method[interpolation])
 
 
-def load_and_resize_image(filename, channels, size=None, interpolation='BILINEAR') -> tf.Tensor:
-    """
+def load_and_resize_image(filename: str, channels: int, size: int=None, interpolation: str='BILINEAR') -> tf.Tensor:
+    """Loads an image from its filename and resizes it to the desired output size.
 
     :param filename: string tensor
-    :param channels: nb of channels for the decoded image
+    :param channels: number of channels for the decoded image
     :param size: number of desired pixels in the resized image, tf.Tensor or int (None for no resizing)
     :param interpolation:
     :param return_original_shape: returns the original shape of the image before resizing if this flag is True
@@ -92,12 +122,13 @@ def load_and_resize_image(filename, channels, size=None, interpolation='BILINEAR
         return result_image
 
 
-def extract_patches_fn(image: tf.Tensor, patch_shape: list, offsets) -> tf.Tensor:
-    """
+def extract_patches_fn(image: tf.Tensor, patch_shape: Tuple[int, int], offsets: Tuple[int, int]) -> tf.Tensor:
+    """Will cut a given image into patches.
 
     :param image: tf.Tensor
-    :param patch_shape: [h, w]
-    :param offsets: tuple between 0 and 1
+    :param patch_shape: shape of the extracted patches [h, w]
+    :param offsets: offset to add to the origin of first patch top-right coordinate, useful during data augmentation \
+    to have slighlty different patches each time. This value will be multiplied by [h/2, w/2] (range values [0,1])
     :return: patches [batch_patches, h, w, c]
     """
     with tf.name_scope('patch_extraction'):
@@ -112,10 +143,16 @@ def extract_patches_fn(image: tf.Tensor, patch_shape: list, offsets) -> tf.Tenso
         patches = tf.extract_image_patches(offset_img, ksizes=[1, h, w, 1], strides=[1, h // 2, w // 2, 1],
                                            rates=[1, 1, 1, 1], padding='VALID')
         patches_shape = tf.shape(patches)
-        return tf.reshape(patches, [tf.reduce_prod(patches_shape[:3]), h, w, int(c)])  # returns [batch_patches, h, w, c]
+        return tf.reshape(patches, [tf.reduce_prod(patches_shape[:3]), h, w, int(c)])
 
 
-def local_entropy(tf_binary_img: tf.Tensor, sigma=3):
+def local_entropy(tf_binary_img: tf.Tensor, sigma: float=3) -> tf.Tensor:
+    """
+
+    :param tf_binary_img:
+    :param sigma:
+    :return:
+    """
     tf_binary_img.get_shape().assert_has_rank(2)
 
     def get_gaussian_filter_1d(sigma):
