@@ -1,3 +1,27 @@
+r"""
+The :mod:`dh_segment.post_processing` module contains functions to post-process probability maps.
+
+**Binarization**
+
+.. autosummary::
+    thresholding
+    cleaning_binary
+
+**Detection**
+
+.. autosummary::
+    find_boxes
+    find_polygonal_regions
+
+**Vectorization**
+
+.. autosummary::
+    find_lines
+
+------
+
+"""
+
 _BINARIZATION = [
     'thresholding',
     'cleaning_binary',
