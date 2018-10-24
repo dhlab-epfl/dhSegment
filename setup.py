@@ -11,12 +11,11 @@ setup(name='dh_segment',
           'Paper': 'https://arxiv.org/abs/1804.10371',
           'Source Code': 'https://github.com/dhlab-epfl/dhSegment'
       },
-      extra_require={
+      extras_require={
           'doc': [
               'sphinx',
               'sphinx-autodoc-typehints',
               'sphinx-rtd-theme',
-              'sphinxcontrib',
               'sphinxcontrib-bibtex',
               'sphinxcontrib-websupport'
           ],
