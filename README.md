@@ -19,3 +19,16 @@ and examples of usage can be found in the documentation (see section below).
 *Under construction*
 
 The documentation is available on [readthedoc](https://dhsegment.readthedocs.io/).
+
+##
+If you are using this code for your research, you can cite the corresponding paper as :
+```
+@inproceedings{oliveiraseguinkaplan2018dhsegment,
+  title={dhSegment: A generic deep-learning approach for document segmentation},
+  author={Ares Oliveira, Sofia and Seguin, Benoit and Kaplan, Frederic},
+  booktitle={Frontiers in Handwriting Recognition (ICFHR), 2018 16th International Conference on},
+  pages={7--12},
+  year={2018},
+  organization={IEEE}
+}
+```
