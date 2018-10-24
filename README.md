@@ -1,5 +1,7 @@
 # dhSegment
 
+[![Documentation Status](https://readthedocs.org/projects/dhsegment/badge/?version=latest)](https://dhsegment.readthedocs.io/en/latest/?badge=latest)
+
 **dhSegment** is a tool for Historical Document Processing. Its generic approach allows to segment regions and
 extract content from different type of documents. See 
 [some examples here](https://dhsegment.readthedocs.io/en/latest/intro.html#use-cases).

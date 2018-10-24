@@ -4,19 +4,19 @@ The :mod:`dh_segment.io` module implements input / output functions and classes.
 Input functions for ``tf.Estimator``
 ------------------------------------
 
-Input function
+**Input function**
 
 .. autosummary::
     input_fn
 
-Data augmentation
+**Data augmentation**
 
 .. autosummary::
     data_augmentation_fn
     extract_patches_fn
     rotate_crop
 
-Resizing function
+**Resizing function**
 
 .. autosummary::
     resize_image
@@ -35,7 +35,7 @@ Tensorflow serving functions
 PAGE XML and JSON import / export
 ---------------------------------
 
-PAGE classes
+**PAGE classes**
 
 .. autosummary::
     PAGE.Point
@@ -50,13 +50,13 @@ PAGE classes
     PAGE.Metadata
     PAGE.Page
 
-Abstract classes
+**Abstract classes**
 
 .. autosummary::
     PAGE.BaseElement
     PAGE.Region
 
-Parsing and helpers
+**Parsing and helpers**
 
 .. autosummary::
     PAGE.parse_file

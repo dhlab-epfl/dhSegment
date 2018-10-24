@@ -1,7 +1,5 @@
 .. dhsegment documentation master file, created by
    sphinx-quickstart on Mon Oct  1 17:17:21 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
 
 ================================================================
 dhSegment : Generic framework for historical document processing
@@ -10,10 +8,11 @@ dhSegment : Generic framework for historical document processing
 .. toctree::
    :maxdepth: 1
 
-   intro
+   intro/intro
    start/index
    reference/index
    references
+   changelog
 
 **dhSegment** is a tool for Historical Document Processing. Its generic approach allows to segment regions and
 extract content from different type of documents. See some example of applications in the :ref:`usecases-label` section.

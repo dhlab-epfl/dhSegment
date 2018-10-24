@@ -7,6 +7,9 @@ Loading a model
 
 .. autosummary::
     LoadedModel
+
+
+-----
 """
 
 __all__ = ['LoadedModel']
