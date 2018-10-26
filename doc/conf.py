@@ -170,5 +170,7 @@ autodoc_mock_imports = [
     'pandas',
     'sklearn',
     'skimage',
-    'shapely'
+    'shapely',
+    'typing',
+    'cv2'
 ]
