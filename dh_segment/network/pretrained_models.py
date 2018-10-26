@@ -49,7 +49,7 @@ class ResnetV1_50(Encoder):
                                       if 'resnet_v1_50' in v.name
                                       and 'renorm' not in v.name]
 
-    def __call__(self, images: tf.Tensor):
+    def __call__(self, images: tf.Tensor, is_training=False):
         outputs = []
 
         with slim.arg_scope(nets.resnet_v1.resnet_arg_scope(weight_decay=self.weight_decay, batch_norm_decay=0.999)), \
@@ -110,7 +110,7 @@ class ResnetV1_50(Encoder):
             net, endpoints = nets.resnet_v1.resnet_v1(mean_substracted_tensor,
                                                       blocks=blocks_list[:self.blocks],
                                                       num_classes=None,
-                                                      is_training=self.train_batchnorm,
+                                                      is_training=self.train_batchnorm and is_training,
                                                       global_pool=False,
                                                       output_stride=None,
                                                       include_root_block=True,
@@ -153,7 +153,7 @@ class VGG16(Encoder):
                                       if 'vgg_16' in v.name
                                       and 'renorm' not in v.name]
 
-    def __call__(self, images: tf.Tensor):
+    def __call__(self, images: tf.Tensor, is_training=False):
         outputs = []
 
         with slim.arg_scope(nets.vgg.vgg_arg_scope(weight_decay=self.weight_decay)):

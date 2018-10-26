@@ -22,8 +22,9 @@ def model_fn(mode, features, labels, params):
     decoder_class = model_params.get_decoder()
     decoder = decoder_class(**model_params.decoder_params)
 
-    feature_maps = encoder(input_images)
-    network_output = decoder(feature_maps, num_classes=model_params.n_classes)
+    is_training = (mode == tf.estimator.ModeKeys.TRAIN)
+    feature_maps = encoder(input_images, is_training=is_training)
+    network_output = decoder(feature_maps, num_classes=model_params.n_classes, is_training=is_training)
 
     if mode == tf.estimator.ModeKeys.TRAIN:
         pretrained_file, pretrained_vars = encoder.pretrained_information()

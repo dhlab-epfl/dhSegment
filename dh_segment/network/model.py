@@ -9,7 +9,7 @@ from typing import List, Union, Tuple, Optional, Dict
 
 class Encoder(ABC):
     @abstractmethod
-    def __call__(self, images: tf.Tensor) -> List[tf.Tensor]:
+    def __call__(self, images: tf.Tensor, is_training=False) -> List[tf.Tensor]:
         """
 
         :param images: [NxHxWx3] float32 [0..255] input images
@@ -29,7 +29,7 @@ class Encoder(ABC):
 
 class Decoder(ABC):
     @abstractmethod
-    def __call__(self, feature_maps: List[tf.Tensor], num_classes: int) -> tf.Tensor:
+    def __call__(self, feature_maps: List[tf.Tensor], num_classes: int, is_training=False) -> tf.Tensor:
         """
 
         :param feature_maps: list of feature maps, in decreasing spatial resolution, first one being at the original \
@@ -47,34 +47,26 @@ class SimpleDecoder(Decoder):
     :ivar weight_decay:
     :ivar self.batch_norm_fn:
     """
-    def __init__(self, upsampling_dims: List[int], max_depth: int = None, train_batchnorm: bool=False,
-                 weight_decay: float=0.):
+    def __init__(self, upsampling_dims: List[int], max_depth: int = None, weight_decay: float=0.):
         self.upsampling_dims = upsampling_dims
         self.max_depth = max_depth
         self.weight_decay = weight_decay
-        if train_batchnorm:
-            # TODO
-            renorm = False
-            if renorm:
-                renorm_clipping = {'rmax': 100, 'rmin': 0.1, 'dmax': 10}
-                renorm_momentum = 0.98
-            else:
-                renorm_clipping = None
-                renorm_momentum = 0.99
-            self.batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=train_batchnorm,
-                                                                         name='batch_norm',
-                                                                         renorm=renorm,
-                                                                         renorm_clipping=renorm_clipping,
-                                                                         renorm_momentum=renorm_momentum)
-        else:
-            self.batch_norm_fn = None
+        renorm = True
+        self.batch_norm_params = {
+            "renorm": renorm,
+            "renorm_clipping": {'rmax': 100, 'rmin': 0.1, 'dmax': 10},
+            "renorm_momentum": 0.98
+        }
 
-    def __call__(self, feature_maps: List[tf.Tensor], num_classes: int):
+    def __call__(self, feature_maps: List[tf.Tensor], num_classes: int, is_training=False):
+
+        batch_norm_fn = lambda x: tf.layers.batch_normalization(x, axis=-1, training=is_training,
+                                                                name='batch_norm', **self.batch_norm_params)
 
         # Upsampling
         with tf.variable_scope('SimpleDecoder'):
             with arg_scope([layers.conv2d],
-                           normalizer_fn=self.batch_norm_fn,
+                           normalizer_fn=batch_norm_fn,
                            weights_regularizer=layers.l2_regularizer(self.weight_decay)):
 
                 assert len(self.upsampling_dims) + 1 == len(feature_maps), \
@@ -89,7 +81,7 @@ class SimpleDecoder(Decoder):
                             num_outputs=self.max_depth,
                             kernel_size=[1, 1],
                             scope="dimreduc_{}".format(i),
-                            normalizer_fn=self.batch_norm_fn,
+                            normalizer_fn=batch_norm_fn,
                             activation_fn=None
                         )
 
