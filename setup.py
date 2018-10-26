@@ -11,6 +11,17 @@ setup(name='dh_segment',
           'Paper': 'https://arxiv.org/abs/1804.10371',
           'Source Code': 'https://github.com/dhlab-epfl/dhSegment'
       },
+      install_requires=[
+        'tensorflow',
+        'numpy',
+        'imageio',
+        'pandas',
+        'scipy',
+        'shapely',
+        'scikit-learn',
+        'uuid',
+        'tqdm',
+      ],
       extras_require={
           'doc': [
               'sphinx',
