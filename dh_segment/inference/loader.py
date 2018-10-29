@@ -9,6 +9,16 @@ _original_shape_key = 'original_shape'
 
 
 class LoadedModel:
+    """
+    Loads an exported dhSegment model
+
+    :param model_base_dir: the model directory i.e. containing `saved_model.{pb|pbtxt}`. If not, it is assumed to \
+    be a TF exporter directory, and the latest export directory will be automatically selected.
+    :param predict_mode: defines the input/output format of the prediction output (see `.predict()`)
+    :param num_parallel_predictions: limits the number of conccurent calls of `predict` to avoid Out-Of-Memory \
+    issues if predicting on GPU
+    """
+
     def __init__(self, model_base_dir, predict_mode='filename', num_parallel_predictions=2):
         if os.path.exists(os.path.join(model_base_dir, 'saved_model.pbtxt')) or \
                 os.path.exists(os.path.join(model_base_dir, 'saved_model.pb')):
@@ -52,6 +62,28 @@ class LoadedModel:
         self.sema = Semaphore(num_parallel_predictions)
 
     def predict(self, input_tensor, prediction_key=None):
+        """
+        Performs the prediction from the loaded model according to the prediction mode.
+        Prediction modes:
++-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+| `prediction_mode`           | `input_tensor`                                | Output prediction dictionnary        | Comment                                                                                           |
++=============================+===============================================+======================================+===================================================================================================+
+| `filename`                  | Single filename string                        | `labels`, `probs`, `original_shape`  | Loads the image, resizes it, and predicts                                                         |
++-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+| `filename_original_shape`   | Single filename string                        | `labels`, `probs`                    | Loads the image, resizes it, predicts and scale the output to the original resolution of the file |
++-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+| `image`                     | Single input image [1,H,W,3] float32 (0..255) | `labels`, `probs`, `original_shape`  | Resizes the image, and predicts                                                                   |
++-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+| `image_original_shape`      | Single input image [1,H,W,3] float32 (0..255) | `labels`, `probs`                    | Resizes the image, predicts, and scale the output to the original resolution of the input         |
++-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+| `image_resized`             | Single input image [1,H,W,3] float32 (0..255) | `labels`, `probs`                    | Predicts from the image input directly                                                            |
++-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+
+        :param input_tensor: a single input whose format should match the prediction mode
+        :param prediction_key: if not `None`, will returns the value of the corresponding key of the output dictionnary \
+        instead of the full dictionnary
+        :return: the prediction output
+        """
         with self.sema:
             if prediction_key:
                 desired_output = self._output_dict[prediction_key]
