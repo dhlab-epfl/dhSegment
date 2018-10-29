@@ -2,7 +2,7 @@
 from setuptools import setup, find_packages
 
 setup(name='dh_segment',
-      version='0.1',
+      version='0.3',
       license='GPL',
       url='https://github.com/dhlab-epfl/dhSegment',
       description='Generic framework for historical document processing',
@@ -20,7 +20,6 @@ setup(name='dh_segment',
         'shapely',
         'scikit-learn',
         'opencv-python',
-        'uuid',
         'tqdm',
       ],
       extras_require={

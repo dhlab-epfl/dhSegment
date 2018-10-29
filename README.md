@@ -14,11 +14,14 @@ It was created by [Benoit Seguin](https://twitter.com/Seguin_Be) and Sofia Ares 
 The [installation procedure](https://dhsegment.readthedocs.io/en/latest/start/install.html) 
 and examples of usage can be found in the documentation (see section below).
 
+## Demo
+Have a try at the [demo](https://dhsegment.readthedocs.io/en/latest/start/demo.html) to train (optional) and apply dhSegment in page extraction using the `demo.py` script.
+
 ## Documentation
 
 *Under construction*
 
-The documentation is available on [readthedoc](https://dhsegment.readthedocs.io/).
+The documentation is available on [readthedocs](https://dhsegment.readthedocs.io/).
 
 ##
 If you are using this code for your research, you can cite the corresponding paper as :
