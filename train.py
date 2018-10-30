@@ -4,7 +4,8 @@ import tensorflow as tf
 from logging import WARNING  # import  DEBUG, INFO, ERROR for more/less verbosity
 
 tf.logging.set_verbosity(WARNING)
-from dh_segment import estimator_fn, input, utils
+from dh_segment import estimator_fn, utils
+from dh_segment.io import input
 import json
 from glob import glob
 import numpy as np
