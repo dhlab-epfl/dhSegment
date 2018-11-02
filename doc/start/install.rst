@@ -1,6 +1,14 @@
 Installation
 ------------
 
+Using ``pip``
+^^^^^^^^^^^^^
+
+Pip install using git repository : ::
+
+    pip install git+https://github.com/dhlab-epfl/dhSegment
+
+
 Using Anaconda
 ^^^^^^^^^^^^^^
 
@@ -19,6 +27,3 @@ Using Anaconda
 
     python setup.py install
 
-
-Using ``pip``
-^^^^^^^^^^^^^
