@@ -547,7 +547,8 @@ class GroupSegment(Region):
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> 'GroupSegment':
-        return cls(**super().from_dict(dictionary))
+        return cls(**super().from_dict(dictionary),
+                   segment_ids=dictionary.get('segment_ids'))
 
 
 class Page(BaseElement):
