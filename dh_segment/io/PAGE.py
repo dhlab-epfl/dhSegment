@@ -403,7 +403,7 @@ class TableRegion(Region):
         return cls(**super().from_dict(dictionary),
                    rows=dictionary.get('rows'),
                    columns=dictionary.get('columns'),
-                   embeded_text=dictionary.get('embeded_text'))
+                   embedded_text=dictionary.get('embedded_text'))
 
 
 class SeparatorRegion(Region):
