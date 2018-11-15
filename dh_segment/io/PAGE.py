@@ -329,6 +329,16 @@ class TextRegion(Region):
         self.text_equiv = text_equiv if text_equiv is not None else ''
         self.text_lines = text_lines if text_lines is not None else []
 
+    def sort_text_lines(self, top_to_bottom: bool=True) -> None:
+        """
+        Sorts ``TextLine``s from top to bottom according to their mean y coordinate (centroid)
+        :param top_to_bottom: order lines from top to bottom of image, default=True
+        """
+        if top_to_bottom:
+            self.text_lines.sort(key=lambda line: np.mean([c.y for c in line.coords]))
+        else:
+            raise NotImplementedError
+
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'TextRegion':
         cls.check_tag(e.tag)
