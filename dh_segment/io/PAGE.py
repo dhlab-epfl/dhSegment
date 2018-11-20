@@ -19,6 +19,8 @@ _attribs = {'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
 def _try_to_int(d: Optional[Union[str, int]])-> Optional[int]:
     if isinstance(d, str):
         return int(d)
+    elif not isinstance(d, int):
+        int(d)
     else:
         return d
 
@@ -584,7 +586,7 @@ class Page(BaseElement):
 
     def __init__(self, **kwargs):
         self.image_filename = kwargs.get('image_filename')
-        self.image_width = _try_to_int(kwargs.get('image_width'))
+        self.image_width = _try_to_int(kwargs.get('image_width'))  # Needs to be int type (not np.int32/64)
         self.image_height = _try_to_int(kwargs.get('image_height'))
         self.text_regions = kwargs.get('text_regions', [])
         self.graphic_regions = kwargs.get('graphic_regions', [])
