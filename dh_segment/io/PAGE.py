@@ -17,10 +17,8 @@ _attribs = {'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
 
 
 def _try_to_int(d: Optional[Union[str, int]])-> Optional[int]:
-    if isinstance(d, str):
+    if isinstance(d, (str, np.int32, np.int64)):
         return int(d)
-    elif not isinstance(d, int):
-        int(d)
     else:
         return d
 
