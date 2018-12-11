@@ -10,7 +10,7 @@ Script with CLI to process annotation data produced with VGG Image Annotation (V
 
 
 Usage:
-    create_masks.py --task=<t> --collection=<c> --config-file=<cf>
+    via.py --task=<t> --collection=<c> --config-file=<cf>
 
 Options:
     --collection<collection> document collection to work with
