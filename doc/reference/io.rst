@@ -76,3 +76,8 @@ Input / Output
 .. automodule:: dh_segment.io.PAGE
     :members:
     :undoc-members:
+
+.. automodule:: dh_segment.io.via
+    :members:
+    :undoc-members:
+    :exclude-members: main, init_logger

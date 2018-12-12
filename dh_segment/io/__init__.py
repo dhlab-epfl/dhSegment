@@ -63,6 +63,21 @@ PAGE XML and JSON import / export
     PAGE.json_serialize
 
 ----
+
+VGG Image Annotator helpers
+---------------------------
+
+.. autosummary::
+    via.get_annotations
+    via.get_labels
+    via.collect_working_items
+    via.create_masks
+    via.compute_reduced_dimensions
+    via.scale_down_original
+    via.getimage_from_iiif
+
+----
+
 """
 
 
@@ -103,3 +118,5 @@ __all__ = _INPUT  # + _PAGE_OBJECTS + _PAGE_FN
 from .input import *
 from .input_utils import *
 from . import PAGE
+from . import via
+

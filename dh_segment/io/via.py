@@ -31,7 +31,7 @@ from collections import namedtuple
 from imageio import imsave, imread
 import logging
 import requests
-from requests.auth import HTTPBasicAuth
+from typing import List, Tuple
 
 from dask.diagnostics import ProgressBar
 import dask.bag as db
@@ -79,9 +79,10 @@ def init_logger(logger, log_level, log_file):
     return logger
 
 
-def get_annotations(annotations_dict, iiif_url):
+def get_annotations(annotations_dict: dict, iiif_url: str) -> dict:
     """
     From VIA json file, get annotations relative to the given `iiif_url`.
+
     :param annotations_dict: VIA annotation output (originally json)
     :param iiif_url: the file to look for
     :return: dict
@@ -95,28 +96,30 @@ def get_annotations(annotations_dict, iiif_url):
             return None
 
 
-def compute_reduced_dimensions(x, y):
+def compute_reduced_dimensions(x: int, y: int, target_h: int=2000) -> Tuple[int, int]:
     """
-    Compute new dimensions with height set to 2000.
+    Compute new dimensions with height set to `target_h`.
+
     :param x: height
     :param y: width
+    :param target_h: target height
     :return: tuple
     """
     ratio = y / x
-    target_h = 2000
     target_w = int(target_h*ratio)
     return target_h, target_w
 
 
-def collect_working_items(image_url_file, annotation_file, collection):
+def collect_working_items(image_url_file: List[str], annotation_file: str, collection: str) -> List[WorkingItem]:
     """
     Given VIA annotation input, collect all info on `WorkingItem` object.
+
     :param image_url_file: file listing IIIF URLs files
     :param annotation_file: VIA json file, output of manual annotation
     :param collection: target collection to consider
     :return: list of `WorkingItem`
     """
-    logger.info(f"Collecting working items for {collection}")
+    logger.info("Collecting working items for {}".format(collection))
     working_items = []
     session = requests.Session()
 
@@ -165,15 +168,16 @@ def collect_working_items(image_url_file, annotation_file, collection):
             )
             working_items.append(wk_item)
 
-    logger.info(f"Collected {len(working_items)} items.")
+    logger.info("Collected {} items.".format(len(working_items)))
     return working_items
 
 
-def scale_down_original(working_item, img_out_dir):
+def scale_down_original(working_item, img_out_dir: str) -> None:
     """
-    Copy and reduce original image files
-    :param img_out_dir: where to put the downscaled images.
-    :param working_items: dict of `WorkingItems`
+    Copy and reduce original image files.
+
+    :param img_out_dir: where to put the downscaled images
+    :param working_item: dict of `WorkingItems`
     :return: None
     """
     image_set_dir = os.path.join(img_out_dir, working_item.collection, "images")
@@ -202,20 +206,30 @@ def getimage_from_iiif(url, user, pwd):
     return imread(img.content)
 
 
-def write_mask(mask, masks_dir, collection, image_name, label):
-    """ Save a mask with filename containing 'label' """
+def write_mask(mask: np.ndarray, masks_dir: str, collection: str, image_name: str, label: str) -> None:
+    """
+    Save a mask with filename containing 'label'.
+
+    :param mask:
+    :param masks_dir:
+    :param collection:
+    :param image_name:
+    :param label:
+    :return:
+    """
     outdir = os.path.join(masks_dir, collection, image_name)
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     label = label.strip(' \n').replace(" ", "_").lower() if label is not None else 'nolabel'
     outfile = os.path.join(outdir, image_name + "-mask-" + label + ".png")
-    #if not os.path.isfile(outfile):
+    # if not os.path.isfile(outfile):
     imsave(outfile, mask.astype(np.uint8))
 
 
-def get_labels(annotation_file):
+def get_labels(annotation_file: str) -> dict:
     """
-     Get labels from annotation tool (VIA) settings
+     Get labels from annotation tool (VIA) settings.
+
     :param annotation_file: manual annotation json file
     :return:  dict (k=label, v=RGB code)
     """
@@ -236,16 +250,18 @@ def get_labels(annotation_file):
     return label_color
 
 
-def create_masks(masks_dir, working_items, annotation_file, collection):
+def create_masks(masks_dir: str, working_items: List[WorkingItem], annotation_file: str, collection: str) -> None:
     """
     For each annotation, create a corresponding binary mask and resize it (h = 2000).
     Several annotations of the same class on the same image produce one image with several masks.
+
     :param masks_dir: where to output the masks
     :param working_items: infos to work with
     :param annotation_file:
+    :param collection:
     :return: None
     """
-    logger.info(f"Creating masks in {masks_dir}...")
+    logger.info("Creating masks in {}...".format(masks_dir))
 
     annotation_summary = dict()
 
@@ -309,7 +325,7 @@ def main(args):
     collection = args["--collection"]
 
     if config_file and os.path.isfile(config_file):
-        logger.info(f"Found config file: {os.path.realpath(config_file)}")
+        logger.info("Found config file: {}".format(os.path.realpath(config_file)))
         with open(config_file, 'r') as f:
             config = json.load(f)
     else:
@@ -321,12 +337,12 @@ def main(args):
     masks_dir = config.get("masks_dir")  # output annotation_objects
     img_out_dir = config.get("img_out_dir")  # re-scaled images
 
-    logger.info(f"\nGot the following paths:\n"
-                f"annotation_file: {annotation_file}\n"
-                f"image_url_file: {image_url_file}\n"
-                f"experiments_dir: {experiments_dir}\n"
-                f"masks_dir: {masks_dir}\n"
-                f"img_out_dir: {img_out_dir}\n"
+    logger.info("\nGot the following paths:\n"
+                "annotation_file: {}\n"
+                "image_url_file: {}\n"
+                "experiments_dir: {}\n"
+                "masks_dir: {}\n"
+                "img_out_dir: {}\n".format(annotation_file, image_url_file, experiments_dir, masks_dir, img_out_dir)
                 )
 
     # to test working items loading
