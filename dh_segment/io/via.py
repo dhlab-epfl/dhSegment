@@ -1,47 +1,24 @@
 #!/usr/bin/env python
 # coding: utf-8 
 
-"""
-Script with CLI to process annotation data produced with VGG Image Annotation (VIA) tool:
-- scale down original images
-- parse VIA annotation (json)
-- create images with masks
-(cf. http://www.robots.ox.ac.uk/~vgg/software/via/; done on VIA 2.0.0)
-
-
-Usage:
-    via.py --task=<t> --collection=<c> --config-file=<cf>
-
-Options:
-    --collection<collection> document collection to work with
-    --task=<t> task to do: 'original' to downscale original images or 'masks' to create masks.
-    --config-file=<cf>  configuration file
-
-"""
-
-
-import docopt
 import json
-import sys
 import os
 from tqdm import tqdm
 import numpy as np
 from skimage import transform
 from collections import namedtuple
 from imageio import imsave, imread
-import logging
 import requests
+from itertools import filterfalse
 from typing import List, Tuple
-
-from dask.diagnostics import ProgressBar
-import dask.bag as db
+from enum import Enum
+import cv2
 
 
 __author__ = "maudehrmann"
 
-iiif_password = os.environ["IIIF_PWD"]
-
-logger = logging.getLogger(__name__)
+# iiif_password = os.environ["IIIF_PWD"]
+iiif_password = ''
 
 WorkingItem = namedtuple(  # TODO:
     "WorkingItem", [
@@ -57,40 +34,43 @@ WorkingItem = namedtuple(  # TODO:
 )
 
 
-def init_logger(logger, log_level, log_file):
-    """Initialise the logger."""
-    logger.setLevel(log_level)
-
-    formatter = logging.Formatter(
-        '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-    )
-
-    if log_file is not None:
-        fh = logging.FileHandler(filename=log_file, mode='w')
-        fh.setFormatter(formatter)
-        logger.addHandler(fh)
-
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-
-    logger.info("Logger successfully initialised")
-
-    return logger
+class Color(Enum):
+    WHITE = (255, 255, 255)
+    BLACK = (0, 0, 0)
+    GREY = (128, 128, 128)
+    RED = (255, 0, 0)
+    GREEN = (0, 255, 0)
+    BLUE = (0, 0, 255)
+    YELLOW = (255, 255, 0)
 
 
-def get_annotations(annotations_dict: dict, iiif_url: str) -> dict:
+def get_annotations(via_dict: dict, name_file: str) -> dict:
     """
-    From VIA json file, get annotations relative to the given `iiif_url`.
+    From VIA json file, get annotations relative to the given `name_file`.
 
-    :param annotations_dict: VIA annotation output (originally json)
-    :param iiif_url: the file to look for
+    :param via_dict: VIA annotation output (originally json)
+    :param name_file: the file to look for (it can be a iiif path or a file path)
     :return: dict
     """
-    k = iiif_url + "-1"
-    if k in annotations_dict['_via_img_metadata']:
-        myannotation = annotations_dict['_via_img_metadata'][k]
-        if iiif_url == myannotation['filename']:
+
+    # Check that the annotation_dict is a "via_project" file (project export),
+    # or a "via_region" file (annotation export)
+    if '_via_img_metadata' in via_dict.keys():
+        annotation_dict = via_dict['_via_img_metadata']
+    else:
+        annotation_dict = via_dict
+
+    #  If it looks like a iiif path add "-1"
+    if 'http' in name_file:
+        key = name_file + "-1"
+    else:  # find the key that contains the name_file
+        list_keys = list(filterfalse(lambda x: name_file not in x, list(annotation_dict.keys())))
+        assert len(list_keys) == 1, "There is more than one key for the file '{} : \n{}'".format(name_file, list_keys)
+        key = list_keys[0]
+
+    if key in annotation_dict.keys():
+        myannotation = annotation_dict[key]
+        if name_file == myannotation['filename']:
             return myannotation['regions']
         else:
             return None
@@ -119,7 +99,7 @@ def collect_working_items(image_url_file: List[str], annotation_file: str, colle
     :param collection: target collection to consider
     :return: list of `WorkingItem`
     """
-    logger.info("Collecting working items for {}".format(collection))
+    print("Collecting working items for {}".format(collection))
     working_items = []
     session = requests.Session()
 
@@ -168,7 +148,7 @@ def collect_working_items(image_url_file: List[str], annotation_file: str, colle
             )
             working_items.append(wk_item)
 
-    logger.info("Collected {} items.".format(len(working_items)))
+    print("Collected {} items.".format(len(working_items)))
     return working_items
 
 
@@ -194,7 +174,7 @@ def scale_down_original(working_item, img_out_dir: str) -> None:
         img = getimage_from_iiif(working_item.iiif, 'epfl-team', iiif_password)
         img_resized = transform.resize(
                                 img,
-                                [working_item.reduced_x, working_item.reduced_y],
+                                [working_item.reduced_y, working_item.reduced_x],
                                 anti_aliasing=False,
                                 preserve_range=True
         )
@@ -204,6 +184,31 @@ def scale_down_original(working_item, img_out_dir: str) -> None:
 def getimage_from_iiif(url, user, pwd):
     img = requests.get(url, auth=(user, pwd))
     return imread(img.content)
+
+
+def load_annotation_data(via_data_filename: str) -> dict:
+    """
+    Load the content of via annotation files.
+
+    :param via_data_filename: via annotations json file
+    :return: the content of json file containing the region annotated
+    """
+    with open(via_data_filename, 'r') as f:
+        content = json.load(f)
+
+    return content
+
+
+def export_annotation_dict(annotation_dict: dict, filename: str) -> None:
+    """
+    Export the annotations to json file.
+
+    :param annotation_dict: VIA annotations
+    :param filename: filename to export the data (json file)
+    :return:
+    """
+    with open(filename, 'w') as f:
+        json.dump(annotation_dict, f)
 
 
 def write_mask(mask: np.ndarray, masks_dir: str, collection: str, image_name: str, label: str) -> None:
@@ -228,7 +233,7 @@ def write_mask(mask: np.ndarray, masks_dir: str, collection: str, image_name: st
 
 def get_labels(annotation_file: str) -> dict:
     """
-     Get labels from annotation tool (VIA) settings.
+     Get labels from annotation tool (VIA) settings. Only compatible with VIA v2.0.
 
     :param annotation_file: manual annotation json file
     :return:  dict (k=label, v=RGB code)
@@ -236,6 +241,8 @@ def get_labels(annotation_file: str) -> dict:
     with open(annotation_file, 'r') as a:
         annotations = json.load(a)
 
+    # todo : this is not generic
+    # list(annotations['_via_attributes']['region'][{name_attributes}][{args}]
     label_list = list(annotations['_via_attributes']['region']['Label']['options'])
 
     # todo: keep a list of colors and assign randomly to label (to avoid hard coding labels/color correspondance)
@@ -243,16 +250,110 @@ def get_labels(annotation_file: str) -> dict:
     label_color = dict()
     for label in label_list:
         if label == "MYLABEL1":
-            label_color[label] = (255, 255, 255)  # white
+            label_color[label] = Color.WHITE  # white
         elif label == "MYLABEL2":
-            label_color[label] = (255, 255, 0)  # yellow
+            label_color[label] = Color.YELLOW  # yellow
         # etc.
     return label_color
 
 
-def create_masks(masks_dir: str, working_items: List[WorkingItem], annotation_file: str, collection: str) -> None:
+def get_via_attributes_regions(annotation_dict: dict, via_version: int=2) -> List[str]:
     """
-    For each annotation, create a corresponding binary mask and resize it (h = 2000).
+    Gets the attributes of the annotataed data.
+
+    :param annotation_dict:
+    :param via_version: either 1 or 2 (for VIA v 1.0 or VIA v 2.0)
+    :return: A list containing the attributes names§
+    """
+    if via_version == 1:
+        list_categories = list()
+
+        for value in annotation_dict.values():
+            regions = value['regions']
+            for region in regions.values():
+                list_categories += list(region['region_attributes'].keys())
+
+        return list(np.unique(list_categories))
+    elif via_version == 2:
+        # If project_export is given
+        if '_via_attributes' in annotation_dict.keys():
+            return list(annotation_dict['_via_attributes']['region'].keys())
+        # else if annotation_export is given
+        else:
+            list_categories = list()
+            for value in annotation_dict.values():
+                regions = value['regions']
+                for region in regions:
+                    list_categories += list(region['region_attributes'].keys())
+
+            return list(np.unique(list_categories))
+    else:
+        raise NotImplementedError
+
+
+def get_labels_per_attribute(annotation_dict: dict, attribute_regions: List[str], via_version: int=2) -> Tuple:
+    """
+    For each attribute, get all the possible label variants.
+
+    :param annotation_dict:
+    :param attribute_regions:
+    :param via_version:
+    :return: (unique_labels, dict_labels) : `dict_labels` is a dictionary containing all the labels per attribute
+
+    Usage
+    -----
+
+    >>> annotations_dict = load_annotation_data('via_annotations.json')
+    >>> list_attributes = get_via_attributes_regions(annotations_dict)
+    >>> list_attributes
+    >>> ['object', 'text']
+    >>>
+    >>> unique_labels, dict_labels = get_labels_per_attribute(annotations_dict, list_attributes)
+    >>> unique_labels
+    >>> [['animal', 'car', ''], ['handwritten', 'typed', '']]
+    >>>
+    >>> dict_labels
+    >>> {'object': ['animal', 'animal', 'car', 'animal', ''], 'text': ['handwritten', '', 'typed', '', 'handwritten']}
+    """
+
+    if via_version == 1:
+        dict_labels = {ar: list() for ar in attribute_regions}
+        for value in annotation_dict.values():
+            regions = value['regions']
+            for region in regions.values():
+                for k, v in region['region_attributes'].items():
+                    dict_labels[k].append(v)
+
+        unique_labels = list()
+        for ar in attribute_regions:
+            unique_labels.append(list(np.unique(dict_labels[ar])))
+
+        return unique_labels, dict_labels
+    elif via_version == 2:
+        # If project_export is given
+        if '_via_attributes' in annotation_dict.keys():
+            raise NotImplementedError
+        # else if annotation_export is given
+        else:
+            dict_labels = {ar: list() for ar in attribute_regions}
+            for value in annotation_dict.values():
+                regions = value['regions']
+                for region in regions:
+                    for k, v in region['region_attributes'].items():
+                        dict_labels[k].append(v)
+
+            unique_labels = list()
+            for ar in attribute_regions:
+                unique_labels.append(list(np.unique(dict_labels[ar])))
+
+            return unique_labels, dict_labels
+    else:
+        raise NotImplementedError
+
+
+def create_masks_v2(masks_dir: str, working_items: List[WorkingItem], annotation_file: str, collection: str) -> None:
+    """
+    For each annotation, create a corresponding binary mask and resize it (h = 2000). Only valid for VIA 2.0.
     Several annotations of the same class on the same image produce one image with several masks.
 
     :param masks_dir: where to output the masks
@@ -261,43 +362,65 @@ def create_masks(masks_dir: str, working_items: List[WorkingItem], annotation_fi
     :param collection:
     :return: None
     """
-    logger.info("Creating masks in {}...".format(masks_dir))
+    print("Creating masks in {}...".format(masks_dir))
 
     annotation_summary = dict()
+
+    def resize_and_write_mask(mask_image: np.ndarray, working_item: WorkingItem, label_item: str):
+        """
+        Resize only if needed (if working_item.reduced != working_item.original)
+        :param mask_image:
+        :param working_item:
+        :param label_item:
+        :return:
+        """
+        if not working_item.reduced_y and not working_item.reduced_x:
+            write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
+        elif working_item.reduced_x != working_item.original_x and working_item.reduced_y != working_item.original_y:
+            mask_resized = transform.resize(mask_image, [working_item.reduced_y, working_item.reduced_x],
+                                            anti_aliasing=False, preserve_range=True, order=0)
+            write_mask(mask_resized, masks_dir, collection, working_item.image_name, label_item)
+        else:
+            write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
 
     for wi in tqdm(working_items, desc="workingItem2mask"):
         labels = []
         label_list = get_labels(annotation_file)
         # the image has no annotation, writing a black mask:
         if not wi.annotations:
-            mask = np.zeros([wi.original_x, wi.original_y], np.uint8)
-            mask_resized = transform.resize(mask, [wi.reduced_x, wi.reduced_y], anti_aliasing=False,
-                                            preserve_range=True, order=0)
-            write_mask(mask_resized, masks_dir, collection, wi.image_name, None)
+            mask = np.zeros([wi.original_y, wi.original_x], np.uint8)
+            resize_and_write_mask(mask, wi, None)
             labels.append("nolabel")
         # check all possible labels for the image and create mask:
         else:
             for label in label_list.keys():
                 # get annotation corresponding to current label
+                # todo : the 'Label' key is not generic
                 selected_regions = list(filter(lambda r: r['region_attributes']['Label'] == label, wi.annotations))
                 if selected_regions:
                     # create a 0 matrix (black background)
-                    mask = np.zeros([wi.original_x, wi.original_y], np.uint8)
+                    mask = np.zeros([wi.original_y, wi.original_x], np.uint8)
                     # add one or several mask for current label
                     # nb: if 2 labels are on the same page, they belongs to the same mask
                     for sr in selected_regions:
-                        x = sr['shape_attributes']['x']
-                        y = sr['shape_attributes']['y']
-                        w = sr['shape_attributes']['width']
-                        h = sr['shape_attributes']['height']
-                        # project region(s) on the mask (binary b/w)
-                        mask[y:y + h, x:x + w] = 255
+                        if sr['shape_attributes']['name'] == 'rect':
+                            x = sr['shape_attributes']['x']
+                            y = sr['shape_attributes']['y']
+                            w = sr['shape_attributes']['width']
+                            h = sr['shape_attributes']['height']
+                            # project region(s) on the mask (binary b/w)
+                            mask[y:y + h, x:x + w] = 255
+                        elif sr['shape_attributes']['name'] == 'polygon':
+                            points_polygon = np.stack([sr['shape_attributes']['all_points_x'],
+                                                       sr['shape_attributes']['all_points_y']], axis=1)[:, None, :]
+
+                            mask = cv2.fillPoly(mask, [points_polygon], 255)
+                        else:
+                            raise NotImplementedError('Mask annotation for shape of type "{}" has not been implemented '
+                                                      'yet'.format(sr['shape_attributes']['name']))
 
                     # resize
-                    mask_resized = transform.resize(mask, [wi.reduced_x, wi.reduced_y], anti_aliasing=False,
-                                                    preserve_range=True, order=0)
-                    # write
-                    write_mask(mask_resized, masks_dir, collection, wi.image_name, label)
+                    resize_and_write_mask(mask, wi, label)
                     # add to existing labels
                     labels.append(label.strip(' \n').replace(" ", "_").lower())
 
@@ -309,60 +432,147 @@ def create_masks(masks_dir: str, working_items: List[WorkingItem], annotation_fi
             fh.write(a + "\t" + str(annotation_summary[a]) + "\n")
         fh.close()
 
-    logger.info("Done.")
+    print("Done.")
     return annotation_summary
 
 
-def main(args):
+def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection: str, label_name: str) -> None:
+    """
+    For each annotation, create a corresponding binary mask and resize it (h = 2000). Only valid for VIA 1.0.
+    Several annotations of the same class on the same image produce one image with several masks.
 
-    # logger
-    global logger
-    init_logger(logger, logging.INFO, log_file=None)
+    :param masks_dir: where to output the masks
+    :param working_items: infos to work with
+    :param collection:
+    :param label_name: name of the label to create mask
+    :return: None
+    """
 
-    # read config
-    config_file = args["--config-file"]
-    task = args["--task"]
-    collection = args["--collection"]
+    annotation_summary = dict()
 
-    if config_file and os.path.isfile(config_file):
-        logger.info("Found config file: {}".format(os.path.realpath(config_file)))
-        with open(config_file, 'r') as f:
-            config = json.load(f)
-    else:
-        logging.info("Provide a config file")
+    def resize_and_write_mask(mask_image: np.ndarray, working_item: WorkingItem, label_item: str):
+        """
+        Resize only if needed (if working_item.reduced != working_item.original)
+        :param mask_image:
+        :param working_item:
+        :param label_item:
+        :return:
+        """
+        if not working_item.reduced_y and not working_item.reduced_x:
+            write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
+        elif working_item.reduced_x != working_item.original_x and working_item.reduced_y != working_item.original_y:
+            mask_resized = transform.resize(mask_image, [working_item.reduced_y, working_item.reduced_x],
+                                            anti_aliasing=False, preserve_range=True, order=0)
+            write_mask(mask_resized, masks_dir, collection, working_item.image_name, label_item)
+        else:
+            write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
 
-    annotation_file = config.get("annotation_file")  # manual annotation json file
-    image_url_file = config.get("image_url_file")  # url image list
-    experiments_dir = config.get("experiments_dir")  # output expe
-    masks_dir = config.get("masks_dir")  # output annotation_objects
-    img_out_dir = config.get("img_out_dir")  # re-scaled images
+    for wi in tqdm(working_items, desc="workingItem2mask"):
+        labels = []
+        # the image has no annotation, writing a black mask:
+        if not wi.annotations:
+            mask = np.zeros([wi.original_y, wi.original_x], np.uint8)
+            resize_and_write_mask(mask, wi, None)
+            labels.append("nolabel")
+        # check all possible labels for the image and create mask:
+        else:
+            # get annotation corresponding to current label
+            selected_regions = wi.annotations
+            if selected_regions:
+                # create a 0 matrix (black background)
+                mask = np.zeros([wi.original_y, wi.original_x], np.uint8)
+                # add one or several mask for current label
+                # nb: if 2 labels are on the same page, they belongs to the same mask
+                elem_to_iterate = selected_regions.values() if isinstance(selected_regions, dict) else selected_regions
+                for sr in elem_to_iterate:
+                    if sr['shape_attributes']['name'] == 'rect':
+                        x = sr['shape_attributes']['x']
+                        y = sr['shape_attributes']['y']
+                        w = sr['shape_attributes']['width']
+                        h = sr['shape_attributes']['height']
+                        # project region(s) on the mask (binary b/w)
+                        mask[y:y + h, x:x + w] = 255
+                    elif sr['shape_attributes']['name'] == 'polygon':
+                        points_polygon = np.stack([sr['shape_attributes']['all_points_x'],
+                                                  sr['shape_attributes']['all_points_y']], axis=1)[:, None, :]
 
-    logger.info("\nGot the following paths:\n"
-                "annotation_file: {}\n"
-                "image_url_file: {}\n"
-                "experiments_dir: {}\n"
-                "masks_dir: {}\n"
-                "img_out_dir: {}\n".format(annotation_file, image_url_file, experiments_dir, masks_dir, img_out_dir)
-                )
+                        mask = cv2.fillPoly(mask, [points_polygon], 255)
+                    else:
+                        raise NotImplementedError('Mask annotation for shape of type "{}" has not been implemented yet'
+                                                  .format(sr['shape_attributes']['name']))
 
-    # to test working items loading
-    if task == "test-collect":
-        collect_working_items(image_url_file, annotation_file, collection)
+                # resize
+                resize_and_write_mask(mask, wi, label_name)
+                # add to existing labels
+                labels.append(label_name.strip(' \n').replace(" ", "_").lower())
 
-    # scale down and write original images
-    elif task == "original":
-        working_items = collect_working_items(image_url_file, annotation_file, collection)
-        wi_bag = db.from_sequence(working_items, partition_size=100)
-        wi_bag2 = wi_bag.map(scale_down_original, img_out_dir=img_out_dir)
-        with ProgressBar():
-            wi_bag2.compute()
+        # write summary: list of existing labels per image
+        annotation_summary[wi.image_name] = labels
+        outfile = os.path.join(masks_dir, collection, collection + "-classes.txt")
+        fh = open(outfile, 'a')
+        for a in annotation_summary:
+            fh.write(a + "\t" + str(annotation_summary[a]) + "\n")
+        fh.close()
 
-    # create masks
-    elif task == "masks":
-        working_items = collect_working_items(image_url_file, annotation_file, collection)
-        create_masks(masks_dir, working_items, annotation_file, collection)
+    return annotation_summary
 
 
-if __name__ == "__main__":
-    arguments = docopt.docopt(__doc__)
-    main(arguments)
+# def main(args):
+#
+#     # read config
+#     config_file = args["--config-file"]
+#     task = args["--task"]
+#     collection = args["--collection"]
+#
+#     if config_file and os.path.isfile(config_file):
+#         print("Found config file: {}".format(os.path.realpath(config_file)))
+#         with open(config_file, 'r') as f:
+#             config = json.load(f)
+#     else:
+#         print("Provide a config file")
+#
+#     annotation_file = config.get("annotation_file")  # manual annotation json file
+#     image_url_file = config.get("image_url_file")  # url image list
+#     experiments_dir = config.get("experiments_dir")  # output expe
+#     masks_dir = config.get("masks_dir")  # output annotation_objects
+#     img_out_dir = config.get("img_out_dir")  # re-scaled images
+#
+#     print("\nGot the following paths:\n"
+#           "annotation_file: {}\n"
+#           "image_url_file: {}\n"
+#           "experiments_dir: {}\n"
+#           "masks_dir: {}\n"
+#           "img_out_dir: {}\n".format(annotation_file, image_url_file, experiments_dir, masks_dir, img_out_dir)
+#           )
+#
+#     # to test working items loading
+#     if task == "test-collect":
+#         collect_working_items(image_url_file, annotation_file, collection)
+#
+#     # scale down and write original images
+#     elif task == "original":
+#         working_items = collect_working_items(image_url_file, annotation_file, collection)
+#         wi_bag = db.from_sequence(working_items, partition_size=100)
+#         wi_bag2 = wi_bag.map(scale_down_original, img_out_dir=img_out_dir)
+#         with ProgressBar():
+#             wi_bag2.compute()
+#
+#     # create masks
+#     elif task == "masks":
+#         working_items = collect_working_items(image_url_file, annotation_file, collection)
+#         create_masks_v2(masks_dir, working_items, annotation_file, collection)
+#
+
+"""
+Example of usage
+
+
+collection = 'mycollection'
+annotation_file = 'via_regions_annotated.json'
+image_url_file = 'list_files_image_url.txt'
+masks_dir = '/home/project/generated_masks'
+
+working_items = collect_working_items(image_url_file, annotation_file, collection)
+create_masks_v2(masks_dir, working_items, annotation_file, collection)
+"""
+

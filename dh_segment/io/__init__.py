@@ -68,13 +68,14 @@ VGG Image Annotator helpers
 ---------------------------
 
 .. autosummary::
+    via.load_annotation_data
+    via.export_annotation_dict
     via.get_annotations
-    via.get_labels
+    via.get_via_attributes_regions
+    via.get_labels_per_attribute
     via.collect_working_items
-    via.create_masks
-    via.compute_reduced_dimensions
-    via.scale_down_original
-    via.getimage_from_iiif
+    via.create_masks_v1
+    via.create_masks_v2
 
 ----
 
