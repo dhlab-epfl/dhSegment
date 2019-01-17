@@ -12,7 +12,7 @@ Pip install using git repository : ::
 Using Anaconda
 ^^^^^^^^^^^^^^
 
-- Install Anaconda or Miniconda
+- Install Anaconda or Miniconda (`installation procedure <https://conda.io/docs/user-guide/install/index.html#>`_)
 
 - Create a virtual environment with all the packages ``conda env create -f environment.yml``
 
