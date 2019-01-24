@@ -351,7 +351,8 @@ def get_labels_per_attribute(annotation_dict: dict, attribute_regions: List[str]
         raise NotImplementedError
 
 
-def create_masks_v2(masks_dir: str, working_items: List[WorkingItem], annotation_file: str, collection: str) -> None:
+def create_masks_v2(masks_dir: str, working_items: List[WorkingItem], annotation_file: str,
+                    collection: str, contours_only: bool=False) -> None:
     """
     For each annotation, create a corresponding binary mask and resize it (h = 2000). Only valid for VIA 2.0.
     Several annotations of the same class on the same image produce one image with several masks.
@@ -360,6 +361,7 @@ def create_masks_v2(masks_dir: str, working_items: List[WorkingItem], annotation
     :param working_items: infos to work with
     :param annotation_file:
     :param collection:
+    :param contours_only: creates the binary masks only for the contours of the object (thickness of contours : 20 px)
     :return: None
     """
     print("Creating masks in {}...".format(masks_dir))
@@ -402,22 +404,34 @@ def create_masks_v2(masks_dir: str, working_items: List[WorkingItem], annotation
                     mask = np.zeros([wi.original_y, wi.original_x], np.uint8)
                     # add one or several mask for current label
                     # nb: if 2 labels are on the same page, they belongs to the same mask
+
+                    contours_points = list()
                     for sr in selected_regions:
+
                         if sr['shape_attributes']['name'] == 'rect':
                             x = sr['shape_attributes']['x']
                             y = sr['shape_attributes']['y']
                             w = sr['shape_attributes']['width']
                             h = sr['shape_attributes']['height']
-                            # project region(s) on the mask (binary b/w)
-                            mask[y:y + h, x:x + w] = 255
-                        elif sr['shape_attributes']['name'] == 'polygon':
-                            points_polygon = np.stack([sr['shape_attributes']['all_points_x'],
-                                                       sr['shape_attributes']['all_points_y']], axis=1)[:, None, :]
 
-                            mask = cv2.fillPoly(mask, [points_polygon], 255)
+                            contours_points.append(np.array([[x, y],
+                                                             [x + w, y],
+                                                             [x + w, y + h],
+                                                             [x, y + h]
+                                                             ]).reshape((-1, 1, 2)))
+
+                        elif sr['shape_attributes']['name'] == 'polygon':
+                            contours_points.append(np.stack([sr['shape_attributes']['all_points_x'],
+                                                             sr['shape_attributes']['all_points_y']], axis=1)[:, None, :])
+
                         else:
                             raise NotImplementedError('Mask annotation for shape of type "{}" has not been implemented '
                                                       'yet'.format(sr['shape_attributes']['name']))
+
+                        if contours_only:
+                            mask = cv2.polylines(mask, contours_points, True, 255, thickness=15)
+                        else:
+                            mask = cv2.fillPoly(mask, contours_points, 255)
 
                     # resize
                     resize_and_write_mask(mask, wi, label)
@@ -436,7 +450,8 @@ def create_masks_v2(masks_dir: str, working_items: List[WorkingItem], annotation
     return annotation_summary
 
 
-def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection: str, label_name: str) -> None:
+def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection: str,
+                    label_name: str, contours_only: bool=False) -> None:
     """
     For each annotation, create a corresponding binary mask and resize it (h = 2000). Only valid for VIA 1.0.
     Several annotations of the same class on the same image produce one image with several masks.
@@ -445,6 +460,7 @@ def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection
     :param working_items: infos to work with
     :param collection:
     :param label_name: name of the label to create mask
+    :param contours_only: creates the binary masks only for the contours of the object (thickness of contours : 20 px)
     :return: None
     """
 
@@ -484,22 +500,34 @@ def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection
                 # add one or several mask for current label
                 # nb: if 2 labels are on the same page, they belongs to the same mask
                 elem_to_iterate = selected_regions.values() if isinstance(selected_regions, dict) else selected_regions
+
+                # Todo : use only cv2.fillPoly method -> format the data for 'rect' case to fit fillPoly args
+                contours_points = list()
                 for sr in elem_to_iterate:
                     if sr['shape_attributes']['name'] == 'rect':
                         x = sr['shape_attributes']['x']
                         y = sr['shape_attributes']['y']
                         w = sr['shape_attributes']['width']
                         h = sr['shape_attributes']['height']
-                        # project region(s) on the mask (binary b/w)
-                        mask[y:y + h, x:x + w] = 255
-                    elif sr['shape_attributes']['name'] == 'polygon':
-                        points_polygon = np.stack([sr['shape_attributes']['all_points_x'],
-                                                  sr['shape_attributes']['all_points_y']], axis=1)[:, None, :]
 
-                        mask = cv2.fillPoly(mask, [points_polygon], 255)
+                        contours_points.append(np.array([[x, y],
+                                                         [x + w, y],
+                                                         [x + w, y + h],
+                                                         [x, y + h]
+                                                         ]).reshape((-1, 1, 2)))
+
+                    elif sr['shape_attributes']['name'] == 'polygon':
+                        contours_points.append(np.stack([sr['shape_attributes']['all_points_x'],
+                                                         sr['shape_attributes']['all_points_y']], axis=1)[:, None, :])
+
                     else:
                         raise NotImplementedError('Mask annotation for shape of type "{}" has not been implemented yet'
                                                   .format(sr['shape_attributes']['name']))
+
+                    if contours_only:
+                        mask = cv2.polylines(mask, contours_points, True, 255, thickness=15)
+                    else:
+                        mask = cv2.fillPoly(mask, contours_points, 255)
 
                 # resize
                 resize_and_write_mask(mask, wi, label_name)
