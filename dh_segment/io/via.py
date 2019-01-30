@@ -10,7 +10,7 @@ from collections import namedtuple
 from imageio import imsave, imread
 import requests
 from itertools import filterfalse
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from enum import Enum
 import cv2
 
@@ -44,7 +44,7 @@ class Color(Enum):
     YELLOW = (255, 255, 0)
 
 
-def get_annotations(via_dict: dict, name_file: str) -> dict:
+def _get_annotations(via_dict: dict, name_file: str) -> dict:
     """
     From VIA json file, get annotations relative to the given `name_file`.
 
@@ -76,7 +76,7 @@ def get_annotations(via_dict: dict, name_file: str) -> dict:
             return None
 
 
-def compute_reduced_dimensions(x: int, y: int, target_h: int=2000) -> Tuple[int, int]:
+def _compute_reduced_dimensions(x: int, y: int, target_h: int=2000) -> Tuple[int, int]:
     """
     Compute new dimensions with height set to `target_h`.
 
@@ -130,11 +130,11 @@ def collect_working_items(image_url_file: List[str], annotation_file: str, colle
             if resp_json.status_code == requests.codes.ok:
                 x = resp_json.json()['height']
                 y = resp_json.json()['width']
-                target_h, target_w = compute_reduced_dimensions(x, y)
+                target_h, target_w = _compute_reduced_dimensions(x, y)
             else:
                 resp_json.raise_for_status()
 
-            regions = get_annotations(annotations, iiif)
+            regions = _get_annotations(annotations, iiif)
 
             wk_item = WorkingItem(
                 collection,
@@ -171,7 +171,7 @@ def scale_down_original(working_item, img_out_dir: str) -> None:
 
     outfile = os.path.join(image_set_dir, working_item.image_name + "_ds.png")
     if not os.path.isfile(outfile):
-        img = getimage_from_iiif(working_item.iiif, 'epfl-team', iiif_password)
+        img = _getimage_from_iiif(working_item.iiif, 'epfl-team', iiif_password)
         img_resized = transform.resize(
                                 img,
                                 [working_item.reduced_y, working_item.reduced_x],
@@ -181,7 +181,7 @@ def scale_down_original(working_item, img_out_dir: str) -> None:
         imsave(outfile, img_resized.astype(np.uint8))
 
 
-def getimage_from_iiif(url, user, pwd):
+def _getimage_from_iiif(url, user, pwd):
     img = requests.get(url, auth=(user, pwd))
     return imread(img.content)
 
@@ -211,7 +211,7 @@ def export_annotation_dict(annotation_dict: dict, filename: str) -> None:
         json.dump(annotation_dict, f)
 
 
-def write_mask(mask: np.ndarray, masks_dir: str, collection: str, image_name: str, label: str) -> None:
+def _write_mask(mask: np.ndarray, masks_dir: str, collection: str, image_name: str, label: str) -> None:
     """
     Save a mask with filename containing 'label'.
 
@@ -377,13 +377,13 @@ def create_masks_v2(masks_dir: str, working_items: List[WorkingItem], annotation
         :return:
         """
         if not working_item.reduced_y and not working_item.reduced_x:
-            write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
+            _write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
         elif working_item.reduced_x != working_item.original_x and working_item.reduced_y != working_item.original_y:
             mask_resized = transform.resize(mask_image, [working_item.reduced_y, working_item.reduced_x],
                                             anti_aliasing=False, preserve_range=True, order=0)
-            write_mask(mask_resized, masks_dir, collection, working_item.image_name, label_item)
+            _write_mask(mask_resized, masks_dir, collection, working_item.image_name, label_item)
         else:
-            write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
+            _write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
 
     for wi in tqdm(working_items, desc="workingItem2mask"):
         labels = []
@@ -475,13 +475,13 @@ def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection
         :return:
         """
         if not working_item.reduced_y and not working_item.reduced_x:
-            write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
+            _write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
         elif working_item.reduced_x != working_item.original_x and working_item.reduced_y != working_item.original_y:
             mask_resized = transform.resize(mask_image, [working_item.reduced_y, working_item.reduced_x],
                                             anti_aliasing=False, preserve_range=True, order=0)
-            write_mask(mask_resized, masks_dir, collection, working_item.image_name, label_item)
+            _write_mask(mask_resized, masks_dir, collection, working_item.image_name, label_item)
         else:
-            write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
+            _write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
 
     for wi in tqdm(working_items, desc="workingItem2mask"):
         labels = []
@@ -501,7 +501,6 @@ def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection
                 # nb: if 2 labels are on the same page, they belongs to the same mask
                 elem_to_iterate = selected_regions.values() if isinstance(selected_regions, dict) else selected_regions
 
-                # Todo : use only cv2.fillPoly method -> format the data for 'rect' case to fit fillPoly args
                 contours_points = list()
                 for sr in elem_to_iterate:
                     if sr['shape_attributes']['name'] == 'rect':
@@ -516,18 +515,31 @@ def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection
                                                          [x, y + h]
                                                          ]).reshape((-1, 1, 2)))
 
+                        if contours_only:
+                            mask = cv2.polylines(mask, contours_points, True, 255, thickness=15)
+                        else:
+                            mask = cv2.fillPoly(mask, contours_points, 255)
+
                     elif sr['shape_attributes']['name'] == 'polygon':
                         contours_points.append(np.stack([sr['shape_attributes']['all_points_x'],
                                                          sr['shape_attributes']['all_points_y']], axis=1)[:, None, :])
 
+                        if contours_only:
+                            mask = cv2.polylines(mask, contours_points, True, 255, thickness=15)
+                        else:
+                            mask = cv2.fillPoly(mask, contours_points, 255)
+
+                    elif sr['shape_attributes']['name'] == 'circle':
+                        center_point = (sr['shape_attributes']['cx'], sr['shape_attributes']['cy'])
+                        radius = sr['shape_attributes']['r']
+
+                        if contours_only:
+                            mask = cv2.circle(mask, center_point, radius, 255, thickness=15)
+                        else:
+                            mask = cv2.circle(mask, center_point, radius, 255, thickness=-1)
                     else:
                         raise NotImplementedError('Mask annotation for shape of type "{}" has not been implemented yet'
                                                   .format(sr['shape_attributes']['name']))
-
-                    if contours_only:
-                        mask = cv2.polylines(mask, contours_points, True, 255, thickness=15)
-                    else:
-                        mask = cv2.fillPoly(mask, contours_points, 255)
 
                 # resize
                 resize_and_write_mask(mask, wi, label_name)
@@ -590,6 +602,82 @@ def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection
 #         working_items = collect_working_items(image_url_file, annotation_file, collection)
 #         create_masks_v2(masks_dir, working_items, annotation_file, collection)
 #
+
+
+def _get_xywh_from_coordinates(coordinates: np.array) -> Tuple[int, int, int, int]:
+    """
+    From cooridnates points get x,y, width height
+    :param coordinates: (N,2) coordinates (x,y)
+    :return: x, y, w, h
+    """
+
+    x = np.min(coordinates[:, 0])
+    y = np.min(coordinates[:, 1])
+    w = np.max(coordinates[:, 0]) - x
+    h = np.max(coordinates[:, 1]) - y
+
+    return x, y, w, h
+
+
+def create_via_region_from_coordinates(coordinates: np.array, region_attributes: dict, type_region: str) -> dict:
+    """
+
+    :param coordinates: (N, 2) coordinates (x, y)
+    :param region_attributes: dictionary with keys : name of labels, values : values of labels
+    :param type_region: via region annotation type ('rect', 'polygon')
+    :return: a region in VIA style (dict/json)
+    """
+    assert type_region in ['rect', 'polygon', 'circle']
+
+    if type_region == 'rect':
+        x, y, w, h = _get_xywh_from_coordinates(coordinates)
+        shape_atributes = {
+            'name': 'rect',
+            'height': int(h),
+            'width': int(w),
+            'x': int(x),
+            'y': int(y)
+        }
+    elif type_region == 'polygon':
+        points_x = list(coordinates[:, 0])
+        points_y = list(coordinates[:, 1])
+
+        shape_atributes = {
+            'name': 'polygon',
+            'all_points_x': [int(p) for p in points_x],
+            'all_points_y': [int(p) for p in points_y],
+        }
+    elif type_region == 'circle':
+        raise NotImplementedError('The type {} is not supported for the export.'.format(type))
+
+    return {'region_attributes': region_attributes,
+            'shape_attributes': shape_atributes}
+
+
+def create_via_annotation_single_image(img_filename: str, via_regions: List[dict],
+                                       file_attributes: dict=None) -> Dict[str, dict]:
+    """
+
+    :param img_filename:
+    :param via_regions:
+    :param file_attributes:
+    :return:
+    """
+
+    basename = os.path.basename(img_filename)
+    file_size = os.path.getsize(img_filename)
+
+    via_key = '{}{}'.format(basename, file_size)
+
+    via_annotation = {
+        'file_attributes': file_attributes if file_attributes is not None else dict(),
+        'filename': basename,
+        'size': file_size,
+        'regions': via_regions
+    }
+
+    return {via_key: via_annotation}
+
 
 """
 Example of usage
