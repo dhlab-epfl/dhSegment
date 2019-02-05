@@ -245,7 +245,7 @@ def get_labels(annotation_file: str) -> dict:
     # list(annotations['_via_attributes']['region'][{name_attributes}][{args}]
     label_list = list(annotations['_via_attributes']['region']['Label']['options'])
 
-    # todo: keep a list of colors and assign randomly to label (to avoid hard coding labels/color correspondance)
+    # todo: keep a list of colors and assign randomly to label (to avoid hard coding labels/color correspondence)
     # todo: or take it from a config file
     label_color = dict()
     for label in label_list:
@@ -259,7 +259,7 @@ def get_labels(annotation_file: str) -> dict:
 
 def get_via_attributes_regions(annotation_dict: dict, via_version: int=2) -> List[str]:
     """
-    Gets the attributes of the annotataed data.
+    Gets the attributes of the annotated data.
 
     :param annotation_dict:
     :param via_version: either 1 or 2 (for VIA v 1.0 or VIA v 2.0)
@@ -371,6 +371,7 @@ def create_masks_v2(masks_dir: str, working_items: List[WorkingItem], annotation
     def resize_and_write_mask(mask_image: np.ndarray, working_item: WorkingItem, label_item: str):
         """
         Resize only if needed (if working_item.reduced != working_item.original)
+
         :param mask_image:
         :param working_item:
         :param label_item:
@@ -469,6 +470,7 @@ def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection
     def resize_and_write_mask(mask_image: np.ndarray, working_item: WorkingItem, label_item: str):
         """
         Resize only if needed (if working_item.reduced != working_item.original)
+
         :param mask_image:
         :param working_item:
         :param label_item:
@@ -603,10 +605,13 @@ def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection
 #         create_masks_v2(masks_dir, working_items, annotation_file, collection)
 #
 
+# EXPORT
+# ------
 
 def _get_xywh_from_coordinates(coordinates: np.array) -> Tuple[int, int, int, int]:
     """
-    From cooridnates points get x,y, width height
+    From coordinates points get x,y, width, height
+
     :param coordinates: (N,2) coordinates (x,y)
     :return: x, y, w, h
     """
@@ -621,6 +626,7 @@ def _get_xywh_from_coordinates(coordinates: np.array) -> Tuple[int, int, int, in
 
 def create_via_region_from_coordinates(coordinates: np.array, region_attributes: dict, type_region: str) -> dict:
     """
+    Formats coordinates to a VIA region (dict).
 
     :param coordinates: (N, 2) coordinates (x, y)
     :param region_attributes: dictionary with keys : name of labels, values : values of labels
@@ -657,11 +663,12 @@ def create_via_region_from_coordinates(coordinates: np.array, region_attributes:
 def create_via_annotation_single_image(img_filename: str, via_regions: List[dict],
                                        file_attributes: dict=None) -> Dict[str, dict]:
     """
+    Returns a dictionary item {key: annotation} in VIA forat to further export in .json file
 
-    :param img_filename:
-    :param via_regions:
-    :param file_attributes:
-    :return:
+    :param img_filename: path to the image
+    :param via_regions: regions in VIA format (output from ``create_via_region_from_coordinates``)
+    :param file_attributes: file attributes (usually None)
+    :return: dictionary item with key and annotations in VIA format
     """
 
     basename = os.path.basename(img_filename)
