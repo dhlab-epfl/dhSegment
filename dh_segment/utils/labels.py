@@ -4,6 +4,7 @@ __license__ = "GPL"
 import tensorflow as tf
 import numpy as np
 import os
+from typing import Tuple
 
 
 def label_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.Tensor:
@@ -29,6 +30,13 @@ def class_to_label_image(class_label: tf.Tensor, classes_file: str) -> tf.Tensor
 
 
 def multilabel_image_to_class(label_image: tf.Tensor, classes_file: str) -> tf.Tensor:
+    """
+    Combines image annotations with classes info of the txt file to create the input label for the training.
+
+    :param label_image: annotated image [H,W,Ch] or [B,H,W,Ch] (Ch = color channels)
+    :param classes_file: the filename of the txt file containing the class info
+    :return: [H,W,Cl] or [B,H,W,Cl] (Cl = number of classes)
+    """
     classes_color_values, colors_labels = get_classes_color_from_file_multilabel(classes_file)
     # Convert label_image [H,W,3] to the classes [H,W,C],int32 according to the classes [C,3]
     with tf.name_scope('LabelAssign'):
@@ -71,7 +79,15 @@ def get_n_classes_from_file(classes_file: str) -> int:
     return get_classes_color_from_file(classes_file).shape[0]
 
 
-def get_classes_color_from_file_multilabel(classes_file: str) -> np.ndarray:
+def get_classes_color_from_file_multilabel(classes_file: str) -> Tuple[np.ndarray, np.array]:
+    """
+    Get classes and code labels from txt file.
+    This function deals with the case of elements with multiple labels.
+
+    :param classes_file: file containing the classes (usually named *classes.txt*)
+    :return: for each class the RGB color (array size [N, 3]); and the label's code  (array size [N, C]),
+        with N the number of combinations and C the number of classes
+    """
     if not os.path.exists(classes_file):
         raise FileNotFoundError(classes_file)
     result = np.loadtxt(classes_file).astype(np.float32)

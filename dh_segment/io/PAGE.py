@@ -160,12 +160,15 @@ class Region(BaseElement):
 
     :ivar id: identifier of the `Region`
     :ivar coords: coordinates of the `Region`
+    :ivar custom_attribute: Any custom attribute that may be linked with the region
+        (usually this is added in PAGEXML files, not in JSON files)
     """
     tag = 'Region'
 
-    def __init__(self, id: str=None, coords: List[Point]=None):
+    def __init__(self, id: str=None, coords: List[Point]=None, custom_attribute: str=None):
         self.coords = coords if coords is not None else []
         self.id = id
+        self.custom_attribute = custom_attribute if custom_attribute is not None else ''
 
     @classmethod
     def from_xml(cls, etree_element: ET.Element) -> dict:
@@ -175,6 +178,7 @@ class Region(BaseElement):
         :return: a dictionary with keys 'id' and 'coords'
         """
         return {'id': etree_element.attrib.get('id'),
+                'custom_attribute': etree_element.attrib.get('custom'),
                 'coords': Point.list_from_xml(etree_element.find('p:Coords', _ns))}
 
     def to_xml(self, name_element: str=None) -> ET.Element:
@@ -185,6 +189,7 @@ class Region(BaseElement):
         """
         et = ET.Element(name_element if name_element is not None else '')
         et.set('id', self.id if self.id is not None else '')
+        et.set('custom', self.custom_attribute if self.custom_attribute is not None else '')
         if not not self.coords:
             coords = ET.SubElement(et, 'Coords')
             coords.set('points', Point.list_point_to_string(self.coords))
@@ -209,6 +214,7 @@ class Region(BaseElement):
         :return: non serialized dictionary
         """
         return {'id': dictionary.get('id'),
+                'custom_attribute': dictionary.get('custom_attribute'),
                 'coords': Point.list_to_point(dictionary.get('coords'))
                 }
 
@@ -222,13 +228,14 @@ class TextLine(Region):
     :ivar text: `Text` class containing the transcription of the `TextLine`
     :ivar line_group_id: identifier of the line group the instance belongs to
     :ivar column_group_id: identifier of the column group the instance belongs to
-
+    :ivar custom_attribute: Any custom attribute that may be linked with the region
+        (usually this is added in PAGEXML files, not in JSON files)
     """
     tag = 'TextLine'
 
     def __init__(self, id: str = None, coords: List[Point] = None, baseline: List[Point] = None, text: Text = None,
-                 line_group_id: str = None, column_group_id: str = None):
-        super().__init__(id=id if id is not None else str(uuid4()), coords=coords)
+                 line_group_id: str = None, column_group_id: str = None, custom_attribute: str=None):
+        super().__init__(id=id if id is not None else str(uuid4()), coords=coords, custom_attribute=custom_attribute)
         self.baseline = baseline if baseline is not None else []
         self.text = text if text is not None else Text()
         self.line_group_id = line_group_id if line_group_id is not None else ''
@@ -321,17 +328,23 @@ class TextRegion(Region):
     :ivar coords: coordinates of the `TextRegion`
     :ivar text_equiv: the resulting text of the `Text` contained in the `TextLines`
     :ivar text_lines: a list of `TextLine` objects
+    :ivar region_type: the type of a TextRegion (can be any string). Example : header, paragraph, page-number...
+    :ivar custom_attribute: Any custom attribute that may be linked with the region
+        (usually this is added in PAGEXML files, not in JSON files)
     """
     tag = 'TextRegion'
 
-    def __init__(self, id: str=None, coords: List[Point]=None, text_lines: List[TextLine]=None, text_equiv: str=''):
-        super().__init__(id=id, coords=coords)
+    def __init__(self, id: str=None, coords: List[Point]=None, text_lines: List[TextLine]=None, text_equiv: str='',
+                 region_type: str=None, custom_attribute: str=None):
+        super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.text_equiv = text_equiv if text_equiv is not None else ''
         self.text_lines = text_lines if text_lines is not None else []
+        self.type = region_type if region_type is not None else ''
 
     def sort_text_lines(self, top_to_bottom: bool=True) -> None:
         """
         Sorts ``TextLine``s from top to bottom according to their mean y coordinate (centroid)
+        
         :param top_to_bottom: order lines from top to bottom of image, default=True
         """
         if top_to_bottom:
@@ -345,11 +358,13 @@ class TextRegion(Region):
         return TextRegion(
             **super().from_xml(e),
             text_lines=[TextLine.from_xml(tl) for tl in e.findall('p:TextLine', _ns)],
-            text_equiv=_get_text_equiv(e)
+            text_equiv=_get_text_equiv(e),
+            region_type=e.attrib.get('type')
         )
 
     def to_xml(self, name_element='TextRegion') -> ET.Element:
         text_et = super().to_xml(name_element=name_element)
+        text_et.set('type', self.type if self.type is not None else '')
         for tl in self.text_lines:
             text_et.append(tl.to_xml())
         text_equiv = ET.SubElement(text_et, 'TextEquiv')
@@ -365,7 +380,8 @@ class TextRegion(Region):
     def from_dict(cls, dictionary: dict) -> 'TextRegion':
         return cls(**super().from_dict(dictionary),
                    text_lines=[TextLine.from_dict(tl) for tl in dictionary.get('text_lines', list())],
-                   text_equiv=dictionary.get('text_equiv')
+                   text_equiv=dictionary.get('text_equiv'),
+                   region_type=dictionary.get('region_type')
                    )
 
 
