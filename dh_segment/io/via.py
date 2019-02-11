@@ -13,10 +13,10 @@ from skimage import transform
 from collections import namedtuple
 from imageio import imsave, imread
 import requests
+from PIL import Image
 from itertools import filterfalse, chain
 from typing import List, Tuple, Dict
 import cv2
-from taputapu.io.image import get_image_shape_without_loading
 
 
 # To define before using the corresponding functions
@@ -156,13 +156,19 @@ def _collect_working_items_from_local_images(via_annotations: dict, images_dir: 
         name_id = re.sub('.png\d*', '.png', name_id)
         return name_id
 
+    def _get_image_shape_without_loading(filename: str) -> Tuple[int, int]:
+        image = Image.open(filename)
+        shape = image.size
+        image.close()
+        return shape
+
     working_items = list()
 
     for key, v in tqdm(via_annotations.items()):
         filename = _formatting(key)
 
         absolute_filename = os.path.join(images_dir, filename)
-        shape_image = get_image_shape_without_loading(absolute_filename)
+        shape_image = _get_image_shape_without_loading(absolute_filename)
 
         regions = v['regions']
 
