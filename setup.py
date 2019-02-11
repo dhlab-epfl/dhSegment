@@ -21,6 +21,10 @@ setup(name='dh_segment',
         'scikit-learn',
         'opencv-python',
         'tqdm',
+        'taputapu'
+      ],
+      dependency_links=[
+        'git+ssh://git@github.com/solivr/taputapu.git#egg=taputapu'
       ],
       extras_require={
           'doc': [

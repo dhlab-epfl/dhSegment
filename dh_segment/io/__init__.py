@@ -64,18 +64,36 @@ PAGE XML and JSON import / export
 
 ----
 
+.. _ref_via:
+
 VGG Image Annotator helpers
 ---------------------------
+
+
+**VIA objects**
+
+.. autosummary::
+    via.WorkingItem
+    via.VIAttribute
+
+
+**Creating masks with VIA annotations**
 
 .. autosummary::
     via.load_annotation_data
     via.export_annotation_dict
-    via.get_annotations
-    via.get_via_attributes_regions
-    via.get_labels_per_attribute
+    via.get_annotations_per_file
+    via.parse_via_attributes
+    via.get_via_attributes
     via.collect_working_items
-    via.create_masks_v1
-    via.create_masks_v2
+    via.create_masks
+
+
+**Formatting in VIA JSON format**
+
+.. autosummary::
+    via.create_via_region_from_coordinates
+    via.create_via_annotation_single_image
 
 ----
 

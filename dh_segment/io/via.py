@@ -1,26 +1,30 @@
 #!/usr/bin/env python
 # coding: utf-8 
 
+__author__ = "maudehrmann, solivr"
+__license__ = "GPL"
+
 import json
 import os
+import re
 from tqdm import tqdm
 import numpy as np
 from skimage import transform
 from collections import namedtuple
 from imageio import imsave, imread
 import requests
-from itertools import filterfalse
+from itertools import filterfalse, chain
 from typing import List, Tuple, Dict
-from enum import Enum
 import cv2
+from taputapu.io.image import get_image_shape_without_loading
 
 
-__author__ = "maudehrmann"
-
+# To define before using the corresponding functions
 # iiif_password = os.environ["IIIF_PWD"]
 iiif_password = ''
 
-WorkingItem = namedtuple(  # TODO:
+
+WorkingItem = namedtuple(
     "WorkingItem", [
         'collection',
         'image_name',
@@ -32,23 +36,68 @@ WorkingItem = namedtuple(  # TODO:
         'annotations'
     ]
 )
+WorkingItem.__doc__ = """
+A container for annotated images.
+
+:param str collection: name of the collection
+:param str image_name: name of the image
+:param int original_x: original image x size (width)
+:param int original_y: original image y size (height)
+:param int reduced_x: resized x size
+:param int reduced_y: resized y size
+:param str iiif: iiif url
+:param dict annotations: VIA 'region_attributes'
+"""
 
 
-class Color(Enum):
-    WHITE = (255, 255, 255)
-    BLACK = (0, 0, 0)
-    GREY = (128, 128, 128)
-    RED = (255, 0, 0)
-    GREEN = (0, 255, 0)
-    BLUE = (0, 0, 255)
-    YELLOW = (255, 255, 0)
+VIAttribute = namedtuple(
+    "VIAttribute", [
+        'name',
+        'type',
+        'options'
+    ]
+)
+VIAttribute.__doc__ = """
+A container for VIA attributes.
+
+:param str name: The name of attribute
+:param str type: The type of the annotation (dropdown, markbox, ...)
+:param list options: The options / labels possible for this attribute.
+"""
 
 
-def _get_annotations(via_dict: dict, name_file: str) -> dict:
+def parse_via_attributes(via_attributes: dict) -> List[VIAttribute]:
     """
-    From VIA json file, get annotations relative to the given `name_file`.
+    Parses the VIA attribute dictionary and returns a list of VIAttribute instances
 
-    :param via_dict: VIA annotation output (originally json)
+    :param via_attributes: attributes from VIA annotation ('_via_attributes' field)
+    :return: list of ``VIAttribute``
+    """
+
+    if {'file', 'region'}.issubset(set(via_attributes.keys())):
+        via_attributes = via_attributes['region']
+
+    list_attributes = list()
+    for k, v in via_attributes.items():
+        if v['type'] == 'text':
+            print('WARNING : Please do not use text type for attributes because it is more prone to errors/typos which '
+                  'can make the parsing fail. Use instead "checkbox", "dropdown" or "radio" with defined options.')
+            options = None
+        else:
+            options = list(v['options'].keys())
+
+        list_attributes.append(VIAttribute(k,
+                                           v['type'],
+                                           options))
+
+    return list_attributes
+
+
+def get_annotations_per_file(via_dict: dict, name_file: str) -> dict:
+    """
+    From VIA json content, get annotations relative to the given `name_file`.
+
+    :param via_dict: VIA annotations content (originally json)
     :param name_file: the file to look for (it can be a iiif path or a file path)
     :return: dict
     """
@@ -63,7 +112,8 @@ def _get_annotations(via_dict: dict, name_file: str) -> dict:
     #  If it looks like a iiif path add "-1"
     if 'http' in name_file:
         key = name_file + "-1"
-    else:  # find the key that contains the name_file
+    else:
+        # find the key that contains the name_file
         list_keys = list(filterfalse(lambda x: name_file not in x, list(annotation_dict.keys())))
         assert len(list_keys) == 1, "There is more than one key for the file '{} : \n{}'".format(name_file, list_keys)
         key = list_keys[0]
@@ -86,73 +136,133 @@ def _compute_reduced_dimensions(x: int, y: int, target_h: int=2000) -> Tuple[int
     :return: tuple
     """
     ratio = y / x
-    target_w = int(target_h*ratio)
+    target_w = int(target_h * ratio)
     return target_h, target_w
 
 
-def collect_working_items(image_url_file: List[str], annotation_file: str, collection: str) -> List[WorkingItem]:
+def _collect_working_items_from_local_images(via_annotations: dict, images_dir: str, collection_name: str) \
+        -> List[WorkingItem]:
     """
-    Given VIA annotation input, collect all info on `WorkingItem` object.
+    Given VIA annotation input, collect all info on `WorkingItem` object, when images come from local files
 
-    :param image_url_file: file listing IIIF URLs files
-    :param annotation_file: VIA json file, output of manual annotation
-    :param collection: target collection to consider
-    :return: list of `WorkingItem`
+    :param via_annotations: via_annotations: via annotations ('regions' field)
+    :param images_dir: directory where to find the images
+    :param collection_name: name of the collection
+    :return:
     """
-    print("Collecting working items for {}".format(collection))
-    working_items = []
-    session = requests.Session()
 
-    # load manual annotation json data
-    with open(annotation_file, 'r') as a:
-        annotations = json.load(a)
+    def _formatting(name_id: str) -> str:
+        name_id = re.sub('.jpg\d*', '.jpg', name_id)
+        name_id = re.sub('.png\d*', '.png', name_id)
+        return name_id
 
-    # iterate over image IIIF URLs and build working items
-    with open(image_url_file) as current_file:
-        lines = current_file.readlines()
-        for line in tqdm(lines, desc='URL2WorkingItem'):
-            x = None
-            y = None
-            target_h = None
-            target_w = None
+    working_items = list()
 
-            # line is e.g. 'https://myserver.ch/iiif_project/image-name/full/full/0/default.jpg'
-            basename = "https://myserver.ch/iiif_project/"  # todo: update, or even pass as param
-            iiif = line.strip("\n")
+    for key, v in tqdm(via_annotations.items()):
+        filename = _formatting(key)
 
-            # get image-name
-            image_name = line.split(basename)[1].split("/full/full/0/default.jpg")[0]
+        absolute_filename = os.path.join(images_dir, filename)
+        shape_image = get_image_shape_without_loading(absolute_filename)
 
-            # get image dimensions
-            iiif_json = iiif.replace("default.jpg", "info.json")
-            resp_image = session.get(iiif, auth=('epfl-team', iiif_password))  # need to request image first
-            resp_json = session.get(iiif_json, auth=('epfl-team', iiif_password))
-            if resp_json.status_code == requests.codes.ok:
-                x = resp_json.json()['height']
-                y = resp_json.json()['width']
-                target_h, target_w = _compute_reduced_dimensions(x, y)
-            else:
-                resp_json.raise_for_status()
+        regions = v['regions']
 
-            regions = _get_annotations(annotations, iiif)
+        if regions:
+            wk_item = WorkingItem(collection=collection_name,
+                                  image_name=filename.split('.')[0],
+                                  original_x=shape_image[0],
+                                  original_y=shape_image[1],
+                                  reduced_x=None,
+                                  reduced_y=None,
+                                  iiif=None,
+                                  annotations=regions)
 
-            wk_item = WorkingItem(
-                collection,
-                image_name,
-                x,
-                y,
-                target_h,
-                target_w,
-                iiif,
-                regions
-            )
             working_items.append(wk_item)
 
-    print("Collected {} items.".format(len(working_items)))
     return working_items
 
 
-def scale_down_original(working_item, img_out_dir: str) -> None:
+def _collect_working_items_from_iiif(via_annotations: dict, collection_name: str, iiif_user='my-team') -> dict:
+    """
+    Given VIA annotation input, collect all info on `WorkingItem` object, when the images come from IIIF urls
+
+    :param via_annotations: via_annotations: via annotations ('regions' field)
+    :param collection_name: name of the collection
+    :param iiif_user: user param for requests.Session().get()
+    :return:
+    """
+
+    working_items = list()
+    session = requests.Session()
+
+    for key, v in tqdm(via_annotations.items()):
+        iiif_url = v['filename']
+
+        image_name = os.path.basename(iiif_url.split('/full/full/')[0])
+
+        # get image dimensions
+        iiif_json = iiif_url.replace("default.jpg", "info.json")
+        resp_json = session.get(iiif_json, auth=(iiif_user, iiif_password))
+        if resp_json.status_code == requests.codes.ok:
+            y = resp_json.json()['height']
+            x = resp_json.json()['width']
+            # target_h, target_w = _compute_reduced_dimensions(x, y)
+            target_h, target_w = None, None
+        else:
+            x, y, target_w, target_h = None, None, None, None
+            resp_json.raise_for_status()
+
+        regions = v['regions']
+
+        if regions:
+            wk_item = WorkingItem(collection=collection_name,
+                                  image_name=image_name.split('.')[0],
+                                  original_x=x,
+                                  original_y=y,
+                                  reduced_x=target_w,
+                                  reduced_y=target_h,
+                                  iiif=iiif_url,
+                                  annotations=regions)
+
+            working_items.append(wk_item)
+
+    return working_items
+
+
+def collect_working_items(via_annotations: dict, collection_name: str, images_dir: str=None,
+                          via_version: int=2) -> List[WorkingItem]:
+    """
+    Given VIA annotation input, collect all info on `WorkingItem` object.
+    This function will take care of separating images from local files and images from IIIF urls.
+
+    :param via_annotations: via annotations ('regions' field)
+    :param images_dir: directory where to find the images
+    :param collection_name: name of the collection
+    :param via_version: version of the VIA tool used to produce the annotations (1 or 2)
+    :return: list of `WorkingItem`
+    """
+
+    via_annotations_v2 = via_annotations.copy()
+    if via_version == 1:
+        for key, value in via_annotations_v2.items():
+            list_regions = list()
+            for v_region in value['regions'].values():
+                list_regions.append(v_region)
+            via_annotations_v2[key]['regions'] = list_regions
+
+    local_annotations = {k: v for k, v in via_annotations_v2.items() if 'http' not in k}
+    url_annotations = {k: v for k, v in via_annotations_v2.items() if 'http' in k}
+
+    working_items = list()
+    if local_annotations:
+        assert images_dir is not None
+        working_items += _collect_working_items_from_local_images(local_annotations, images_dir, collection_name)
+    if url_annotations:
+        working_items += _collect_working_items_from_iiif(url_annotations, collection_name)
+
+    return working_items
+
+
+def _scale_down_original(working_item, img_out_dir: str) -> None:
     """
     Copy and reduce original image files.
 
@@ -160,6 +270,11 @@ def scale_down_original(working_item, img_out_dir: str) -> None:
     :param working_item: dict of `WorkingItems`
     :return: None
     """
+
+    def _getimage_from_iiif(url, user, pwd):
+        img = requests.get(url, auth=(user, pwd))
+        return imread(img.content)
+
     image_set_dir = os.path.join(img_out_dir, working_item.collection, "images")
     if not os.path.exists(image_set_dir):
         try:
@@ -173,30 +288,32 @@ def scale_down_original(working_item, img_out_dir: str) -> None:
     if not os.path.isfile(outfile):
         img = _getimage_from_iiif(working_item.iiif, 'epfl-team', iiif_password)
         img_resized = transform.resize(
-                                img,
-                                [working_item.reduced_y, working_item.reduced_x],
-                                anti_aliasing=False,
-                                preserve_range=True
+            img,
+            [working_item.reduced_y, working_item.reduced_x],
+            anti_aliasing=False,
+            preserve_range=True
         )
         imsave(outfile, img_resized.astype(np.uint8))
 
 
-def _getimage_from_iiif(url, user, pwd):
-    img = requests.get(url, auth=(user, pwd))
-    return imread(img.content)
-
-
-def load_annotation_data(via_data_filename: str) -> dict:
+def load_annotation_data(via_data_filename: str, only_img_annotations: bool=False) -> dict:
     """
     Load the content of via annotation files.
 
     :param via_data_filename: via annotations json file
+    :param only_img_annotations: load only the images annotations ('_via_img_metadata' field)
     :return: the content of json file containing the region annotated
     """
+
     with open(via_data_filename, 'r') as f:
         content = json.load(f)
 
-    return content
+    assert '_via_img_metadata' in content.keys(), "The file is not a valid VIA project export."
+
+    if only_img_annotations:
+        return content['_via_img_metadata']
+    else:
+        return content
 
 
 def export_annotation_dict(annotation_dict: dict, filename: str) -> None:
@@ -211,399 +328,237 @@ def export_annotation_dict(annotation_dict: dict, filename: str) -> None:
         json.dump(annotation_dict, f)
 
 
-def _write_mask(mask: np.ndarray, masks_dir: str, collection: str, image_name: str, label: str) -> None:
+def get_via_attributes(annotation_dict: dict, via_version: int=2) -> List[VIAttribute]:
     """
-    Save a mask with filename containing 'label'.
+    Gets the attributes of the annotated data and returns a list of `VIAttribute`.
 
-    :param mask:
-    :param masks_dir:
-    :param collection:
-    :param image_name:
-    :param label:
-    :return:
-    """
-    outdir = os.path.join(masks_dir, collection, image_name)
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-    label = label.strip(' \n').replace(" ", "_").lower() if label is not None else 'nolabel'
-    outfile = os.path.join(outdir, image_name + "-mask-" + label + ".png")
-    # if not os.path.isfile(outfile):
-    imsave(outfile, mask.astype(np.uint8))
-
-
-def get_labels(annotation_file: str) -> dict:
-    """
-     Get labels from annotation tool (VIA) settings. Only compatible with VIA v2.0.
-
-    :param annotation_file: manual annotation json file
-    :return:  dict (k=label, v=RGB code)
-    """
-    with open(annotation_file, 'r') as a:
-        annotations = json.load(a)
-
-    # todo : this is not generic
-    # list(annotations['_via_attributes']['region'][{name_attributes}][{args}]
-    label_list = list(annotations['_via_attributes']['region']['Label']['options'])
-
-    # todo: keep a list of colors and assign randomly to label (to avoid hard coding labels/color correspondence)
-    # todo: or take it from a config file
-    label_color = dict()
-    for label in label_list:
-        if label == "MYLABEL1":
-            label_color[label] = Color.WHITE  # white
-        elif label == "MYLABEL2":
-            label_color[label] = Color.YELLOW  # yellow
-        # etc.
-    return label_color
-
-
-def get_via_attributes_regions(annotation_dict: dict, via_version: int=2) -> List[str]:
-    """
-    Gets the attributes of the annotated data.
-
-    :param annotation_dict:
+    :param annotation_dict: json content of the VIA exported file
     :param via_version: either 1 or 2 (for VIA v 1.0 or VIA v 2.0)
-    :return: A list containing the attributes names§
-    """
-    if via_version == 1:
-        list_categories = list()
-
-        for value in annotation_dict.values():
-            regions = value['regions']
-            for region in regions.values():
-                list_categories += list(region['region_attributes'].keys())
-
-        return list(np.unique(list_categories))
-    elif via_version == 2:
-        # If project_export is given
-        if '_via_attributes' in annotation_dict.keys():
-            return list(annotation_dict['_via_attributes']['region'].keys())
-        # else if annotation_export is given
-        else:
-            list_categories = list()
-            for value in annotation_dict.values():
-                regions = value['regions']
-                for region in regions:
-                    list_categories += list(region['region_attributes'].keys())
-
-            return list(np.unique(list_categories))
-    else:
-        raise NotImplementedError
-
-
-def get_labels_per_attribute(annotation_dict: dict, attribute_regions: List[str], via_version: int=2) -> Tuple:
-    """
-    For each attribute, get all the possible label variants.
-
-    :param annotation_dict:
-    :param attribute_regions:
-    :param via_version:
-    :return: (unique_labels, dict_labels) : `dict_labels` is a dictionary containing all the labels per attribute
-
-    Usage
-    -----
-
-    >>> annotations_dict = load_annotation_data('via_annotations.json')
-    >>> list_attributes = get_via_attributes_regions(annotations_dict)
-    >>> list_attributes
-    >>> ['object', 'text']
-    >>>
-    >>> unique_labels, dict_labels = get_labels_per_attribute(annotations_dict, list_attributes)
-    >>> unique_labels
-    >>> [['animal', 'car', ''], ['handwritten', 'typed', '']]
-    >>>
-    >>> dict_labels
-    >>> {'object': ['animal', 'animal', 'car', 'animal', ''], 'text': ['handwritten', '', 'typed', '', 'handwritten']}
+    :return: A list containing VIAttributes
     """
 
     if via_version == 1:
-        dict_labels = {ar: list() for ar in attribute_regions}
+
+        list_attributes = [list(region['region_attributes'].keys())
+                           for value in annotation_dict.values()
+                           for region in value['regions'].values()]
+
+        # Find options
+        unique_attributes = list(np.unique(list(chain.from_iterable(list_attributes))))
+
+        dict_labels = {rgn_att: list() for rgn_att in unique_attributes}
         for value in annotation_dict.values():
             regions = value['regions']
             for region in regions.values():
                 for k, v in region['region_attributes'].items():
                     dict_labels[k].append(v)
 
-        unique_labels = list()
-        for ar in attribute_regions:
-            unique_labels.append(list(np.unique(dict_labels[ar])))
-
-        return unique_labels, dict_labels
     elif via_version == 2:
-        # If project_export is given
-        if '_via_attributes' in annotation_dict.keys():
-            raise NotImplementedError
-        # else if annotation_export is given
-        else:
-            dict_labels = {ar: list() for ar in attribute_regions}
+
+        if '_via_attributes' in annotation_dict.keys():  # If project_export is given
+            return parse_via_attributes(annotation_dict['_via_attributes'])
+
+        else:  # else if annotation_export is given
+
+            list_attributes = [list(region['region_attributes'].keys())
+                               for value in annotation_dict.values()
+                               for region in value['regions']]
+
+            # Find options
+            unique_attributes = list(np.unique(list(chain.from_iterable(list_attributes))))
+
+            dict_labels = {rgn_att: list() for rgn_att in unique_attributes}
             for value in annotation_dict.values():
                 regions = value['regions']
                 for region in regions:
                     for k, v in region['region_attributes'].items():
                         dict_labels[k].append(v)
 
-            unique_labels = list()
-            for ar in attribute_regions:
-                unique_labels.append(list(np.unique(dict_labels[ar])))
-
-            return unique_labels, dict_labels
     else:
         raise NotImplementedError
 
+    # Instantiate VIAttribute objects
+    viattribute_list = list()
+    for attribute, options in dict_labels.items():
 
-def create_masks_v2(masks_dir: str, working_items: List[WorkingItem], annotation_file: str,
-                    collection: str, contours_only: bool=False) -> None:
+        if all(isinstance(opt, str) for opt in options):
+            viattribute_list.append(VIAttribute(name=attribute,
+                                                type=None,
+                                                options=list(np.unique(options))))
+
+        elif all(isinstance(opt, dict) for opt in options):
+            viattribute_list.append(VIAttribute(name=attribute,
+                                                type=None,
+                                                options=list(np.unique(list(chain.from_iterable(options))))))
+
+        else:
+            raise NotImplementedError
+    return viattribute_list
+
+
+def _draw_mask(via_region: dict, mask: np.array, contours_only: bool=False) -> np.array:
+    """
+
+    :param via_region: region to draw (in VIA format)
+    :param mask: image mask to draw on
+    :param contours_only: if `True`, draws only the contours of the region, if `False`, fills the region
+    :return: the drawn mask
+    """
+
+    shape_attributes_dict = via_region['shape_attributes']
+
+    if shape_attributes_dict['name'] == 'rect':
+        x = shape_attributes_dict['x']
+        y = shape_attributes_dict['y']
+        w = shape_attributes_dict['width']
+        h = shape_attributes_dict['height']
+
+        contours = np.array([[x, y],
+                             [x + w, y],
+                             [x + w, y + h],
+                             [x, y + h]
+                             ]).reshape((-1, 1, 2))
+
+        mask = cv2.polylines(mask, [contours], True, 255, thickness=15) if contours_only \
+            else cv2.fillPoly(mask, [contours], 255)
+
+    elif shape_attributes_dict['name'] == 'polygon':
+        contours = np.stack([shape_attributes_dict['all_points_x'],
+                             shape_attributes_dict['all_points_y']], axis=1)[:, None, :]
+
+        mask = cv2.polylines(mask, [contours], True, 255, thickness=15) if contours_only \
+            else cv2.fillPoly(mask, [contours], 255)
+
+    elif shape_attributes_dict['name'] == 'circle':
+        center_point = (shape_attributes_dict['cx'], shape_attributes_dict['cy'])
+        radius = shape_attributes_dict['r']
+
+        mask = cv2.circle(mask, center_point, radius, 255, thickness=15) if contours_only \
+            else cv2.circle(mask, center_point, radius, 255, thickness=-1)
+
+    elif shape_attributes_dict['name'] == 'polyline':
+        contours = np.stack([shape_attributes_dict['all_points_x'],
+                             shape_attributes_dict['all_points_y']], axis=1)[:, None, :]
+
+        mask = cv2.polylines(mask, [contours], False, 255, thickness=15)
+
+    else:
+        raise NotImplementedError(
+            'Mask annotation for shape of type "{}" has not been implemented yet'
+                .format(shape_attributes_dict['name']))
+
+    return mask
+
+
+def _write_mask(mask: np.ndarray, masks_dir: str, collection: str, image_name: str, label: str) -> None:
+    """
+    Save a mask with filename containing 'label'.
+
+    :param mask: mask b&w image (H, W)
+    :param masks_dir: directory to output mask
+    :param collection: name of the collection
+    :param image_name: name of the image
+    :param label: label of the mask
+    :return:
+    """
+
+    outdir = os.path.join(masks_dir, collection, image_name)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    label = label.strip(' \n').replace(" ", "_").lower() if label is not None else 'nolabel'
+    outfile = os.path.join(outdir, image_name + "-mask-" + label + ".png")
+    imsave(outfile, mask.astype(np.uint8))
+
+
+def create_masks(masks_dir: str, working_items: List[WorkingItem], via_attributes: List[VIAttribute],
+                 collection: str, contours_only: bool=False) -> dict:
     """
     For each annotation, create a corresponding binary mask and resize it (h = 2000). Only valid for VIA 2.0.
     Several annotations of the same class on the same image produce one image with several masks.
 
     :param masks_dir: where to output the masks
     :param working_items: infos to work with
-    :param annotation_file:
-    :param collection:
+    :param via_attributes: VIAttributes computed by ``get_via_attributes`` function.
+    :param collection: name of the nollection
     :param contours_only: creates the binary masks only for the contours of the object (thickness of contours : 20 px)
-    :return: None
+    :return: annotation_summary, a dictionary containing a list of labels per image
     """
+
+    def resize_and_write_mask(mask_image: np.ndarray, working_item: WorkingItem, label_item: str) -> None:
+        """
+        Resize only if needed (if working_item.reduced != working_item.original)
+
+        :param mask_image: mask image to write
+        :param working_item: `WorkingItem` object
+        :param label_item: label name to append to filename
+        :return:
+        """
+
+        if not working_item.reduced_y and not working_item.reduced_x:
+            _write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
+
+        elif working_item.reduced_x != working_item.original_x and working_item.reduced_y != working_item.original_y:
+            mask_resized = transform.resize(mask_image,
+                                            [working_item.reduced_y, working_item.reduced_x],
+                                            anti_aliasing=False,
+                                            preserve_range=True,
+                                            order=0)
+            _write_mask(mask_resized, masks_dir, collection, working_item.image_name, label_item)
+
+        else:
+            _write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
+    # -------------------
+
     print("Creating masks in {}...".format(masks_dir))
 
     annotation_summary = dict()
 
-    def resize_and_write_mask(mask_image: np.ndarray, working_item: WorkingItem, label_item: str):
-        """
-        Resize only if needed (if working_item.reduced != working_item.original)
-
-        :param mask_image:
-        :param working_item:
-        :param label_item:
-        :return:
-        """
-        if not working_item.reduced_y and not working_item.reduced_x:
-            _write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
-        elif working_item.reduced_x != working_item.original_x and working_item.reduced_y != working_item.original_y:
-            mask_resized = transform.resize(mask_image, [working_item.reduced_y, working_item.reduced_x],
-                                            anti_aliasing=False, preserve_range=True, order=0)
-            _write_mask(mask_resized, masks_dir, collection, working_item.image_name, label_item)
-        else:
-            _write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
-
     for wi in tqdm(working_items, desc="workingItem2mask"):
-        labels = []
-        label_list = get_labels(annotation_file)
+        labels = list()
+
         # the image has no annotation, writing a black mask:
         if not wi.annotations:
             mask = np.zeros([wi.original_y, wi.original_x], np.uint8)
             resize_and_write_mask(mask, wi, None)
             labels.append("nolabel")
+
         # check all possible labels for the image and create mask:
         else:
-            for label in label_list.keys():
-                # get annotation corresponding to current label
-                # todo : the 'Label' key is not generic
-                selected_regions = list(filter(lambda r: r['region_attributes']['Label'] == label, wi.annotations))
-                if selected_regions:
-                    # create a 0 matrix (black background)
-                    mask = np.zeros([wi.original_y, wi.original_x], np.uint8)
-                    # add one or several mask for current label
-                    # nb: if 2 labels are on the same page, they belongs to the same mask
+            for attribute in via_attributes:
+                for option in attribute.options:
+                    # get annotations that have the current attribute
+                    selected_regions = list(filter(lambda r: attribute.name in r['region_attributes'].keys(),
+                                                   wi.annotations))
+                    # get annotations that have the current attribute and option
+                    if selected_regions:
+                        selected_regions = list(filter(lambda r: r['region_attributes'][attribute.name] == option,
+                                                       selected_regions))
+                    else:
+                        continue
 
-                    contours_points = list()
-                    for sr in selected_regions:
+                    if selected_regions:
+                        # create a 0 matrix (black background)
+                        mask = np.zeros([wi.original_y, wi.original_x], np.uint8)
 
-                        if sr['shape_attributes']['name'] == 'rect':
-                            x = sr['shape_attributes']['x']
-                            y = sr['shape_attributes']['y']
-                            w = sr['shape_attributes']['width']
-                            h = sr['shape_attributes']['height']
+                        # nb: if 2 labels are on the same page, they belongs to the same mask
+                        for sr in selected_regions:
+                            mask = _draw_mask(sr, mask, contours_only)
 
-                            contours_points.append(np.array([[x, y],
-                                                             [x + w, y],
-                                                             [x + w, y + h],
-                                                             [x, y + h]
-                                                             ]).reshape((-1, 1, 2)))
-
-                        elif sr['shape_attributes']['name'] == 'polygon':
-                            contours_points.append(np.stack([sr['shape_attributes']['all_points_x'],
-                                                             sr['shape_attributes']['all_points_y']], axis=1)[:, None, :])
-
-                        else:
-                            raise NotImplementedError('Mask annotation for shape of type "{}" has not been implemented '
-                                                      'yet'.format(sr['shape_attributes']['name']))
-
-                        if contours_only:
-                            mask = cv2.polylines(mask, contours_points, True, 255, thickness=15)
-                        else:
-                            mask = cv2.fillPoly(mask, contours_points, 255)
-
-                    # resize
-                    resize_and_write_mask(mask, wi, label)
-                    # add to existing labels
-                    labels.append(label.strip(' \n').replace(" ", "_").lower())
+                        label = '{}-{}'.format(attribute.name, option).lower()
+                        resize_and_write_mask(mask, wi, label)
+                        # add to existing labels
+                        labels.append(label)
 
         # write summary: list of existing labels per image
         annotation_summary[wi.image_name] = labels
         outfile = os.path.join(masks_dir, collection, collection + "-classes.txt")
-        fh = open(outfile, 'w')
-        for a in annotation_summary:
-            fh.write(a + "\t" + str(annotation_summary[a]) + "\n")
-        fh.close()
+        with open(outfile, 'a') as fh:
+            for a in annotation_summary:
+                fh.write(a + "\t" + str(annotation_summary[a]) + "\n")
 
     print("Done.")
     return annotation_summary
 
-
-def create_masks_v1(masks_dir: str, working_items: List[WorkingItem], collection: str,
-                    label_name: str, contours_only: bool=False) -> None:
-    """
-    For each annotation, create a corresponding binary mask and resize it (h = 2000). Only valid for VIA 1.0.
-    Several annotations of the same class on the same image produce one image with several masks.
-
-    :param masks_dir: where to output the masks
-    :param working_items: infos to work with
-    :param collection:
-    :param label_name: name of the label to create mask
-    :param contours_only: creates the binary masks only for the contours of the object (thickness of contours : 20 px)
-    :return: None
-    """
-
-    annotation_summary = dict()
-
-    def resize_and_write_mask(mask_image: np.ndarray, working_item: WorkingItem, label_item: str):
-        """
-        Resize only if needed (if working_item.reduced != working_item.original)
-
-        :param mask_image:
-        :param working_item:
-        :param label_item:
-        :return:
-        """
-        if not working_item.reduced_y and not working_item.reduced_x:
-            _write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
-        elif working_item.reduced_x != working_item.original_x and working_item.reduced_y != working_item.original_y:
-            mask_resized = transform.resize(mask_image, [working_item.reduced_y, working_item.reduced_x],
-                                            anti_aliasing=False, preserve_range=True, order=0)
-            _write_mask(mask_resized, masks_dir, collection, working_item.image_name, label_item)
-        else:
-            _write_mask(mask_image, masks_dir, collection, working_item.image_name, label_item)
-
-    for wi in tqdm(working_items, desc="workingItem2mask"):
-        labels = []
-        # the image has no annotation, writing a black mask:
-        if not wi.annotations:
-            mask = np.zeros([wi.original_y, wi.original_x], np.uint8)
-            resize_and_write_mask(mask, wi, None)
-            labels.append("nolabel")
-        # check all possible labels for the image and create mask:
-        else:
-            # get annotation corresponding to current label
-            selected_regions = wi.annotations
-            if selected_regions:
-                # create a 0 matrix (black background)
-                mask = np.zeros([wi.original_y, wi.original_x], np.uint8)
-                # add one or several mask for current label
-                # nb: if 2 labels are on the same page, they belongs to the same mask
-                elem_to_iterate = selected_regions.values() if isinstance(selected_regions, dict) else selected_regions
-
-                contours_points = list()
-                for sr in elem_to_iterate:
-                    if sr['shape_attributes']['name'] == 'rect':
-                        x = sr['shape_attributes']['x']
-                        y = sr['shape_attributes']['y']
-                        w = sr['shape_attributes']['width']
-                        h = sr['shape_attributes']['height']
-
-                        contours_points.append(np.array([[x, y],
-                                                         [x + w, y],
-                                                         [x + w, y + h],
-                                                         [x, y + h]
-                                                         ]).reshape((-1, 1, 2)))
-
-                        if contours_only:
-                            mask = cv2.polylines(mask, contours_points, True, 255, thickness=15)
-                        else:
-                            mask = cv2.fillPoly(mask, contours_points, 255)
-
-                    elif sr['shape_attributes']['name'] == 'polygon':
-                        contours_points.append(np.stack([sr['shape_attributes']['all_points_x'],
-                                                         sr['shape_attributes']['all_points_y']], axis=1)[:, None, :])
-
-                        if contours_only:
-                            mask = cv2.polylines(mask, contours_points, True, 255, thickness=15)
-                        else:
-                            mask = cv2.fillPoly(mask, contours_points, 255)
-
-                    elif sr['shape_attributes']['name'] == 'circle':
-                        center_point = (sr['shape_attributes']['cx'], sr['shape_attributes']['cy'])
-                        radius = sr['shape_attributes']['r']
-
-                        if contours_only:
-                            mask = cv2.circle(mask, center_point, radius, 255, thickness=15)
-                        else:
-                            mask = cv2.circle(mask, center_point, radius, 255, thickness=-1)
-                    else:
-                        raise NotImplementedError('Mask annotation for shape of type "{}" has not been implemented yet'
-                                                  .format(sr['shape_attributes']['name']))
-
-                # resize
-                resize_and_write_mask(mask, wi, label_name)
-                # add to existing labels
-                labels.append(label_name.strip(' \n').replace(" ", "_").lower())
-
-        # write summary: list of existing labels per image
-        annotation_summary[wi.image_name] = labels
-        outfile = os.path.join(masks_dir, collection, collection + "-classes.txt")
-        fh = open(outfile, 'a')
-        for a in annotation_summary:
-            fh.write(a + "\t" + str(annotation_summary[a]) + "\n")
-        fh.close()
-
-    return annotation_summary
-
-
-# def main(args):
-#
-#     # read config
-#     config_file = args["--config-file"]
-#     task = args["--task"]
-#     collection = args["--collection"]
-#
-#     if config_file and os.path.isfile(config_file):
-#         print("Found config file: {}".format(os.path.realpath(config_file)))
-#         with open(config_file, 'r') as f:
-#             config = json.load(f)
-#     else:
-#         print("Provide a config file")
-#
-#     annotation_file = config.get("annotation_file")  # manual annotation json file
-#     image_url_file = config.get("image_url_file")  # url image list
-#     experiments_dir = config.get("experiments_dir")  # output expe
-#     masks_dir = config.get("masks_dir")  # output annotation_objects
-#     img_out_dir = config.get("img_out_dir")  # re-scaled images
-#
-#     print("\nGot the following paths:\n"
-#           "annotation_file: {}\n"
-#           "image_url_file: {}\n"
-#           "experiments_dir: {}\n"
-#           "masks_dir: {}\n"
-#           "img_out_dir: {}\n".format(annotation_file, image_url_file, experiments_dir, masks_dir, img_out_dir)
-#           )
-#
-#     # to test working items loading
-#     if task == "test-collect":
-#         collect_working_items(image_url_file, annotation_file, collection)
-#
-#     # scale down and write original images
-#     elif task == "original":
-#         working_items = collect_working_items(image_url_file, annotation_file, collection)
-#         wi_bag = db.from_sequence(working_items, partition_size=100)
-#         wi_bag2 = wi_bag.map(scale_down_original, img_out_dir=img_out_dir)
-#         with ProgressBar():
-#             wi_bag2.compute()
-#
-#     # create masks
-#     elif task == "masks":
-#         working_items = collect_working_items(image_url_file, annotation_file, collection)
-#         create_masks_v2(masks_dir, working_items, annotation_file, collection)
-#
 
 # EXPORT
 # ------
@@ -663,16 +618,19 @@ def create_via_region_from_coordinates(coordinates: np.array, region_attributes:
 def create_via_annotation_single_image(img_filename: str, via_regions: List[dict],
                                        file_attributes: dict=None) -> Dict[str, dict]:
     """
-    Returns a dictionary item {key: annotation} in VIA forat to further export in .json file
+    Returns a dictionary item {key: annotation} in VIA format to further export to .json file
 
     :param img_filename: path to the image
     :param via_regions: regions in VIA format (output from ``create_via_region_from_coordinates``)
     :param file_attributes: file attributes (usually None)
     :return: dictionary item with key and annotations in VIA format
     """
-
-    basename = os.path.basename(img_filename)
-    file_size = os.path.getsize(img_filename)
+    if 'http' in img_filename:
+        basename = img_filename
+        file_size = -1
+    else:
+        basename = os.path.basename(img_filename)
+        file_size = os.path.getsize(img_filename)
 
     via_key = '{}{}'.format(basename, file_size)
 
@@ -691,11 +649,217 @@ Example of usage
 
 
 collection = 'mycollection'
-annotation_file = 'via_regions_annotated.json'
-image_url_file = 'list_files_image_url.txt'
+annotation_file = 'via_sample.json'
 masks_dir = '/home/project/generated_masks'
+images_dir = './my_images'
 
-working_items = collect_working_items(image_url_file, annotation_file, collection)
-create_masks_v2(masks_dir, working_items, annotation_file, collection)
+# Load all the data in the annotation file (the file may be an exported project or an export of the annotations)
+via_data = load_annotation_data(annotation_file)
+
+# In the case of an exported project file, you can set ``only_img_annotations=True`` to get only
+# the region annotations
+via_annotations = load_annotation_data(annotation_file, only_img_annotations=True)
+
+# Collect the annotated regions
+working_items = collect_working_items(via_annotations, collection, images_dir)
+
+# Collect the attributes and options
+if '_via_attributes' in via_data.keys():
+    list_attributes = parse_via_attributes(via_data['_via_attributes'])
+else:
+    list_attributes = get_via_attributes(via_annotations)
+
+# Create one mask per option per attribute
+create_masks(masks_dir, wi,via_attributes, collection)
 """
 
+
+"""
+Content of a via_project exported file
+
+{'_via_attributes': {
+    ...
+    },
+ '_via_img_metadata': {
+    ...
+    },
+ '_via_settings': {
+    'core': {
+        'buffer_size': 18,
+        'default_filepath': '',
+        'filepath': {}
+    },
+    'project': {
+        'name': 'via_project_7Feb2019_10h7m'
+    },
+    'ui': {
+        'annotation_editor_fontsize': 0.8,
+        'annotation_editor_height': 25,
+        'image': {
+            'region_label': 'region_id',
+            'region_label_font': '10px Sans'
+        },
+        'image_grid': {
+            'img_height': 80,
+            'rshape_fill': 'none',
+            'rshape_fill_opacity': 0.3,
+            'rshape_stroke': 'yellow',
+            'rshape_stroke_width': 2,
+            'show_image_policy': 'all',
+            'show_region_shape': True
+        },
+        'leftsidebar_width': 18
+    }
+ }
+}
+
+"""
+
+"""
+"_via_attributes": {
+    "region": {
+        "attribute1": {
+            "type":"text",
+            "description":"",
+            "default_value":""
+        },
+        "attribute2": {
+            "type":"dropdown",
+            "description":"",
+            "options": {
+                "op1":"",
+                "op2":""
+                },
+            "default_options":{}
+        },
+        "attribute3": {
+            "type":"checkbox",
+            "description":"",
+            "options": {
+                "op1":"",
+                "op2":""
+            },
+            "default_options":{}
+        },
+        "attribute 4": {
+            "type":"radio",
+            "description":"",
+            "options": {
+                "op1":"",
+                "op2":""
+            },
+            "default_options":{}
+        }
+    },
+    "file":{}
+}
+
+"""
+
+"""
+'_via_img_metadata': {
+    'image_filename1.jpg2209797': {
+        'file_attributes': {},
+        'filename': 'image_filename1.jpg',
+        'regions':
+            [{
+                'region_attributes': {
+                    'attribute1': {
+                        'op1': True,
+                        'op2': True
+                    },
+                    'attribute 2': 'label1',
+                    'attribute 3': 'op1'
+                },
+                'shape_attributes': {
+                    'height': 2277,
+                    'name': 'rect',
+                    'width': 1541,
+                    'x': 225,
+                    'y': 458
+                }
+            },
+            {
+                'region_attributes': {
+                    'attribute 4': 'op1',
+                    'attribute 1': {},
+                    'attribute 2': 'label1',
+                    'attribute 3': 'op2'
+                },
+                'shape_attributes': {
+                    'height': 2255,
+                    'name': 'rect',
+                    'width': 1554,
+                    'x': 1845,
+                    'y': 476
+                }
+            }],
+            'size': 2209797},
+    'https://libimages.princeton.edu/loris/pudl0001/5138415/00000011.jp2/full/full/0/default.jpg-1': {
+        'file_attributes': {},
+        'filename': 'https://libimages.princeton.edu/loris/pudl0001/5138415/00000011.jp2/full/full/0/default.jpg',
+        'regions':
+            [{
+                'region_attributes': {
+                    'attribute 4': 'op2',
+                    'attribute 1': {
+                        'op1': True
+                    },
+                    'attribute 2': 'label3',
+                    'attribute 3': 'op1'
+                },
+                'shape_attributes': {
+                    'height': 1026,
+                    'name': 'rect',
+                    'width': 1430,
+                    'x': 145,
+                    'y': 525
+                }
+            },
+            {
+                'region_attributes': {
+                    'attribute 4': 'op2',
+                    'attribute 1': {
+                        'op1': True},
+                    'attribute 2': 'label 3 ',
+                    'attribute 3': 'op1',
+                },
+                'shape_attributes': {
+                    'all_points_x': [2612, 2498, 2691, 2757, 2962, 3034, 2636],
+                    'all_points_y': [5176, 5616, 5659, 5363, 5375, 5110, 5122],
+                    'name': 'polygon'
+                }
+            },
+            {
+                'region_attributes': {
+                    'attribute 4': 'op2',
+                    'attribute 1': {
+                        'op1': True},
+                    'attribute 2': 'label 3 ',
+                    'attribute 3': 'op1',
+                },
+                'shape_attributes': {
+                    'cx': 2793,
+                    'cy': 881,
+                    'name': 'circle',
+                    'r': 524
+                }
+            },
+            {
+                'region_attributes': {
+                    'attribute 4': 'op1',
+                    'attribute 1': {
+                        'op2': True},
+                    'attribute 2': 'label1',
+                    'attribute 3': 'op2',
+                },
+                'shape_attributes': {
+                    'all_points_x': [3246, 5001],
+                    'all_points_y': [422, 380],
+                    'name': 'polyline'
+                }
+            }],
+        'size': -1
+    }
+}
+"""
