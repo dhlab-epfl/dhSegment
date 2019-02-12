@@ -343,7 +343,7 @@ class TextRegion(Region):
 
     def sort_text_lines(self, top_to_bottom: bool=True) -> None:
         """
-        Sorts ``TextLine``s from top to bottom according to their mean y coordinate (centroid)
+        Sorts ``TextLine`` from top to bottom according to their mean y coordinate (centroid)
         
         :param top_to_bottom: order lines from top to bottom of image, default=True
         """

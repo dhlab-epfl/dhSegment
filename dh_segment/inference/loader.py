@@ -63,21 +63,22 @@ class LoadedModel:
 
     def predict(self, input_tensor, prediction_key=None):
         """
-        Performs the prediction from the loaded model according to the prediction mode.
+        Performs the prediction from the loaded model according to the prediction mode. \n
         Prediction modes:
-+-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
-| `prediction_mode`           | `input_tensor`                                | Output prediction dictionnary        | Comment                                                                                           |
-+=============================+===============================================+======================================+===================================================================================================+
-| `filename`                  | Single filename string                        | `labels`, `probs`, `original_shape`  | Loads the image, resizes it, and predicts                                                         |
-+-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
-| `filename_original_shape`   | Single filename string                        | `labels`, `probs`                    | Loads the image, resizes it, predicts and scale the output to the original resolution of the file |
-+-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
-| `image`                     | Single input image [1,H,W,3] float32 (0..255) | `labels`, `probs`, `original_shape`  | Resizes the image, and predicts                                                                   |
-+-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
-| `image_original_shape`      | Single input image [1,H,W,3] float32 (0..255) | `labels`, `probs`                    | Resizes the image, predicts, and scale the output to the original resolution of the input         |
-+-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
-| `image_resized`             | Single input image [1,H,W,3] float32 (0..255) | `labels`, `probs`                    | Predicts from the image input directly                                                            |
-+-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+
+        +-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+        | `prediction_mode`           | `input_tensor`                                | Output prediction dictionnary        | Comment                                                                                           |
+        +=============================+===============================================+======================================+===================================================================================================+
+        | `filename`                  | Single filename string                        | `labels`, `probs`, `original_shape`  | Loads the image, resizes it, and predicts                                                         |
+        +-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+        | `filename_original_shape`   | Single filename string                        | `labels`, `probs`                    | Loads the image, resizes it, predicts and scale the output to the original resolution of the file |
+        +-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+        | `image`                     | Single input image [1,H,W,3] float32 (0..255) | `labels`, `probs`, `original_shape`  | Resizes the image, and predicts                                                                   |
+        +-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+        | `image_original_shape`      | Single input image [1,H,W,3] float32 (0..255) | `labels`, `probs`                    | Resizes the image, predicts, and scale the output to the original resolution of the input         |
+        +-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
+        | `image_resized`             | Single input image [1,H,W,3] float32 (0..255) | `labels`, `probs`                    | Predicts from the image input directly                                                            |
+        +-----------------------------+-----------------------------------------------+--------------------------------------+---------------------------------------------------------------------------------------------------+
 
         :param input_tensor: a single input whose format should match the prediction mode
         :param prediction_key: if not `None`, will returns the value of the corresponding key of the output dictionnary \
