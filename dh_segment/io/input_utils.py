@@ -106,7 +106,6 @@ def load_and_resize_image(filename: str, channels: int, size: int=None, interpol
     :param channels: number of channels for the decoded image
     :param size: number of desired pixels in the resized image, tf.Tensor or int (None for no resizing)
     :param interpolation:
-    :param return_original_shape: returns the original shape of the image before resizing if this flag is True
     :return: decoded and resized float32 tensor [h, w, channels],
     """
     with tf.name_scope('load_img'):

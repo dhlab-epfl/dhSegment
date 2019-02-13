@@ -232,19 +232,24 @@ def model_fn(mode, features, labels, params):
         export_outputs = dict()
 
         if 'original_shape' in features.keys():
-            with tf.name_scope('ResizeOutput'):
-                resized_predictions = dict()
-                # Resize all the elements in predictions
-                for k, v in predictions.items():
-                    # Labels is rank-3 so we need to be careful in using tf.image.resize_images
-                    assert isinstance(v, tf.Tensor)
-                    v2 = v if len(v.get_shape()) == 4 else v[:, :, :, None]
-                    v2 = tf.image.resize_images(v2, features['original_shape'],
-                                                method=tf.image.ResizeMethod.BILINEAR if v.dtype == tf.float32
-                                                else tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-                    v2 = v2 if len(v.get_shape()) == 4 else v2[:, :, :, 0]
-                    resized_predictions[k] = v2
-                export_outputs['resized_output'] = tf.estimator.export.PredictOutput(resized_predictions)
+            # TODO in case of batch prediction,
+            # it's not possible to use tf.image.resize_images with different original shapes
+            if len(features['original_shape'].get_shape()) > 1:
+                pass
+            else:
+                with tf.name_scope('ResizeOutput'):
+                    resized_predictions = dict()
+                    # Resize all the elements in predictions
+                    for k, v in predictions.items():
+                        # Labels is rank-3 so we need to be careful in using tf.image.resize_images
+                        assert isinstance(v, tf.Tensor)
+                        v2 = v if len(v.get_shape()) == 4 else v[:, :, :, None]
+                        v2 = tf.image.resize_images(v2, features['original_shape'],
+                                                    method=tf.image.ResizeMethod.BILINEAR if v.dtype == tf.float32
+                                                    else tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+                        v2 = v2 if len(v.get_shape()) == 4 else v2[:, :, :, 0]
+                        resized_predictions[k] = v2
+                    export_outputs['resized_output'] = tf.estimator.export.PredictOutput(resized_predictions)
 
             predictions['original_shape'] = features['original_shape']
 
