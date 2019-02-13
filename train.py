@@ -75,18 +75,17 @@ def run(train_data, eval_data, model_output_dir, gpu, training_params, _config):
 
     def get_dirs_or_files(input_data):
         if os.path.isdir(input_data):
-            train_input, train_labels_input = os.path.join(input_data, 'images'), os.path.join(input_data, 'labels')
+            image_input, labels_input = os.path.join(input_data, 'images'), os.path.join(input_data, 'labels')
             # Check if training dir exists
-            if not os.path.isdir(train_input):
-                raise FileNotFoundError(train_input)
-            if not os.path.isdir(train_labels_input):
-                raise FileNotFoundError(train_labels_input)
-        elif os.path.isfile(train_data) and train_data.endswith('.csv'):
-            train_input = train_data
-            train_labels_input = None
+            assert os.path.isdir(image_input), "{} is not a directory".format(image_input)
+            assert os.path.isdir(labels_input), "{} is not a directory".format(labels_input)
+
+        elif os.path.isfile(input_data) and input_data.endswith('.csv'):
+            image_input = input_data
+            labels_input = None
         else:
             raise TypeError('input_data {} is neither a directory nor a csv file'.format(input_data))
-        return train_input, train_labels_input
+        return image_input, labels_input
 
     train_input, train_labels_input = get_dirs_or_files(train_data)
     if eval_data is not None:
