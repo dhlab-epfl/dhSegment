@@ -161,9 +161,9 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
         if not os.path.exists(img_filename):
             raise FileNotFoundError(img_filename)
     if has_labelled_data:
-        for img_filename in input_image_filenames:
-            if not os.path.exists(img_filename):
-                raise FileNotFoundError(img_filename)
+        for label_filename in label_image_filenames:
+            if not os.path.exists(label_filename):
+                raise FileNotFoundError(label_filename)
 
     # Tensorflow input_fn
     def fn():
