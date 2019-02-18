@@ -106,11 +106,11 @@ class LoadedModel:
         Performs the prediction from the loaded model according to the prediction mode. \n
         Prediction modes:
 
-        +-------------------+--------------------------+-------------------------------------+-------------------------------------------+
-        | `prediction_mode` | `input_tensor`           | Output prediction dictionnary       | Comment                                   |
-        +===================+==========================+=====================================+===========================================+
-        | `batch_filenames` | List of filename strings | `labels`, `probs`, `original_shape` | Loads the image, resizes it, and predicts |
-        +-------------------+--------------------------+-------------------------------------+-------------------------------------------+
+        +-------------------+--------------------------+------------------------------------------------------+-------------------------------------------+
+        | `prediction_mode` | `input_tensor`           | Output prediction dictionnary                        | Comment                                   |
+        +===================+==========================+======================================================+===========================================+
+        | `batch_filenames` | List of filename strings | `labels`, `probs`, `original_shape`, `resized_shape` | Loads the image, resizes it, and predicts |
+        +-------------------+--------------------------+------------------------------------------------------+-------------------------------------------+
 
         :param input_tensor: a batch input whose format should match the prediction mode
         :param batch_size: batch size for batch prediction

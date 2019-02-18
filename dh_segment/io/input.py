@@ -281,22 +281,24 @@ def serving_input_filename_batch(resized_size):
             image = tf.to_float(tf.image.decode_jpeg(tf.read_file(image_filenames), channels=3,
                                                      try_recover_truncated=True))
             original_shape = tf.shape(image)[:2]
-            resized_image = resize_image(image, resized_size)
+            resized_image, resized_shape = resize_image(image, resized_size, return_output_shape=True)
 
-            return resized_image, original_shape
+            return resized_image, original_shape, resized_shape
 
         dataset = dataset.map(_image_loading)
 
-        dataset = dataset.padded_batch(batch_size, padded_shapes=([-1, -1, 3], [2])).prefetch(8)
+        dataset = dataset.padded_batch(batch_size, padded_shapes=([-1, -1, 3], [2], [2])).prefetch(8)
 
         # Build the Iterator this way in order to be able to initialize it when the saved_model will be loaded
         # From http://vict0rsch.github.io/2018/05/17/restore-tf-model-dataset/
         iterator = tf.data.Iterator.from_structure(dataset.output_types, dataset.output_shapes)
         dataset_init_op = iterator.make_initializer(dataset, name='dataset_init')
-        features_images, features_shapes = iterator.get_next()
+        features_images, features_original_shapes, features_resized_shapes = iterator.get_next()
 
         receiver_inputs = {'filenames': image_filenames, 'batch_size': batch_size}
-        features = {'images': features_images, 'original_shape': features_shapes}
+        features = {'images': features_images,
+                    'original_shape': features_original_shapes,
+                    'resized_shape': features_resized_shapes}
 
         return tf.estimator.export.ServingInputReceiver(features, receiver_inputs)
 

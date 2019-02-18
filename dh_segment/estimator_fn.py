@@ -253,6 +253,9 @@ def model_fn(mode, features, labels, params):
 
             predictions['original_shape'] = features['original_shape']
 
+        if 'resized_shape' in features.keys():
+            predictions['resized_shape'] = features['resized_shape']
+
         export_outputs['output'] = tf.estimator.export.PredictOutput(predictions)
 
         export_outputs[tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY] = export_outputs['output']
