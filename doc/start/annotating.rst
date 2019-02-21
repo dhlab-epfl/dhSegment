@@ -48,5 +48,5 @@ and "radio" and avoid "text" type in order to ease the parsing of the exported f
         list_attributes = via.get_via_attributes(via_annotations)
 
     # Create one mask per option per attribute
-    via.create_masks(masks_dir, working_items, via_attributes, collection)
+    via.create_masks(masks_dir, working_items, list_attributes, collection)
 
