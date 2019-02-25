@@ -100,11 +100,20 @@ class Point:
         return [list(pt) for pt in array]
 
     @classmethod
+    def array_to_point(cls, array: np.ndarray) -> list:
+        """Converts an `np.array` to a list of `Point`
+
+        :param array: an array of coordinates. Must be of shape (N, 2)
+        :return: list of `Point`
+        """
+        return cls.list_to_point(list(array))
+
+    @classmethod
     def list_to_point(cls, list_coords: list) -> List['Point']:
         """Converts a list of coordinates to a list of `Point`
 
         :param list_coords: list of coordinates, shape (N, 2)
-        :return: list of Points
+        :return: list of `Point`
         """
         return [cls(coord[1], coord[0]) for coord in list_coords if list_coords]
 
