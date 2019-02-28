@@ -16,7 +16,7 @@ In order to limit memory usage, the images in the dataset we provide have been d
     git clone https://github.com/dhlab-epfl/dhSegment.git
 
 1. Get the annotated dataset `here`_, which already contains the folders ``images`` and ``labels``
-for training, validation and testing set. Unzip it into ``model/pages``. ::
+for training, validation and testing set. Unzip it into ``demo/pages``. ::
 
     cd demo/
     wget https://github.com/dhlab-epfl/dhSegment/releases/download/v0.2/pages.zip
