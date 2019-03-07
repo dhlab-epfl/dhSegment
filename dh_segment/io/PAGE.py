@@ -364,7 +364,8 @@ class TextRegion(Region):
 
     def to_xml(self, name_element='TextRegion') -> ET.Element:
         text_et = super().to_xml(name_element=name_element)
-        text_et.set('type', self.type if self.type is not None else '')
+        if self.type is not None and self.type != '':
+            text_et.set('type', self.type)
         for tl in self.text_lines:
             text_et.append(tl.to_xml())
         text_equiv = ET.SubElement(text_et, 'TextEquiv')
@@ -680,7 +681,7 @@ class Page(BaseElement):
             root.append(self.to_xml())
             for k, v in _attribs.items():
                 root.attrib[k] = v
-            ET.ElementTree(element=root).write(filename)
+            ET.ElementTree(element=root).write(filename, encoding='utf-8')
 
         def _write_json():
             self_dict = vars(self)
