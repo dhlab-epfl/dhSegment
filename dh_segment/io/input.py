@@ -193,6 +193,8 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
 
         if make_patches and input_label_dir:
             base_shape_images = list(training_params.patch_shape)
+        elif make_patches and input_case == InputCase.INPUT_CSV:
+            base_shape_images = list(training_params.patch_shape)
         else:
             base_shape_images = [-1, -1]
         # Pad things

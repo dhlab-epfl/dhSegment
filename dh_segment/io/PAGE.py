@@ -8,6 +8,7 @@ import json
 from uuid import uuid4
 from shapely.geometry import Polygon
 from abc import ABC
+import re
 
 # https://docs.python.org/3.5/library/xml.etree.elementtree.html#parsing-xml-with-namespaces
 _ns = {'p': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'}
@@ -53,6 +54,9 @@ class Point:
         """
         if etree_elem is None:
             # print('warning, trying to construct list of points from None, defaulting to []')
+            return []
+        if etree_elem.attrib['points'] == "":
+            # print('warning, trying to construct list of points from empty string, defaulting to []')
             return []
         t = etree_elem.attrib['points']
         result = []
@@ -454,8 +458,8 @@ class SeparatorRegion(Region):
 
     tag = 'SeparatorRegion'
 
-    def __init__(self, id: str, coords: List[Point]=None):
-        super().__init__(id=id, coords=coords)
+    def __init__(self, id: str, coords: List[Point]=None, custom_attribute: str=None):
+        super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'SeparatorRegion':
@@ -1042,3 +1046,24 @@ def save_baselines(filename, baselines, ratio=(1, 1), initial_shape=None):
                 image_height=int(initial_shape[0]*ratio[0]) if initial_shape is not None else None,
                 image_width=int(initial_shape[1]*ratio[1]) if initial_shape is not None else None)
     page.write_to_file(filename)
+
+
+def get_unique_tags_from_xml_text_regions(xml_filename: str,
+                                          tag_pattern: str='{type:.*;}'):
+    """
+    Get a list of all the values of labels/tags
+
+    :param xml_filename: filename of the xml file
+    :param tag_pattern: regular expression pattern to look for in `TextRegion.custom_attribute`
+    :return:
+    """
+    tagset = list()
+    page = parse_file(xml_filename)
+    for tr in page.text_regions:
+        custom_attribute = tr.custom_attribute
+        matches = re.findall(tag_pattern, custom_attribute)
+        assert len(matches) <= 1, "Found multiple matches in {}".format(custom_attribute)
+        if matches:
+            tagset.append(matches[0][6:-2])
+
+    return list(np.unique(tagset))
