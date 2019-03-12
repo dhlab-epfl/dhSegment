@@ -114,8 +114,8 @@ def load_and_resize_image(filename: str, channels: int, size: int=None, interpol
     :return: decoded and resized float32 tensor [h, w, channels],
     """
     with tf.name_scope('load_img'):
-        decoded_image = tf.to_float(tf.image.decode_jpeg(tf.read_file(filename), channels=channels,
-                                                         try_recover_truncated=True))
+        decoded_image = tf.cast(tf.image.decode_jpeg(tf.read_file(filename), channels=channels,
+                                                     try_recover_truncated=True), dtype=tf.float32)
         # TODO : if one side is smaller than size of patches (and make patches == true),
         # TODO : force the image to have at least patch size
         if size is not None and not(isinstance(size, int) and size <= 0):

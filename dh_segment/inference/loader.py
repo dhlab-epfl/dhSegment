@@ -45,9 +45,6 @@ class LoadedModel:
         elif predict_mode == 'resized_images':
             input_dict_key = 'resized_images'
             signature_def_key = 'from_resized_images:serving_default'
-        # elif predict_mode == 'batch_filenames':
-        #     input_dict_key = 'filenames'
-        #     signature_def_key = 'serving_default'
         else:
             raise NotImplementedError
         self.predict_mode = predict_mode
@@ -65,8 +62,6 @@ class LoadedModel:
         if predict_mode == 'resized_images':
             # This node is not defined in this specific run-mode as there is no original image
             del self._output_dict['original_shape']
-        # elif predict_mode == 'batch_filenames':
-        #     self._batch_size = input_dict['batch_size']
 
         self.sema = Semaphore(num_parallel_predictions)
 
@@ -100,38 +95,6 @@ class LoadedModel:
             else:
                 desired_output = self._output_dict
             return self.sess.run(desired_output, feed_dict={self._input_tensor: input_tensor})
-
-    # def batch_predict(self, input_tensor: List[str], batch_size: int=8, prediction_key: str=None):
-    #     """
-    #     Performs the prediction from the loaded model according to the prediction mode. \n
-    #     Prediction modes:
-    #
-    #     +-------------------+--------------------------+------------------------------------------------------+-------------------------------------------+
-    #     | `prediction_mode` | `input_tensor`           | Output prediction dictionnary                        | Comment                                   |
-    #     +===================+==========================+======================================================+===========================================+
-    #     | `batch_filenames` | List of filename strings | `labels`, `probs`, `original_shape`, `resized_shape` | Loads the image, resizes it, and predicts |
-    #     +-------------------+--------------------------+------------------------------------------------------+-------------------------------------------+
-    #
-    #     :param input_tensor: a batch input whose format should match the prediction mode
-    #     :param batch_size: batch size for batch prediction
-    #     :param prediction_key: if not `None`, will returns the value of the corresponding key of the output dictionary \
-    #     instead of the full dictionary
-    #     :return: the prediction output
-    #     """
-    #     assert len(input_tensor) <= batch_size, "Length of input should be smaller or equal to batch size."
-    #     with self.sema:
-    #         if prediction_key:
-    #             desired_output = self._output_dict[prediction_key]
-    #         else:
-    #             desired_output = self._output_dict
-    #
-    #         g = tf.get_default_graph()
-    #         _init_op = g.get_operation_by_name('dataset_init')
-    #
-    #         _, predictions = self.sess.run([_init_op, desired_output], feed_dict={self._input_tensor: input_tensor,
-    #                                                                               self._batch_size: batch_size})
-    #
-    #         return predictions
 
     def predict_with_tiles(self, filename: str, resized_size: int=None, tile_size: int=500,
                            min_overlap: float=0.2, linear_interpolation: bool=True):
@@ -254,10 +217,12 @@ class BatchLoadedModel:
 
     def init_prediction(self, input_filenames: List[str], batch_size: int=8):
         """
+        Method to call to initialize the internal `Iterator` for `Dataset` handling. This method should be called
+        before any call to ``predict_next_batch`` (needs to be called only once).
 
-        :param input_tensor:
-        :param batch_size:
-        :param prediction_key:
+
+        :param input_filenames: list of filenames to predict
+        :param batch_size: size of batch
         :return:
         """
 
@@ -270,6 +235,7 @@ class BatchLoadedModel:
     def predict_next_batch(self, prediction_key: str=None):
         """
         Performs the prediction from the loaded model according to the prediction mode. \n
+        ``init_prediction`` must have been called before!
         Prediction modes:
 
         +-------------------+--------------------------+------------------------------------------------------+-------------------------------------------+
@@ -278,8 +244,6 @@ class BatchLoadedModel:
         | `batch_filenames` | List of filename strings | `labels`, `probs`, `original_shape`, `resized_shape` | Loads the image, resizes it, and predicts |
         +-------------------+--------------------------+------------------------------------------------------+-------------------------------------------+
 
-        :param input_tensor: a batch input whose format should match the prediction mode
-        :param batch_size: batch size for batch prediction
         :param prediction_key: if not `None`, will returns the value of the corresponding key of the output dictionary \
         instead of the full dictionary
         :return: the prediction output
