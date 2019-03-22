@@ -38,7 +38,7 @@ def cleaning_binary(mask: np.ndarray, kernel_size: int=5) -> np.ndarray:
     ksize_close = (kernel_size, kernel_size)
     mask = cv2.morphologyEx((mask.astype(np.uint8, copy=False) * 255), cv2.MORPH_OPEN, kernel=np.ones(ksize_open))
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel=np.ones(ksize_close))
-    return mask / 255
+    return np.uint8(mask / 255)
 
 
 def hysteresis_thresholding(probs: np.array, low_threshold: float, high_threshold: float,

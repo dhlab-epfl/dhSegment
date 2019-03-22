@@ -1,5 +1,2 @@
 Tutorials
 =========
-
-.. toctree::
-   hi

@@ -40,10 +40,11 @@ release = ''
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.coverage',
     'sphinx.ext.githubpages',
     'sphinxcontrib.bibtex',  # for bibtex
-    'sphinx_autodoc_typehints'  # for typing
+    'sphinx_autodoc_typehints',  # for typing
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -134,7 +135,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'dhsegment.tex', 'dhsegment Documentation',
-     'Sofia ARES OLIVEIRA, Benoit SEGUIN', 'manual'),
+     author, 'manual'),
 ]
 
 
@@ -161,3 +162,15 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
+
+autodoc_mock_imports = [
+    # 'numpy',
+    'scipy',
+    'tensorflow',
+    'pandas',
+    'sklearn',
+    'skimage',
+    'shapely',
+    'typing',
+    'cv2'
+]
