@@ -676,6 +676,14 @@ class Page(BaseElement):
         #     page_et.append(self.metadata.to_xml())
         return page_et
 
+    def to_json(self) -> dict:
+        self_dict = vars(self)
+
+        serializable_keys = ['image_filename', 'image_height', 'image_width']
+        json_dict = json_serialize(self_dict, [k for k in self_dict.keys() if k not in serializable_keys])
+
+        return json_dict
+
     def write_to_file(self, filename: str, creator_name: str='dhSegment', comments: str='') -> None:
         """
         Export Page object to json or page-xml format. Will assume the format based on the extension of the filename,
@@ -697,14 +705,8 @@ class Page(BaseElement):
             ET.ElementTree(element=root).write(filename, encoding='utf-8')
 
         def _write_json():
-            self_dict = vars(self)
-
-            # json_dict = dict()
-            serializable_keys = ['image_filename', 'image_height', 'image_width']
-            json_dict = json_serialize(self_dict, [k for k in self_dict.keys() if k not in serializable_keys])
-
             with open(filename, 'w', encoding='utf8') as file:
-                json.dump(json_dict, file, indent=4, sort_keys=True, allow_nan=False)
+                json.dump(self.to_json(), file, indent=4, sort_keys=True, allow_nan=False)
 
         # Updating metadata
         self.metadata.creator = creator_name
