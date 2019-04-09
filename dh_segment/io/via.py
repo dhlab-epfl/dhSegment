@@ -17,6 +17,7 @@ from PIL import Image
 from itertools import filterfalse, chain
 from typing import List, Tuple, Dict
 import cv2
+from . import PAGE
 
 
 # To define before using the corresponding functions
@@ -302,22 +303,25 @@ def _scale_down_original(working_item, img_out_dir: str) -> None:
         imsave(outfile, img_resized.astype(np.uint8))
 
 
-def load_annotation_data(via_data_filename: str, only_img_annotations: bool=False) -> dict:
+def load_annotation_data(via_data_filename: str, only_img_annotations: bool=False, via_version: int=2) -> dict:
     """
     Load the content of via annotation files.
 
     :param via_data_filename: via annotations json file
     :param only_img_annotations: load only the images annotations ('_via_img_metadata' field)
+    :param via_version:
     :return: the content of json file containing the region annotated
     """
 
-    with open(via_data_filename, 'r') as f:
+    with open(via_data_filename, 'r', encoding='utf8') as f:
         content = json.load(f)
+    if via_version == 2:
+        assert '_via_img_metadata' in content.keys(), "The file is not a valid VIA project export."
 
-    assert '_via_img_metadata' in content.keys(), "The file is not a valid VIA project export."
-
-    if only_img_annotations:
-        return content['_via_img_metadata']
+        if only_img_annotations:
+            return content['_via_img_metadata']
+        else:
+            return content
     else:
         return content
 
@@ -330,7 +334,7 @@ def export_annotation_dict(annotation_dict: dict, filename: str) -> None:
     :param filename: filename to export the data (json file)
     :return:
     """
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf8') as f:
         json.dump(annotation_dict, f)
 
 
@@ -566,6 +570,43 @@ def create_masks(masks_dir: str, working_items: List[WorkingItem], via_attribute
     return annotation_summary
 
 
+def _get_coordinates_from_xywh(via_regions: List[dict]) -> List[np.array]:
+    """
+    From VIA region dictionaries, get the coordinates array (N,2) of the annotations
+
+    :param via_regions:
+    :return:
+    """
+    list_coordinates_regions = list()
+    for region in via_regions:
+        shape_attributes_dict = region['shape_attributes']
+        if shape_attributes_dict['name'] == 'rect':
+            x = shape_attributes_dict['x']
+            y = shape_attributes_dict['y']
+            w = shape_attributes_dict['width']
+            h = shape_attributes_dict['height']
+
+            coordinates = np.array([[x, y],
+                                    [x + w, y],
+                                    [x + w, y + h],
+                                    [x, y + h]
+                                    ])
+            list_coordinates_regions.append(coordinates)
+        elif shape_attributes_dict['name'] == 'polygon':
+            coordinates = np.stack([shape_attributes_dict['all_points_x'],
+                                    shape_attributes_dict['all_points_y']], axis=1)
+            list_coordinates_regions.append(coordinates)
+        elif shape_attributes_dict['name'] == 'polyline':
+            coordinates = np.stack([shape_attributes_dict['all_points_x'],
+                                    shape_attributes_dict['all_points_y']], axis=1)
+            list_coordinates_regions.append(coordinates)
+        else:
+            raise NotImplementedError(
+                "This method has not been implemenetd yet for {}".format(shape_attributes_dict['name']))
+
+    return list_coordinates_regions
+
+
 # EXPORT
 # ------
 
@@ -648,6 +689,53 @@ def create_via_annotation_single_image(img_filename: str, via_regions: List[dict
     }
 
     return {via_key: via_annotation}
+
+
+# PAGE CONVERSION
+# ---------------
+
+def convert_via_region_page_text_region(working_item: WorkingItem, structure_label: str) -> PAGE.Page:
+    """
+
+    :param working_item:
+    :param structure_label:
+    :return:
+    """
+
+    # TODO : this is not yet generic because we're missing the automatic detection of the structure label
+
+    region_coordinates = _get_coordinates_from_xywh(working_item.annotations)
+
+    page = PAGE.Page(image_filename=working_item.image_name + 'jpg',
+                     image_width=working_item.original_x,
+                     image_height=working_item.original_y,
+                     graphic_regions=[
+                         PAGE.TextRegion(coords=PAGE.Point.array_to_point(coords),
+                                         custom_attribute='structure{{type:{};}}'.format(structure_label))
+                         for coords in region_coordinates])
+    return page
+
+
+# def convert_via_region_to_text_region(via_regions: List[dict], structure_label: str) -> PAGE.TextRegion:
+#     """
+#
+#     :param via_region:
+#     :param structure_label:
+#     :return:
+#     """
+#
+#     # TODO : this is not yet generic because we're missing the automatic detection of the structure label
+#
+#     region_coordinates = _get_coordinates_from_xywh(working_item.annotations)
+#
+#     page = PAGE.Page(image_filename=working_item.image_name + 'jpg',
+#                      image_width=working_item.original_x,
+#                      image_height=working_item.original_y,
+#                      graphic_regions=[
+#                          PAGE.TextRegion(coords=PAGE.Point.array_to_point(coords),
+#                                          custom_attribute='structure{{type:{};}}'.format(structure_label))
+#                          for coords in region_coordinates])
+#     return page
 
 
 """
