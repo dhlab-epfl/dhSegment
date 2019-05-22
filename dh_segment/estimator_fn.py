@@ -186,14 +186,20 @@ def model_fn(mode, features, labels, params):
     # ----------
     if mode == tf.estimator.ModeKeys.EVAL:
         if prediction_type == PredictionType.CLASSIFICATION:
-            metrics = {'eval/accuracy': tf.metrics.accuracy(labels, predictions=prediction_labels)}
+            metrics = {
+                'eval/accuracy': tf.metrics.accuracy(labels, predictions=prediction_labels),
+                'eval/mIOU': tf.metrics.mean_iou(labels, prediction_labels, num_classes=model_params.n_classes,)
+                                                 # weights=tf.cast(training_params.weights_evaluation_miou, tf.float32))
+            }
         elif prediction_type == PredictionType.REGRESSION:
             metrics = {'eval/accuracy': tf.metrics.mean_squared_error(labels, predictions=prediction_labels)}
         elif prediction_type == PredictionType.MULTILABEL:
             metrics = {'eval/MSE': tf.metrics.mean_squared_error(tf.cast(labels, tf.float32),
                                                                  predictions=prediction_probs),
                        'eval/accuracy': tf.metrics.accuracy(tf.cast(labels, tf.bool),
-                                                            predictions=tf.cast(prediction_labels, tf.bool))
+                                                            predictions=tf.cast(prediction_labels, tf.bool)),
+                       'eval/mIOU': tf.metrics.mean_iou(labels, prediction_labels, num_classes=model_params.n_classes)
+                                                        # weights=training_params.weights_evaluation_miou)
                        }
     else:
         metrics = None

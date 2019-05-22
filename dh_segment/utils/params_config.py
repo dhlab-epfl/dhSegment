@@ -143,6 +143,7 @@ class TrainingParams(BaseParams):
         self.patch_shape = kwargs.get('patch_shape', (300, 300))
         self.input_resized_size = int(kwargs.get('input_resized_size', 72e4))  # (600*1200)
         self.weights_labels = kwargs.get('weights_labels')
+        self.weights_evaluation_miou = kwargs.get('weights_evaluation_miou', None)
         self.training_margin = kwargs.get('training_margin', 16)
         self.local_entropy_ratio = kwargs.get('local_entropy_ratio', 0.)
         self.local_entropy_sigma = kwargs.get('local_entropy_sigma', 3)
