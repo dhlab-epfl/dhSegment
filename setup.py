@@ -13,7 +13,7 @@ setup(name='dh_segment',
       },
       scripts=['dh_segment_train'],
       install_requires=[
-        'tensorflow-gpu==1.13.1',
+        #'tensorflow-gpu==1.13.1',
         'numpy==1.16.2',
         'imageio==2.5.0',
         'pandas==0.24.2',

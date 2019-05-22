@@ -4,7 +4,7 @@ __license__ = "GPL"
 
 from .misc import get_class_from_name
 from ..network.model import Encoder, Decoder
-from typing import Type
+from typing import Type, Optional
 
 
 class PredictionType:
@@ -58,23 +58,25 @@ class ModelParams(BaseParams):
     :param n_classes:
     """
     def __init__(self, **kwargs):
-        self.encoder_name = kwargs.get('encoder_name', 'dh_segment.network.pretrained_models.ResnetV1_50')  # type: str
-        self.encoder_params = kwargs.get('encoder_params', dict())  # type: dict
-        self.decoder_name = kwargs.get('decoder_name', 'dh_segment.network.SimpleDecoder')  # type: str
-        self.decoder_params = kwargs.get('decoder_params', {
+        self.encoder_network = kwargs.get('encoder_network', 'dh_segment.network.pretrained_models.ResnetV1_50')  # type: str
+        self.encoder_network_params = kwargs.get('encoder_network_params', dict())  # type: dict
+        self.decoder_network = kwargs.get('decoder_network', 'dh_segment.network.SimpleDecoder')  # type: str
+        self.decoder_network_params = kwargs.get('decoder_network_params', {
             'upsampling_dims': [32, 64, 128, 256, 512]
         })  # type: dict
+        self.full_network = kwargs.get('full_network', None)  # type: Optional[str]
+        self.full_network_params = kwargs.get('full_network_params', dict())  # type: dict
         self.n_classes = kwargs.get('n_classes', None)  # type: int
 
         self.check_params()
 
     def get_encoder(self) -> Type[Encoder]:
-        encoder = get_class_from_name(self.encoder_name)
+        encoder = get_class_from_name(self.encoder_network)
         assert issubclass(encoder, Encoder), "{} is not an Encoder".format(encoder)
         return encoder
 
     def get_decoder(self) -> Type[Decoder]:
-        decoder = get_class_from_name(self.decoder_name)
+        decoder = get_class_from_name(self.decoder_network)
         assert issubclass(decoder, Decoder), "{} is not a Decoder".format(decoder)
         return decoder
 

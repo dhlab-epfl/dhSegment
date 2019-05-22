@@ -18,9 +18,9 @@ def model_fn(mode, features, labels, params):
                               mode='SYMMETRIC', name='mirror_padding')
 
     encoder_class = model_params.get_encoder()
-    encoder = encoder_class(**model_params.encoder_params)
+    encoder = encoder_class(**model_params.encoder_network_params)
     decoder_class = model_params.get_decoder()
-    decoder = decoder_class(**model_params.decoder_params)
+    decoder = decoder_class(**model_params.decoder_network_params)
 
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
     feature_maps = encoder(input_images, is_training=is_training)

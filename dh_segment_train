@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+
+from dh_segment.train import ex
+import sys
+
+if __name__ == '__main__':
+    ex.run_commandline(sys.argv+["--force"])
