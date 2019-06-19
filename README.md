@@ -4,7 +4,7 @@
 
 **dhSegment** is a tool for Historical Document Processing. Its generic approach allows to segment regions and
 extract content from different type of documents. See 
-[some examples here](https://dhsegment.readthedocs.io/en/latest/intro.html#use-cases).
+[some examples here](https://dhsegment.readthedocs.io/en/latest/intro/intro.html#use-cases).
 
 The complete description of the system can be found in the corresponding [paper](https://arxiv.org/abs/1804.10371).
 
@@ -18,9 +18,6 @@ and examples of usage can be found in the documentation (see section below).
 Have a try at the [demo](https://dhsegment.readthedocs.io/en/latest/start/demo.html) to train (optional) and apply dhSegment in page extraction using the `demo.py` script.
 
 ## Documentation
-
-*Under construction*
-
 The documentation is available on [readthedocs](https://dhsegment.readthedocs.io/).
 
 ##
