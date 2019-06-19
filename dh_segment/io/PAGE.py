@@ -316,8 +316,8 @@ class GraphicRegion(Region):
     """
     tag = 'GraphicRegion'
 
-    def __init__(self, id: str=None, coords: List[Point]=None,):
-        super().__init__(id=id, coords=coords)
+    def __init__(self, id: str=None, coords: List[Point]=None, custom_attribute: str=None):
+        super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'GraphicRegion':
@@ -415,8 +415,8 @@ class TableRegion(Region):
     tag = 'TableRegion'
 
     def __init__(self, id: str=None, coords: List[Point]=None, rows: int=None, columns: int=None,
-                 embedded_text: bool=None):
-        super().__init__(id=id, coords=coords)
+                 embedded_text: bool=None, custom_attribute: str=None):
+        super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.rows = rows
         self.columns = columns
         self.embedded_text = embedded_text
@@ -581,8 +581,9 @@ class GroupSegment(Region):
     :ivar segment_ids: list of the regions ids belonging to the group
 
     """
-    def __init__(self, id: str = None, coords: List[Point] = None, segment_ids: List[str] = None):
-        super().__init__(id=id, coords=coords)
+    def __init__(self, id: str = None, coords: List[Point] = None, segment_ids: List[str]=None,
+                 custom_attribute: str=None):
+        super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.segment_ids = segment_ids if segment_ids is not None else []
 
     @classmethod
