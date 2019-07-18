@@ -3,7 +3,7 @@ __author__ = "solivr"
 __license__ = "GPL"
 
 import tensorflow as tf
-from dh_segment.loader import LoadedModel
+from dh_segment.inference import LoadedModel
 from glob import glob
 import numpy as np
 from tqdm import tqdm

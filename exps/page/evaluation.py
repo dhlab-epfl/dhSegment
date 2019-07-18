@@ -8,7 +8,7 @@ import os
 from imageio import imread
 import numpy as np
 from .process import extract_page
-from dh_segment.post_processing.evaluation import intersection_over_union, Metrics
+from dh_segment.utils.evaluation import intersection_over_union, Metrics
 
 
 PP_PARAMS = {'threshold': -1, 'kernel_size': 5}

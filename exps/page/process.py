@@ -7,7 +7,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 from glob import glob
-from dh_segment.loader import LoadedModel
+from dh_segment.inference import LoadedModel
 from imageio import imsave
 from dh_segment.post_processing import binarization
 from dh_segment.post_processing.boxes_detection import find_boxes

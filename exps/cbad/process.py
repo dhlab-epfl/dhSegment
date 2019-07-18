@@ -11,8 +11,8 @@ from scipy.misc import imresize
 from dh_segment.utils import dump_pickle
 from dh_segment.post_processing.binarization import hysteresis_thresholding, cleaning_probs
 from dh_segment.post_processing.line_vectorization import find_lines
-from dh_segment.post_processing import PAGE
-from dh_segment.loader import LoadedModel
+from dh_segment.io import PAGE
+from dh_segment.inference import LoadedModel
 
 
 def prediction_fn(model_dir: str, input_dir: str, output_dir: str=None) -> None:

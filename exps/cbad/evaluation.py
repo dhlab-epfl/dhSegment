@@ -4,7 +4,7 @@ import subprocess
 from glob import glob
 import pandas as pd
 from tqdm import tqdm
-from dh_segment.post_processing import PAGE
+from dh_segment.io import PAGE
 from .process import extract_lines
 
 CBAD_JAR = './cBAD/TranskribusBaseLineEvaluationScheme_v0.1.3/' \
