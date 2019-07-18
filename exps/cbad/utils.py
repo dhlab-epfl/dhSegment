@@ -1,5 +1,7 @@
 import os
 import shutil
+import zipfile
+import urllib
 from glob import glob
 import cv2
 import numpy as np
@@ -154,3 +156,49 @@ def draw_lines_fn(xml_filename: str, output_dir: str):
     drawing_img = generated_page.image_filename
     generated_page.draw_baselines(drawing_img, color=(0, 0, 255))
     imsave(os.path.join(output_dir, '{}.jpg'.format(basename)), drawing_img)
+
+# --------
+
+
+def _progress_hook(t):
+    last_b = [0]
+
+    def update_to(b: int=1, bsize: int=1, tsize: int=None):
+        """
+        Adapted from: source unknown
+        :param b: Number of blocks transferred so far [default: 1].
+        :param bsize: Size of each block (in tqdm units) [default: 1].
+        :param tsize: Total size (in tqdm units). If [default: None] remains unchanged.
+        """
+        if tsize is not None:
+            t.total = tsize
+        t.update((b - last_b[0]) * bsize)
+        last_b[0] = b
+
+    return update_to
+
+
+def cbad_download(output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    zip_filename = os.path.join(output_dir, 'cbad-icdar17.zip')
+
+    with tqdm(unit='B', unit_scale=True, unit_divisor=1024, miniters=1, desc="Downloading cBAD-ICDAR17 dataset") as t:
+        urllib.request.urlretrieve('https://zenodo.org/record/1491441/files/READ-ICDAR2017-cBAD-dataset-v4.zip',
+                                   zip_filename, reporthook=_progress_hook(t))
+    print('cBAD-ICDAR2017 dataset downloaded successfully!')
+    print('Extracting files ...')
+    with zipfile.ZipFile(zip_filename, 'r') as zip_ref:
+        zip_ref.extractall(output_dir)
+
+    # Renaming
+    os.rename(os.path.join(output_dir, 'Test-Baseline Competition - Complex Documents'),
+              os.path.join(output_dir, 'cbad-icdar2017-test-complex-documents'))
+    os.rename(os.path.join(output_dir, 'Test-Baseline Competition - Simple Documents'),
+              os.path.join(output_dir, 'cbad-icdar2017-test-simple-documents'))
+    os.rename(os.path.join(output_dir, 'Train-Baseline Competition - Complex Documents'),
+              os.path.join(output_dir, 'cbad-icdar2017-train-complex-documents'))
+    os.rename(os.path.join(output_dir, 'Train-Baseline Competition - Simple Documents'),
+              os.path.join(output_dir, 'cbad-icdar2017-train-simple-documents'))
+
+    os.remove(zip_filename)
+    print('Files extracted and renamed in {}'.format(output_dir))
