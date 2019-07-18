@@ -11,6 +11,7 @@ from abc import ABC
 import re
 
 # https://docs.python.org/3.5/library/xml.etree.elementtree.html#parsing-xml-with-namespaces
+_use_https = False
 _ns = {'p': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'}
 _attribs = {'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
             'xsi:schemaLocation': "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 "
@@ -701,6 +702,11 @@ class Page(BaseElement):
 
             root.append(self.metadata.to_xml())
             root.append(self.to_xml())
+            # If https usage is needed, change http to https
+            if _use_https:
+                global _attribs
+                _attribs['xmlns:xsi'] = re.sub('http:', 'https:', _attribs['xmlns:xsi'])
+                _attribs['xsi:schemaLocation'] = re.sub('http:', 'https:', _attribs['xsi:schemaLocation'])
             for k, v in _attribs.items():
                 root.attrib[k] = v
             ET.ElementTree(element=root).write(filename, encoding='utf-8')
@@ -1002,10 +1008,17 @@ def parse_file(filename: str) -> Page:
     :param filename: file to parse (either json of page xml)
     :return: Page object containing all the parsed elements
     """
+    global _use_https, _ns
+
     extension = os.path.splitext(filename)[1]
 
     if extension == '.xml':
         xml_page = ET.parse(filename)
+        # find if https need to be used or not
+        root = xml_page.getroot()
+        if 'https' in root.tag and not _use_https:
+            _use_https = True
+            _ns['p'] = re.sub('http:', 'https:', _ns['p'])
         page_elements = xml_page.find('p:Page', _ns)
         metadata_et = xml_page.find('p:Metadata', _ns)
         page = Page.from_xml(page_elements)
