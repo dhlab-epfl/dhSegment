@@ -131,12 +131,15 @@ def cbad_set_generator(input_dir: str,
                           draw_lines=draw_lines, line_thickness=line_thickness,
                           draw_endpoints=draw_endpoints, diameter_endpoint=circle_thickness)
 
+    classes = [(0, 0, 0)]
+    if draw_baselines:
+        classes.append(DRAWING_COLOR_BASELINES)
+    if draw_lines:
+        classes.append(DRAWING_COLOR_LINES)
     if draw_endpoints:
-        classes = np.stack([(0, 0, 0), DRAWING_COLOR_BASELINES, DRAWING_COLOR_POINTS])
-        np.savetxt(os.path.join(output_dir, 'classes.txt'), classes, fmt='%d')
-    else:
-        classes = np.stack([(0, 0, 0), DRAWING_COLOR_BASELINES])
-        np.savetxt(os.path.join(output_dir, 'classes.txt'), classes, fmt='%d')
+        classes.append(DRAWING_COLOR_POINTS)
+
+    np.savetxt(os.path.join(output_dir, 'classes.txt'), classes, fmt='%d')
 
 
 def draw_lines_fn(xml_filename: str, output_dir: str):
