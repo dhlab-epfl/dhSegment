@@ -1,0 +1,24 @@
+{
+  "training_params" : {
+      "learning_rate": 5e-5,
+      "batch_size": 1,
+      "make_patches": false,
+      "training_margin" : 0,
+      "n_epochs": 30,
+      "data_augmentation" : true,
+      "data_augmentation_max_rotation" : 0.2,
+      "data_augmentation_max_scaling" : 0.2,
+      "data_augmentation_flip_lr": true,
+      "data_augmentation_flip_ud": false,
+      "data_augmentation_color": false,
+      "evaluate_every_epoch" : 10,
+      "input_resized_size": 1e6
+  },
+  "pretrained_model_name" : "resnet50",
+  "prediction_type": "MULTILABEL",
+  "train_data" : "data/cbad-masks/simple/train/set_data.csv",
+  "eval_data" : "data/cbad-masks/simple/train/set_data.csv",
+  "classes_file" : "data/cbad-masks/simple/train/classes.txt",
+  "model_output_dir" : "demo/cbad_simple_model",
+  "gpu" : "0"
+}

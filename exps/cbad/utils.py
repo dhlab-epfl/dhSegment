@@ -102,7 +102,7 @@ def annotate_one_page(image_filename: str,
     save_and_resize(gt, output_label_path, size=size, nearest=True)
     shutil.copy(page_filename, os.path.join(output_dir, 'gt', '{}.xml'.format(image_label_basename)))
 
-    return output_image_path, output_label_path
+    return os.path.abspath(output_image_path), os.path.abspath(output_label_path)
 
 
 def cbad_set_generator(input_dir: str,
@@ -145,6 +145,7 @@ def cbad_set_generator(input_dir: str,
 
         tuples_images_labels.append((output_image_path, output_label_path))
 
+    # Create classes.txt file
     classes = [(0, 0, 0)]
     if draw_baselines:
         classes.append(DRAWING_COLOR_BASELINES)
@@ -152,8 +153,21 @@ def cbad_set_generator(input_dir: str,
         classes.append(DRAWING_COLOR_LINES)
     if draw_endpoints:
         classes.append(DRAWING_COLOR_POINTS)
+    if draw_baselines and draw_lines:
+        classes.append(tuple(np.array(DRAWING_COLOR_BASELINES) + np.array(DRAWING_COLOR_LINES)))
+    if draw_baselines and draw_endpoints:
+        classes.append(tuple(np.array(DRAWING_COLOR_BASELINES) + np.array(DRAWING_COLOR_POINTS)))
+    if draw_lines and draw_endpoints:
+        classes.append(tuple(np.array(DRAWING_COLOR_LINES) + np.array(DRAWING_COLOR_POINTS)))
+    if draw_baselines and draw_lines and draw_endpoints:
+        classes.append(tuple(np.array(DRAWING_COLOR_BASELINES) + np.array(DRAWING_COLOR_LINES) + np.array(DRAWING_COLOR_POINTS)))
 
-    np.savetxt(os.path.join(output_dir, 'classes.txt'), classes, fmt='%d')
+    # Deal with multiclassification
+    multiclass_codes = np.greater(classes, len(classes) * [[0, 0, 0]]).astype(int)
+    final_classes = np.hstack((classes, multiclass_codes))
+
+    np.savetxt(os.path.join(output_dir, 'classes.txt'), final_classes, fmt='%d')
+
     with open(os.path.join(output_dir, 'set_data.csv'), 'w') as f:
         writer = csv.writer(f)
         for row in tuples_images_labels:
@@ -194,7 +208,7 @@ def _progress_hook(t):
     return update_to
 
 
-def cbad_download(output_dir: str) -> None:
+def cbad_download(output_dir: str):
     os.makedirs(output_dir, exist_ok=True)
     zip_filename = os.path.join(output_dir, 'cbad-icdar17.zip')
 

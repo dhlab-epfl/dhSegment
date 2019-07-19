@@ -16,8 +16,12 @@ TEST_SIMPLE_DIR = 'cbad-icdar2017-test-simple-documents'
 @click.option('--downloading_dir', help='Directory to download the cBAD-ICDAR17 dataset')
 @click.option('--masks_dir', help="Directory where to output the generated masks")
 def generate_cbad_dataset(downloading_dir: str, masks_dir: str):
-    # Download dataset
-    cbad_download(downloading_dir)
+    # Check if dataset has already been downloaded
+    if os.path.exists(downloading_dir):
+        print('Dataset has already been downloaded. Skipping process.')
+    else:
+        # Download dataset
+        cbad_download(downloading_dir)
 
     # Create masks
     dirs_tuple = [(os.path.join(downloading_dir, TRAIN_COMPLEX_DIR), os.path.join(masks_dir, 'complex', 'train')),
@@ -31,11 +35,12 @@ def generate_cbad_dataset(downloading_dir: str, masks_dir: str):
         os.makedirs(output_dir, exist_ok=True)
         cbad_set_generator(input_dir=input_dir,
                            output_dir=output_dir,
-                           img_size=20e6,
+                           img_size=2e6,
                            draw_baselines=True,
                            draw_lines=True,
-                           line_thickness=15,
-                           draw_endpoints=True)
+                           line_thickness=5,
+                           draw_endpoints=True,
+                           circle_thickness=15)
 
 
 if __name__ == '__main__':
