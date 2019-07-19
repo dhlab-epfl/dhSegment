@@ -5,6 +5,8 @@ import urllib
 from glob import glob
 import cv2
 import numpy as np
+import csv
+from typing import Tuple
 from imageio import imread, imsave
 from tqdm import tqdm
 from dh_segment.io import PAGE
@@ -49,12 +51,12 @@ def save_and_resize(img: np.array, filename: str, size=None, nearest: bool=False
 
 def annotate_one_page(image_filename: str,
                       output_dir: str,
-                      size: int,
+                      size: int=None,
                       draw_baselines: bool=True,
                       draw_lines: bool=False,
                       draw_endpoints: bool=False,
                       line_thickness: int=10,
-                      diameter_endpoint: int=20) -> None:
+                      diameter_endpoint: int=20) -> Tuple[str, str]:
 
     page_filename = get_page_filename(image_filename)
     page = PAGE.parse_file(page_filename)
@@ -94,10 +96,13 @@ def annotate_one_page(image_filename: str,
         gt[:, :, np.argmax(DRAWING_COLOR_POINTS)] = gt_points
 
     image_label_basename = get_image_label_basename(image_filename)
-    save_and_resize(img, os.path.join(output_dir, 'images', '{}.jpg'.format(image_label_basename)), size=size)
-    save_and_resize(gt, os.path.join(output_dir, 'labels', '{}.png'.format(image_label_basename)),
-                    size=size, nearest=True)
+    output_image_path = os.path.join(output_dir, 'images', '{}.jpg'.format(image_label_basename))
+    output_label_path = os.path.join(output_dir, 'labels', '{}.png'.format(image_label_basename))
+    save_and_resize(img, output_image_path, size=size)
+    save_and_resize(gt, output_label_path, size=size, nearest=True)
     shutil.copy(page_filename, os.path.join(output_dir, 'gt', '{}.xml'.format(image_label_basename)))
+
+    return output_image_path, output_label_path
 
 
 def cbad_set_generator(input_dir: str,
@@ -107,7 +112,7 @@ def cbad_set_generator(input_dir: str,
                        draw_lines: bool=False,
                        line_thickness: int=4,
                        draw_endpoints: bool=False,
-                       circle_thickness: int =20):
+                       circle_thickness: int =20) -> None:
     """
 
     :param input_dir: Input directory containing images and PAGE files
@@ -128,10 +133,17 @@ def cbad_set_generator(input_dir: str,
     os.makedirs(os.path.join('{}'.format(output_dir), 'images'))
     os.makedirs(os.path.join('{}'.format(output_dir), 'labels'))
     os.makedirs(os.path.join('{}'.format(output_dir), 'gt'))
+
+    tuples_images_labels = list()
     for image_filename in tqdm(image_filenames_list):
-        annotate_one_page(image_filename, output_dir, img_size, draw_baselines=draw_baselines,
-                          draw_lines=draw_lines, line_thickness=line_thickness,
-                          draw_endpoints=draw_endpoints, diameter_endpoint=circle_thickness)
+        output_image_path, output_label_path = annotate_one_page(image_filename,
+                                                                 output_dir, img_size, draw_baselines=draw_baselines,
+                                                                 draw_lines=draw_lines,
+                                                                 line_thickness=line_thickness,
+                                                                 draw_endpoints=draw_endpoints,
+                                                                 diameter_endpoint=circle_thickness)
+
+        tuples_images_labels.append((output_image_path, output_label_path))
 
     classes = [(0, 0, 0)]
     if draw_baselines:
@@ -142,6 +154,10 @@ def cbad_set_generator(input_dir: str,
         classes.append(DRAWING_COLOR_POINTS)
 
     np.savetxt(os.path.join(output_dir, 'classes.txt'), classes, fmt='%d')
+    with open(os.path.join(output_dir, 'set_data.csv'), 'w') as f:
+        writer = csv.writer(f)
+        for row in tuples_images_labels:
+            writer.writerow(row)
 
 
 def draw_lines_fn(xml_filename: str, output_dir: str):
@@ -178,7 +194,7 @@ def _progress_hook(t):
     return update_to
 
 
-def cbad_download(output_dir):
+def cbad_download(output_dir: str) -> None:
     os.makedirs(output_dir, exist_ok=True)
     zip_filename = os.path.join(output_dir, 'cbad-icdar17.zip')
 
