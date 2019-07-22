@@ -4,7 +4,7 @@ __license__ = "GPL"
 
 import os
 import click
-from utils import cbad_download, cbad_set_generator
+from utils import cbad_download, cbad_set_generator, split_set_for_eval
 
 TRAIN_COMPLEX_DIR = 'cbad-icdar2017-train-complex-documents'
 TRAIN_SIMPLE_DIR = 'cbad-icdar2017-train-simple-documents'
@@ -37,10 +37,12 @@ def generate_cbad_dataset(downloading_dir: str, masks_dir: str):
                            output_dir=output_dir,
                            img_size=2e6,
                            draw_baselines=True,
-                           draw_lines=True,
-                           line_thickness=5,
                            draw_endpoints=True,
-                           circle_thickness=15)
+                           circle_thickness=10)
+
+    print('Make eval set from the given training data (0.15/0.85 eval/train)')
+    csv_filename = os.path.join(output_dir, 'set_data.csv')
+    split_set_for_eval(csv_filename)
 
 
 if __name__ == '__main__':

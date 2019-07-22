@@ -6,6 +6,7 @@ from glob import glob
 import cv2
 import numpy as np
 import csv
+import pandas as pd
 from typing import Tuple
 from imageio import imread, imsave
 from tqdm import tqdm
@@ -172,6 +173,21 @@ def cbad_set_generator(input_dir: str,
         writer = csv.writer(f)
         for row in tuples_images_labels:
             writer.writerow(row)
+
+
+def split_set_for_eval(csv_filename: str) -> None:
+
+    df_data = pd.read_csv(csv_filename, header=None)
+
+    # take 15% for eval
+    df_eval = df_data.sample(frac=0.15, random_state=42)
+    indexes = df_data.index.difference(df_eval.index)
+    df_train = df_data.loc[indexes]
+
+    # save CSVs
+    saving_dir = os.path.dirname(csv_filename)
+    df_eval.to_csv(os.path.join(saving_dir, 'eval_data.csv'), header=False, index=False, encoding='utf8')
+    df_train.to_csv(os.path.join(saving_dir, 'train_data.csv'), header=False, index=False, encoding='utf8')
 
 
 def draw_lines_fn(xml_filename: str, output_dir: str):
