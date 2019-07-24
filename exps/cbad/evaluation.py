@@ -9,11 +9,16 @@ from .process import extract_lines
 
 CBAD_JAR = './cBAD/TranskribusBaseLineEvaluationScheme_v0.1.3/' \
            'TranskribusBaseLineEvaluationScheme-0.1.3-jar-with-dependencies.jar'
-PP_PARAMS = post_process_params = {'sigma': 1.5, 'low_threshold': 0.2, 'high_threshold': 0.4}
+PP_PARAMS = {'sigma': 1.5, 'low_threshold': 0.2, 'high_threshold': 0.4}
 
 
-def eval_fn(input_dir: str, groudtruth_dir: str, output_dir: str=None, post_process_params: dict=PP_PARAMS,
-            jar_tool_path: str=CBAD_JAR, masks_dir: str=None) -> dict:
+def eval_fn(input_dir: str,
+            groudtruth_dir: str,
+            output_dir: str=None,
+            post_process_params: dict=PP_PARAMS,
+            channel_baselines: int=1,
+            jar_tool_path: str=CBAD_JAR,
+            masks_dir: str=None) -> dict:
     """
 
     :param input_dir: Input directory containing probability maps (.npy)
@@ -36,7 +41,8 @@ def eval_fn(input_dir: str, groudtruth_dir: str, output_dir: str=None, post_proc
 
         original_shape = [gt_page_xml.image_height, gt_page_xml.image_width]
 
-        _, _ = extract_lines(file, output_dir, original_shape, **post_process_params, mask_dir=masks_dir)
+        _, _ = extract_lines(file, output_dir, original_shape, post_process_params,
+                             channel_baselines=channel_baselines, mask_dir=masks_dir)
 
     # Create pairs predicted XML - groundtruth XML to be evaluated
     xml_pred_filenames_list = glob(os.path.join(output_dir, '*.xml'))

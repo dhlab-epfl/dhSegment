@@ -15,7 +15,10 @@ from dh_segment.io import PAGE
 from dh_segment.inference import LoadedModel
 
 
-def prediction_fn(model_dir: str, input_dir: str, output_dir: str=None) -> None:
+def prediction_fn(model_dir: str,
+                  input_dir: str,
+                  output_dir: str=None,
+                  config: tf.ConfigProto=None) -> None:
     """
     Given a model directory this function will load the model and apply it to the files (.jpg, .png) found in input_dir.
     The predictions will be saved in output_dir as .npy files (values ranging [0,255])
@@ -31,7 +34,7 @@ def prediction_fn(model_dir: str, input_dir: str, output_dir: str=None) -> None:
     os.makedirs(output_dir, exist_ok=True)
     filenames_to_predict = glob(os.path.join(input_dir, '*.jpg')) + glob(os.path.join(input_dir, '*.png'))
 
-    with tf.Session():
+    with tf.Session(config=config):
         m = LoadedModel(model_dir, predict_mode='filename_original_shape')
         for filename in tqdm(filenames_to_predict, desc='Prediction'):
             pred = m.predict(filename)['probs'][0]
@@ -39,6 +42,7 @@ def prediction_fn(model_dir: str, input_dir: str, output_dir: str=None) -> None:
 
 
 def cbad_post_processing_fn(probs: np.array,
+                            baseline_chanel: int=1,
                             sigma: float=2.5,
                             low_threshold: float=0.8,
                             high_threshold: float=0.9,
@@ -48,6 +52,7 @@ def cbad_post_processing_fn(probs: np.array,
     """
 
     :param probs: output of the model (probabilities) in range [0, 255]
+    :param baseline_chanel: channel where the baseline class is detected
     :param sigma:
     :param low_threshold:
     :param high_threshold:
@@ -58,15 +63,19 @@ def cbad_post_processing_fn(probs: np.array,
      WARNING : contours IN OPENCV format List[np.ndarray(n_points, 1, (x,y))]
     """
 
-    contours, lines_mask = line_extraction_v1(probs[:, :, 1], sigma, low_threshold, high_threshold,
+    contours, lines_mask = line_extraction_v1(probs[:, :, baseline_chanel], sigma, low_threshold, high_threshold,
                                               filter_width, vertical_maxima)
     if output_basename is not None:
         dump_pickle(output_basename+'.pkl', (contours, lines_mask.shape))
     return contours, lines_mask
 
 
-def line_extraction_v1(probs: np.ndarray, low_threshold: float, high_threshold: float, sigma: float=0.0,
-                       filter_width: float=0.00, vertical_maxima: bool=False) -> Tuple[List[np.ndarray], np.ndarray]:
+def line_extraction_v1(probs: np.ndarray,
+                       low_threshold: float,
+                       high_threshold: float,
+                       sigma: float=0.0,
+                       filter_width: float=0.00,
+                       vertical_maxima: bool=False) -> Tuple[List[np.ndarray], np.ndarray]:
     # Smooth
     probs2 = cleaning_probs(probs, sigma=sigma)
 
@@ -111,17 +120,23 @@ def remove_borders(mask: np.ndarray, margin: int=5) -> np.ndarray:
     return result
 
 
-def extract_lines(npy_filename: str, output_dir: str, original_shape: list, post_process_params: dict,
-                  mask_dir: str=None, debug: bool=False):
+def extract_lines(npy_filename: str,
+                  output_dir: str,
+                  original_shape: list,
+                  post_process_params: dict,
+                  channel_baselines: int=1,
+                  mask_dir: str=None,
+                  debug: bool=False):
     """
     From the prediction files (probs) (.npy) finds and extracts the lines into PAGE-XML format.
     :param npy_filename: filename of saved predictions (probs) in range (0,255)
     :param output_dir: output direcoty to save the xml files
     :param original_shape: shpae of the original input image (to rescale the extracted lines if necessary)
     :param post_process_params: pramas for lines detection (sigma, thresholds, ...)
+    :param channel_baselines: channel where the baseline class is detected
     :param mask_dir: directory containing masks of the page in order to improve the line extraction
     :param debug: if True will output the binary image of the extracted lines
-    :return: countours of lines (open cv format), binary image of lines (lines mask)
+    :return: contours of lines (open cv format), binary image of lines (lines mask)
     """
 
     os.makedirs(output_dir, exist_ok=True)
@@ -129,7 +144,7 @@ def extract_lines(npy_filename: str, output_dir: str, original_shape: list, post
     basename = os.path.basename(npy_filename).split('.')[0]
 
     pred = np.load(npy_filename)/255  # type: np.ndarray
-    lines_prob = pred[:, :, 1]
+    lines_prob = pred[:, :, channel_baselines]
 
     if mask_dir is not None:
         mask = imread(os.path.join(mask_dir, basename + '.png'), mode='L')
