@@ -37,12 +37,12 @@ def generate_cbad_dataset(downloading_dir: str, masks_dir: str):
                            output_dir=output_dir,
                            img_size=2e6,
                            draw_baselines=True,
-                           draw_endpoints=True,
-                           circle_thickness=10)
+                           draw_endpoints=False)
 
     print('Make eval set from the given training data (0.15/0.85 eval/train)')
     csv_filename = os.path.join(output_dir, 'set_data.csv')
     split_set_for_eval(csv_filename)
+    print('Done!')
 
 
 if __name__ == '__main__':
