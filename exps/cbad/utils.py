@@ -56,8 +56,20 @@ def annotate_one_page(image_filename: str,
                       draw_baselines: bool=True,
                       draw_lines: bool=False,
                       draw_endpoints: bool=False,
-                      line_thickness: int=10,
+                      baseline_thickness: float=0.2,
                       diameter_endpoint: int=20) -> Tuple[str, str]:
+    """
+
+    :param image_filename:
+    :param output_dir:
+    :param size: Size of the resized image (# pixels)
+    :param draw_baselines: Draws the baselines (boolean)
+    :param draw_lines: Draws the polygon's lines (boolean)
+    :param draw_endpoints: Predict beginning and end of baselines (True, False)
+    :param baseline_thickness: Thickness of annotated baseline (percentage of the line's height)
+    :param diameter_endpoint: Diameter of annotated start/end points
+    :return:
+    """
 
     page_filename = get_page_filename(image_filename)
     page = PAGE.parse_file(page_filename)
@@ -65,36 +77,41 @@ def annotate_one_page(image_filename: str,
     img = imread(image_filename, pilmode='RGB')
     gt = np.zeros_like(img)
 
-    if draw_baselines:
-        gt_baselines = np.zeros_like(img[:, :, 0])
-        gt_baselines = cv2.polylines(gt_baselines,
-                                     [PAGE.Point.list_to_cv2poly(tl.baseline) for tl in
-                                      text_lines],
-                                     isClosed=False, color=255,
-                                     thickness=int(line_thickness * (gt_baselines.shape[0] / TARGET_HEIGHT)))
-        gt[:, :, np.argmax(DRAWING_COLOR_BASELINES)] = gt_baselines
+    if text_lines:
+        if draw_baselines:
+            # Thickness : should be a percentage of the line height, for example 0.2
+            mean_line_height, _, _ = _compute_statistics_line_height(page)
+            absolute_baseline_thickness = int(max(gt.shape[0]*0.002, baseline_thickness*mean_line_height))
 
-    if draw_lines:
-        gt_lines = np.zeros_like(img[:, :, 0])
-        for tl in text_lines:
-            gt_lines = cv2.fillPoly(gt_lines,
-                                    [PAGE.Point.list_to_cv2poly(tl.coords)],
-                                    color=255)
-        gt[:, :, np.argmax(DRAWING_COLOR_LINES)] = gt_lines
+            gt_baselines = np.zeros_like(img[:, :, 0])
+            gt_baselines = cv2.polylines(gt_baselines,
+                                         [PAGE.Point.list_to_cv2poly(tl.baseline) for tl in
+                                          text_lines],
+                                         isClosed=False, color=255,
+                                         thickness=absolute_baseline_thickness)
+            gt[:, :, np.argmax(DRAWING_COLOR_BASELINES)] = gt_baselines
 
-    if draw_endpoints:
-        gt_points = np.zeros_like(img[:, :, 0])
-        for tl in text_lines:
-            try:
-                gt_points = cv2.circle(gt_points, (tl.baseline[0].x, tl.baseline[0].y),
-                                       radius=int((diameter_endpoint / 2 * (gt_points.shape[0] / TARGET_HEIGHT))),
-                                       color=255, thickness=-1)
-                gt_points = cv2.circle(gt_points, (tl.baseline[-1].x, tl.baseline[-1].y),
-                                       radius=int((diameter_endpoint / 2 * (gt_points.shape[0] / TARGET_HEIGHT))),
-                                       color=255, thickness=-1)
-            except IndexError:
-                print('Length of baseline is {}'.format(len(tl.baseline)))
-        gt[:, :, np.argmax(DRAWING_COLOR_POINTS)] = gt_points
+        if draw_lines:
+            gt_lines = np.zeros_like(img[:, :, 0])
+            for tl in text_lines:
+                gt_lines = cv2.fillPoly(gt_lines,
+                                        [PAGE.Point.list_to_cv2poly(tl.coords)],
+                                        color=255)
+            gt[:, :, np.argmax(DRAWING_COLOR_LINES)] = gt_lines
+
+        if draw_endpoints:
+            gt_points = np.zeros_like(img[:, :, 0])
+            for tl in text_lines:
+                try:
+                    gt_points = cv2.circle(gt_points, (tl.baseline[0].x, tl.baseline[0].y),
+                                           radius=int((diameter_endpoint / 2 * (gt_points.shape[0] / TARGET_HEIGHT))),
+                                           color=255, thickness=-1)
+                    gt_points = cv2.circle(gt_points, (tl.baseline[-1].x, tl.baseline[-1].y),
+                                           radius=int((diameter_endpoint / 2 * (gt_points.shape[0] / TARGET_HEIGHT))),
+                                           color=255, thickness=-1)
+                except IndexError:
+                    print('Length of baseline is {}'.format(len(tl.baseline)))
+            gt[:, :, np.argmax(DRAWING_COLOR_POINTS)] = gt_points
 
     image_label_basename = get_image_label_basename(image_filename)
     output_image_path = os.path.join(output_dir, 'images', '{}.jpg'.format(image_label_basename))
@@ -111,7 +128,7 @@ def cbad_set_generator(input_dir: str,
                        img_size: int,
                        draw_baselines: bool=True,
                        draw_lines: bool=False,
-                       line_thickness: int=4,
+                       line_thickness: float=0.2,
                        draw_endpoints: bool=False,
                        circle_thickness: int =20) -> None:
     """
@@ -121,7 +138,7 @@ def cbad_set_generator(input_dir: str,
     :param img_size: Size of the resized image (# pixels)
     :param draw_baselines: Draws the baselines (boolean)
     :param draw_lines: Draws the polygon's lines (boolean)
-    :param line_thickness: Thickness of annotated baseline
+    :param line_thickness: Thickness of annotated baseline (percentage of the line's height)
     :param draw_endpoints: Predict beginning and end of baselines (True, False)
     :param circle_thickness: Diameter of annotated start/end points
     :return:
@@ -140,7 +157,7 @@ def cbad_set_generator(input_dir: str,
         output_image_path, output_label_path = annotate_one_page(image_filename,
                                                                  output_dir, img_size, draw_baselines=draw_baselines,
                                                                  draw_lines=draw_lines,
-                                                                 line_thickness=line_thickness,
+                                                                 baseline_thickness=line_thickness,
                                                                  draw_endpoints=draw_endpoints,
                                                                  diameter_endpoint=circle_thickness)
 
@@ -202,6 +219,62 @@ def draw_lines_fn(xml_filename: str, output_dir: str):
     drawing_img = generated_page.image_filename
     generated_page.draw_baselines(drawing_img, color=(0, 0, 255))
     imsave(os.path.join(output_dir, '{}.jpg'.format(basename)), drawing_img)
+
+
+def _compute_statistics_line_height(page_class: PAGE.Page, verbose: bool=False) -> Tuple[float, float, float]:
+    """
+    Function to compute mean and std of line height among a page.
+
+    :param page_class: json Page
+    :param verbose: either to print computational info or not
+    :return: tuple (mean, standard deviation, median)
+    """
+    y_lines_coords = [[c.y for c in tl.coords] for tr in page_class.text_regions for tl in tr.text_lines if tl.coords]
+    line_heights = np.array([np.max(y_line_coord) - np.min(y_line_coord) for y_line_coord in y_lines_coords])
+
+    # Remove outliers
+    outliers = _is_outlier(np.array(line_heights))
+    line_heights_filtered = line_heights[~outliers]
+    if verbose:
+        print('Considering {}/{} lines to compute line height statistics'.format(len(line_heights_filtered),
+                                                                                 len(line_heights)))
+
+    # Compute mean, std, median
+    mean = np.mean(line_heights_filtered)
+    median = np.median(line_heights_filtered)
+    standard_deviation = np.std(line_heights_filtered)
+
+    return mean, standard_deviation, median
+
+
+def _is_outlier(points, thresh=3.5):
+    """
+    Returns a boolean array with True if points are outliers and False
+    otherwise. Used to find outliers in 1D data.
+    https://stackoverflow.com/questions/22354094/pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data
+
+    References:
+        Boris Iglewicz and David Hoaglin (1993), "Volume 16: How to Detect and
+        Handle Outliers", The ASQC Basic References in Quality Control:
+        Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
+
+    :param points : An numobservations by numdimensions array of observations
+    :param thresh : The modified z-score to use as a threshold. Observations with
+            a modified z-score (based on the median absolute deviation) greater
+            than this value will be classified as outliers.
+
+    :return: mask : A num_observations-length boolean array.
+    """
+    if len(points.shape) == 1:
+        points = points[:, None]
+    median = np.median(points, axis=0)
+    diff = np.sum((points - median)**2, axis=-1)
+    diff = np.sqrt(diff)
+    med_abs_deviation = np.median(diff)
+
+    modified_z_score = 0.6745 * diff / med_abs_deviation
+
+    return modified_z_score > thresh
 
 # --------
 
