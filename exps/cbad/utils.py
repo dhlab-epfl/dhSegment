@@ -233,8 +233,11 @@ def _compute_statistics_line_height(page_class: PAGE.Page, verbose: bool=False) 
     line_heights = np.array([np.max(y_line_coord) - np.min(y_line_coord) for y_line_coord in y_lines_coords])
 
     # Remove outliers
-    outliers = _is_outlier(np.array(line_heights))
-    line_heights_filtered = line_heights[~outliers]
+    if len(line_heights) > 3:
+        outliers = _is_outlier(np.array(line_heights))
+        line_heights_filtered = line_heights[~outliers]
+    else:
+        line_heights_filtered = line_heights
     if verbose:
         print('Considering {}/{} lines to compute line height statistics'.format(len(line_heights_filtered),
                                                                                  len(line_heights)))
@@ -271,6 +274,11 @@ def _is_outlier(points, thresh=3.5):
     diff = np.sum((points - median)**2, axis=-1)
     diff = np.sqrt(diff)
     med_abs_deviation = np.median(diff)
+    # Replace zero values by epsilon
+    if not isinstance(med_abs_deviation, float):
+        med_abs_deviation = np.maximum(med_abs_deviation, len(med_abs_deviation)*[1e-10])
+    else:
+        med_abs_deviation = np.maximum(med_abs_deviation, 1e-10)
 
     modified_z_score = 0.6745 * diff / med_abs_deviation
 
