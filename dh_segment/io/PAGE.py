@@ -1053,15 +1053,28 @@ def json_serialize(dict_to_serialize: dict, non_serializable_keys: List[str]=lis
     return new_dict
 
 
-def save_baselines(filename, baselines, ratio=(1, 1), initial_shape=None):
+def save_baselines(filename: str,
+                   baselines,
+                   ratio: Tuple[int, int]=(1, 1),
+                   predictions_shape: Tuple[int, int]=None) -> Page:
+    """
+
+    :param filename: filename to save baselines to
+    :param baselines: list of baselines
+    :param ratio: ratio of prediction shape over original shape
+    :param predictions_shape: shape of the masks output by the network
+    :return:
+    """
     txt_lines = [TextLine.from_array(baseline_coords=b, id='line_{}'.format(i)) for i, b in enumerate(baselines)]
     for l in txt_lines:
         l.scale_baseline_points(ratio)
     txt_region = TextRegion(text_lines=txt_lines, id='region_0')
     page = Page(text_regions=[txt_region],
-                image_height=int(initial_shape[0]*ratio[0]) if initial_shape is not None else None,
-                image_width=int(initial_shape[1]*ratio[1]) if initial_shape is not None else None)
+                image_height=int(predictions_shape[0] * ratio[0]) if predictions_shape is not None else None,
+                image_width=int(predictions_shape[1] * ratio[1]) if predictions_shape is not None else None)
     page.write_to_file(filename)
+
+    return page
 
 
 def get_unique_tags_from_xml_text_regions(xml_filename: str,

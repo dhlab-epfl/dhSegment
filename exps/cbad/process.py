@@ -158,6 +158,6 @@ def extract_lines(npy_filename: str,
 
     ratio = (original_shape[0] / pred.shape[0], original_shape[1] / pred.shape[1])
     xml_filename = os.path.join(output_dir, basename + '.xml')
-    PAGE.save_baselines(xml_filename, contours, ratio, initial_shape=pred.shape[:2])
+    PAGE.save_baselines(xml_filename, contours, ratio, predictions_shape=pred.shape[:2])
 
     return contours, lines_mask
