@@ -16,8 +16,8 @@
   },
   "pretrained_model_name" : "resnet50",
   "prediction_type": "MULTILABEL",
-  "train_data" : "data/cbad-masks/simple/train/set_data.csv",
-  "eval_data" : "data/cbad-masks/simple/train/set_data.csv",
+  "train_data" : "data/cbad-masks/simple/train/train_data.csv",
+  "eval_data" : "data/cbad-masks/simple/train/eval_data.csv",
   "classes_file" : "data/cbad-masks/simple/train/classes.txt",
   "model_output_dir" : "demo/cbad_simple_model",
   "gpu" : "0"
