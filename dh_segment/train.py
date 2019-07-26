@@ -8,12 +8,6 @@ tf.logging.set_verbosity(WARNING)
 from dh_segment import estimator_fn, utils
 from dh_segment.io import input
 import json
-
-try:
-    import better_exceptions
-except ImportError:
-    print('/!\ W -- Not able to import package better_exceptions')
-    pass
 from tqdm import trange
 from sacred import Experiment
 
@@ -106,26 +100,26 @@ def run(train_data, eval_data, model_output_dir, gpu, training_params, _config):
 
     for i in trange(0, training_params.n_epochs, training_params.evaluate_every_epoch, desc='Evaluated epochs'):
         estimator.train(input.input_fn(train_input,
-                                          input_label_dir=train_labels_input,
-                                          num_epochs=training_params.evaluate_every_epoch,
-                                          batch_size=training_params.batch_size,
-                                          data_augmentation=training_params.data_augmentation,
-                                          make_patches=training_params.make_patches,
-                                          image_summaries=True,
-                                          params=_config,
-                                          num_threads=num_threads,
-                                          progressbar_description="Training".format(i)))
+                                       input_label_dir=train_labels_input,
+                                       num_epochs=training_params.evaluate_every_epoch,
+                                       batch_size=training_params.batch_size,
+                                       data_augmentation=training_params.data_augmentation,
+                                       make_patches=training_params.make_patches,
+                                       image_summaries=True,
+                                       params=_config,
+                                       num_threads=num_threads,
+                                       progressbar_description="Training".format(i)))
 
         if eval_data is not None:
             eval_result = estimator.evaluate(input.input_fn(eval_input,
-                                                               input_label_dir=eval_labels_input,
-                                                               batch_size=1,
-                                                               data_augmentation=False,
-                                                               make_patches=False,
-                                                               image_summaries=False,
-                                                               params=_config,
-                                                               num_threads=num_threads,
-                                                               progressbar_description="Evaluation"))
+                                                            input_label_dir=eval_labels_input,
+                                                            batch_size=1,
+                                                            data_augmentation=False,
+                                                            make_patches=False,
+                                                            image_summaries=False,
+                                                            params=_config,
+                                                            num_threads=num_threads,
+                                                            progressbar_description="Evaluation"))
         else:
             eval_result = None
 
