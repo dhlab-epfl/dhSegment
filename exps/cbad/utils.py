@@ -126,6 +126,7 @@ def annotate_one_page(image_filename: str,
 def cbad_set_generator(input_dir: str,
                        output_dir: str,
                        img_size: int,
+                       multilabel: bool=False,
                        draw_baselines: bool=True,
                        draw_lines: bool=False,
                        line_thickness: float=0.2,
@@ -136,6 +137,7 @@ def cbad_set_generator(input_dir: str,
     :param input_dir: Input directory containing images and PAGE files
     :param output_dir: Output directory to save images and labels
     :param img_size: Size of the resized image (# pixels)
+    :param multilabel: whether the training will have the MULTILABEL prediction type
     :param draw_baselines: Draws the baselines (boolean)
     :param draw_lines: Draws the polygon's lines (boolean)
     :param line_thickness: Thickness of annotated baseline (percentage of the line's height)
@@ -181,8 +183,11 @@ def cbad_set_generator(input_dir: str,
         classes.append(tuple(np.array(DRAWING_COLOR_BASELINES) + np.array(DRAWING_COLOR_LINES) + np.array(DRAWING_COLOR_POINTS)))
 
     # Deal with multiclassification
-    multiclass_codes = np.greater(classes, len(classes) * [[0, 0, 0]]).astype(int)
-    final_classes = np.hstack((classes, multiclass_codes))
+    if multilabel:
+        multiclass_codes = np.greater(classes, len(classes) * [[0, 0, 0]]).astype(int)
+        final_classes = np.hstack((classes, multiclass_codes))
+    else:
+        final_classes = classes
 
     np.savetxt(os.path.join(output_dir, 'classes.txt'), final_classes, fmt='%d')
 
