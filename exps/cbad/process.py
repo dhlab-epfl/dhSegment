@@ -22,9 +22,11 @@ def prediction_fn(model_dir: str,
     """
     Given a model directory this function will load the model and apply it to the files (.jpg, .png) found in input_dir.
     The predictions will be saved in output_dir as .npy files (values ranging [0,255])
+
     :param model_dir: Directory containing the saved model
     :param input_dir: input directory where the images to predict are
     :param output_dir: output directory to save the predictions (probability images)
+    :param config: ConfigProto object to pass to the session in order to define which GPU to use
     :return:
     """
     if not output_dir:
@@ -50,15 +52,17 @@ def cbad_post_processing_fn(probs: np.array,
                             vertical_maxima: bool=False,
                             output_basename=None) -> Tuple[List[np.ndarray], np.ndarray]:
     """
+    Given a probability map, returns the contour of lines and the corresponding mask.
+    Saves the results in .pkl file if requested.
 
     :param probs: output of the model (probabilities) in range [0, 255]
     :param baseline_chanel: channel where the baseline class is detected
-    :param sigma:
-    :param low_threshold:
-    :param high_threshold:
-    :param filter_width:
-    :param output_basename:
-    :param vertical_maxima:
+    :param sigma: sigma value for gaussian filtering
+    :param low_threshold: hysteresis low threshold
+    :param high_threshold: hysteresis high threshold
+    :param filter_width: percentage of the image width to filter out lines that are close to borders (default 0.0)
+    :param output_basename: name of file to save the intermediaty result as .pkl file.
+    :param vertical_maxima: set to True to use vertical local maxima as candidates for the hysteresis thresholding
     :return: contours, mask
      WARNING : contours IN OPENCV format List[np.ndarray(n_points, 1, (x,y))]
     """
@@ -76,6 +80,17 @@ def line_extraction_v1(probs: np.ndarray,
                        sigma: float=0.0,
                        filter_width: float=0.00,
                        vertical_maxima: bool=False) -> Tuple[List[np.ndarray], np.ndarray]:
+    """
+    Given a probability map, returns the contour of lines and the corresponding mask
+
+    :param probs: probability map (numpy array)
+    :param low_threshold: hysteresis low threshold
+    :param high_threshold: hysteresis high threshold
+    :param sigma: sigma value for gaussian filtering
+    :param filter_width: percentage of the image width to filter out lines that are close to borders (default 0.0)
+    :param vertical_maxima: set to True to use vertical local maxima as candidates for the hysteresis thresholding
+    :return:
+    """
     # Smooth
     probs2 = cleaning_probs(probs, sigma=sigma)
 
@@ -129,6 +144,7 @@ def extract_lines(npy_filename: str,
                   debug: bool=False):
     """
     From the prediction files (probs) (.npy) finds and extracts the lines into PAGE-XML format.
+
     :param npy_filename: filename of saved predictions (probs) in range (0,255)
     :param output_dir: output direcoty to save the xml files
     :param original_shape: shpae of the original input image (to rescale the extracted lines if necessary)

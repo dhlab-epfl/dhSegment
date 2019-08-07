@@ -33,12 +33,14 @@ def generate_cbad_dataset(downloading_dir: str, masks_dir: str):
     for dir_tuple in dirs_tuple:
         input_dir, output_dir = dir_tuple
         os.makedirs(output_dir, exist_ok=True)
+        # For each set create the folder with the annotated data
         cbad_set_generator(input_dir=input_dir,
                            output_dir=output_dir,
                            img_size=2e6,
                            draw_baselines=True,
                            draw_endpoints=False)
 
+        # Split the 'official' train set into training and validation set
         if 'train' in output_dir:
             print('Make eval set from the given training data (0.15/0.85 eval/train)')
             csv_filename = os.path.join(output_dir, 'set_data.csv')

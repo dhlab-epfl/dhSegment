@@ -40,21 +40,27 @@ def baseline_extraction(model_dir: str,
         os.makedirs(drawing_dir)
 
     with tf.Session(config=config):
+        # Load the model
         m = LoadedModel(model_dir, predict_mode='filename_original_shape')
         for filename in tqdm(filenames_to_process, desc='Prediction'):
+            # Inference
             prediction = m.predict(filename)
+            # Take the first element of the 'probs' dictionary (batch size = 1)
             probs = prediction['probs'][0]
             original_shape = probs.shape
 
+            # The baselines probs are on the second channel
             baseline_probs = probs[:, :, 1]
             contours, _ = line_extraction_v1(baseline_probs, low_threshold=0.2, high_threshold=0.4, sigma=1.5)
 
             basename = os.path.basename(filename).split('.')[0]
 
+            # Compute the ratio to save the coordinates in the original image coordinates reference.
             ratio = (original_shape[0] / probs.shape[0], original_shape[1] / probs.shape[1])
             xml_filename = os.path.join(output_dir, basename + '.xml')
             page_object = PAGE.save_baselines(xml_filename, contours, ratio, predictions_shape=probs.shape[:2])
 
+            # If specified, saves the images with the annotated baslines
             if draw_extractions:
                 image = imread(filename)
                 page_object.draw_baselines(image, color=(255, 0, 0), thickness=5)

@@ -12,6 +12,7 @@ from imageio import imread, imsave
 from tqdm import tqdm
 from dh_segment.io import PAGE
 
+# Constant definitions
 TARGET_HEIGHT = 1100
 DRAWING_COLOR_BASELINES = (255, 0, 0)
 DRAWING_COLOR_LINES = (0, 255, 0)
@@ -22,6 +23,12 @@ np.random.seed(RANDOM_SEED)
 
 
 def get_page_filename(image_filename: str) -> str:
+    """
+    Given an path to a .jpg or .png file, get the corresponding .xml file.
+
+    :param image_filename: filename of the image
+    :return: the filename of the corresponding .xml file, raises exception if .xml file does not exist
+    """
     page_filename = os.path.join(os.path.dirname(image_filename),
                                  'page',
                                  '{}.xml'.format(os.path.basename(image_filename)[:-4]))
@@ -33,13 +40,31 @@ def get_page_filename(image_filename: str) -> str:
 
 
 def get_image_label_basename(image_filename: str) -> str:
+    """
+    Creates a new filename composed of the begining of the folder/collection (ex. EPFL, ABP) and the original filename
+
+    :param image_filename: path of the image filename
+    :return:
+    """
     # Get acronym followed by name of file
     directory, basename = os.path.split(image_filename)
     acronym = directory.split(os.path.sep)[-1].split('_')[0]
     return '{}_{}'.format(acronym, basename.split('.')[0])
 
 
-def save_and_resize(img: np.array, filename: str, size=None, nearest: bool=False) -> None:
+def save_and_resize(img: np.array,
+                    filename: str,
+                    size=None,
+                    nearest: bool=False) -> None:
+    """
+    Resizes the image if necessary and saves it. The resizing will keep the image ratio
+
+    :param img: the image to resize and save (numpy array)
+    :param filename: filename of the saved image
+    :param size: size of the image after resizing (in pixels). The ratio of the original image will be kept
+    :param nearest: whether to use nearest interpolation method (default to False)
+    :return:
+    """
     if size is not None:
         h, w = img.shape[:2]
         ratio = float(np.sqrt(size/(h*w)))
@@ -59,30 +84,36 @@ def annotate_one_page(image_filename: str,
                       baseline_thickness: float=0.2,
                       diameter_endpoint: int=20) -> Tuple[str, str]:
     """
+    Creates an annotated mask and corresponding original image and saves it in 'labels' and 'images' folders.
+    Also copies the corresponding .xml file into 'gt' folder.
 
-    :param image_filename:
-    :param output_dir:
+    :param image_filename: filename of the image to process
+    :param output_dir: directory to output the annotated label image
     :param size: Size of the resized image (# pixels)
     :param draw_baselines: Draws the baselines (boolean)
     :param draw_lines: Draws the polygon's lines (boolean)
     :param draw_endpoints: Predict beginning and end of baselines (True, False)
     :param baseline_thickness: Thickness of annotated baseline (percentage of the line's height)
     :param diameter_endpoint: Diameter of annotated start/end points
-    :return:
+    :return: (output_image_path, output_label_path)
     """
 
     page_filename = get_page_filename(image_filename)
+    # Parse xml file and get TextLines
     page = PAGE.parse_file(page_filename)
     text_lines = [tl for tr in page.text_regions for tl in tr.text_lines]
     img = imread(image_filename, pilmode='RGB')
+    # Create empty mask
     gt = np.zeros_like(img)
 
     if text_lines:
         if draw_baselines:
             # Thickness : should be a percentage of the line height, for example 0.2
+            # First, get the mean line height.
             mean_line_height, _, _ = _compute_statistics_line_height(page)
             absolute_baseline_thickness = int(max(gt.shape[0]*0.002, baseline_thickness*mean_line_height))
 
+            # Draw the baselines
             gt_baselines = np.zeros_like(img[:, :, 0])
             gt_baselines = cv2.polylines(gt_baselines,
                                          [PAGE.Point.list_to_cv2poly(tl.baseline) for tl in
@@ -92,6 +123,7 @@ def annotate_one_page(image_filename: str,
             gt[:, :, np.argmax(DRAWING_COLOR_BASELINES)] = gt_baselines
 
         if draw_lines:
+            # Draw the lines
             gt_lines = np.zeros_like(img[:, :, 0])
             for tl in text_lines:
                 gt_lines = cv2.fillPoly(gt_lines,
@@ -100,6 +132,7 @@ def annotate_one_page(image_filename: str,
             gt[:, :, np.argmax(DRAWING_COLOR_LINES)] = gt_lines
 
         if draw_endpoints:
+            # Draw endpoints of baselines
             gt_points = np.zeros_like(img[:, :, 0])
             for tl in text_lines:
                 try:
@@ -113,11 +146,14 @@ def annotate_one_page(image_filename: str,
                     print('Length of baseline is {}'.format(len(tl.baseline)))
             gt[:, :, np.argmax(DRAWING_COLOR_POINTS)] = gt_points
 
+    # Make output filenames
     image_label_basename = get_image_label_basename(image_filename)
     output_image_path = os.path.join(output_dir, 'images', '{}.jpg'.format(image_label_basename))
     output_label_path = os.path.join(output_dir, 'labels', '{}.png'.format(image_label_basename))
+    # Resize (if necessary) and save image and label
     save_and_resize(img, output_image_path, size=size)
     save_and_resize(gt, output_label_path, size=size, nearest=True)
+    # Copy XML file to 'gt' folder
     shutil.copy(page_filename, os.path.join(output_dir, 'gt', '{}.xml'.format(image_label_basename)))
 
     return os.path.abspath(output_image_path), os.path.abspath(output_label_path)
@@ -133,6 +169,7 @@ def cbad_set_generator(input_dir: str,
                        draw_endpoints: bool=False,
                        circle_thickness: int =20) -> None:
     """
+    Creates a set with 'images', 'labels', 'gt' folders, classes.txt file and .csv data
 
     :param input_dir: Input directory containing images and PAGE files
     :param output_dir: Output directory to save images and labels
@@ -198,6 +235,12 @@ def cbad_set_generator(input_dir: str,
 
 
 def split_set_for_eval(csv_filename: str) -> None:
+    """
+    Splits set into two sets (0.15 and 0.85).
+
+    :param csv_filename: path to csv file containing in each row image_filename,label_filename
+    :return:
+    """
 
     df_data = pd.read_csv(csv_filename, header=None)
 
@@ -212,25 +255,26 @@ def split_set_for_eval(csv_filename: str) -> None:
     df_train.to_csv(os.path.join(saving_dir, 'train_data.csv'), header=False, index=False, encoding='utf8')
 
 
-def draw_lines_fn(xml_filename: str, output_dir: str):
-    """
-    GIven an XML PAGE file, draws the corresponding lines in the original image.
-    :param xml_filename:
-    :param output_dir:
-    :return:
-    """
-    basename = os.path.basename(xml_filename).split('.')[0]
-    generated_page = PAGE.parse_file(xml_filename)
-    drawing_img = generated_page.image_filename
-    generated_page.draw_baselines(drawing_img, color=(0, 0, 255))
-    imsave(os.path.join(output_dir, '{}.jpg'.format(basename)), drawing_img)
+# def draw_lines_fn(xml_filename: str, output_dir: str):
+#     """
+#     Given an XML PAGE file, draws the corresponding lines in the original image.
+#
+#     :param xml_filename:
+#     :param output_dir:
+#     :return:
+#     """
+#     basename = os.path.basename(xml_filename).split('.')[0]
+#     generated_page = PAGE.parse_file(xml_filename)
+#     drawing_img = generated_page.image_filename
+#     generated_page.draw_baselines(drawing_img, color=(0, 0, 255))
+#     imsave(os.path.join(output_dir, '{}.jpg'.format(basename)), drawing_img)
 
 
 def _compute_statistics_line_height(page_class: PAGE.Page, verbose: bool=False) -> Tuple[float, float, float]:
     """
-    Function to compute mean and std of line height among a page.
+    Function to compute mean and std of line height in a page.
 
-    :param page_class: json Page
+    :param page_class: PAGE.Page object
     :param verbose: either to print computational info or not
     :return: tuple (mean, standard deviation, median)
     """
@@ -311,6 +355,12 @@ def _progress_hook(t):
 
 
 def cbad_download(output_dir: str):
+    """
+    Download BAD-READ dataset.
+
+    :param output_dir: folder where to download the data
+    :return:
+    """
     os.makedirs(output_dir, exist_ok=True)
     zip_filename = os.path.join(output_dir, 'cbad-icdar17.zip')
 

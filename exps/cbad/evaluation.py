@@ -20,11 +20,13 @@ def eval_fn(input_dir: str,
             jar_tool_path: str=CBAD_JAR,
             masks_dir: str=None) -> dict:
     """
+    Evaluates a model against the selected set ('groundtruth_dir' contains XML files)
 
     :param input_dir: Input directory containing probability maps (.npy)
     :param groudtruth_dir: directory containg XML groundtruths
     :param output_dir: output directory for results
     :param post_process_params: parameters form post processing of probability maps
+    :param channel_baselines: the baseline class chanel
     :param jar_tool_path: path to cBAD evaluation tool (.jar file)
     :param masks_dir: optional, directory where binary masks of the page are stored (.png)
     :return:
@@ -82,7 +84,7 @@ def eval_fn(input_dir: str,
     }
 
 
-def parse_score_txt(score_txt, output_csv):
+def parse_score_txt(score_txt: str, output_csv: str):
     lines = score_txt.splitlines()
     header_ind = next((i for i, l in enumerate(lines)
                        if l == '#P value, #R value, #F_1 value, #TruthFileName, #HypoFileName'))
