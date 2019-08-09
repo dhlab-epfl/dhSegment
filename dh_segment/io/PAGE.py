@@ -93,7 +93,7 @@ class Point:
         :param list_points: list of coordinates with `Point` format
         :return: a string with the coordinates
         """
-        return ' '.join(['{},{}'.format(p.x, p.y) for p in list_points])
+        return ' '.join(['{},{}'.format(int(p.x), int(p.y)) for p in list_points])
 
     @classmethod
     def array_to_list(cls, array: np.ndarray) -> list:
