@@ -4,12 +4,9 @@ __license__ = "GPL"
 
 import os
 import click
-from utils import cbad_download, cbad_set_generator, split_set_for_eval
-
-TRAIN_COMPLEX_DIR = 'cbad-icdar2017-train-complex-documents'
-TRAIN_SIMPLE_DIR = 'cbad-icdar2017-train-simple-documents'
-TEST_COMPLEX_DIR = 'cbad-icdar2017-test-complex-documents'
-TEST_SIMPLE_DIR = 'cbad-icdar2017-test-simple-documents'
+# from utils import cbad_download, cbad_set_generator, split_set_for_eval
+from utils import cbad_set_generator, split_set_for_eval
+from exps.commonutils import cbad_download, CBAD_TRAIN_COMPLEX_FOLDER, CBAD_TEST_COMPLEX_FOLDER, CBAD_TRAIN_SIMPLE_FOLDER, CBAD_TEST_SIMPLE_FOLDER
 
 
 @click.command()
@@ -24,10 +21,10 @@ def generate_cbad_dataset(downloading_dir: str, masks_dir: str):
         cbad_download(downloading_dir)
 
     # Create masks
-    dirs_tuple = [(os.path.join(downloading_dir, TRAIN_COMPLEX_DIR), os.path.join(masks_dir, 'complex', 'train')),
-                  (os.path.join(downloading_dir, TEST_COMPLEX_DIR), os.path.join(masks_dir, 'complex', 'test')),
-                  (os.path.join(downloading_dir, TRAIN_SIMPLE_DIR), os.path.join(masks_dir, 'simple', 'train')),
-                  (os.path.join(downloading_dir, TEST_SIMPLE_DIR), os.path.join(masks_dir, 'simple', 'test'))]
+    dirs_tuple = [(os.path.join(downloading_dir, CBAD_TRAIN_COMPLEX_FOLDER), os.path.join(masks_dir, 'complex', 'train')),
+                  (os.path.join(downloading_dir, CBAD_TEST_COMPLEX_FOLDER), os.path.join(masks_dir, 'complex', 'test')),
+                  (os.path.join(downloading_dir, CBAD_TRAIN_SIMPLE_FOLDER), os.path.join(masks_dir, 'simple', 'train')),
+                  (os.path.join(downloading_dir, CBAD_TEST_SIMPLE_FOLDER), os.path.join(masks_dir, 'simple', 'test'))]
 
     print('Creating sets')
     for dir_tuple in dirs_tuple:

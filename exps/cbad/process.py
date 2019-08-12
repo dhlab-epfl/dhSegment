@@ -7,7 +7,7 @@ import tensorflow as tf
 from tqdm import tqdm
 from glob import glob
 from imageio import imsave, imread
-from scipy.misc import imresize
+import PIL
 from dh_segment.utils import dump_pickle
 from dh_segment.post_processing.binarization import hysteresis_thresholding, cleaning_probs
 from dh_segment.post_processing.line_vectorization import find_lines
@@ -164,7 +164,7 @@ def extract_lines(npy_filename: str,
 
     if mask_dir is not None:
         mask = imread(os.path.join(mask_dir, basename + '.png'), mode='L')
-        mask = imresize(mask, lines_prob.shape)
+        mask = np.array(PIL.Image.fromarray(mask, mode='L').resize(lines_prob.shape, resample=PIL.Image.BILINEAR))
         lines_prob[mask == 0] = 0.
 
     contours, lines_mask = line_extraction_v1(lines_prob, **post_process_params)

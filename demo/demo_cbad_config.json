@@ -15,7 +15,7 @@
       "input_resized_size": 1e6
   },
   "pretrained_model_name" : "resnet50",
-  "prediction_type": "MULTILABEL",
+  "prediction_type": "CLASSIFICATION",
   "train_data" : "data/cbad-masks/simple/train/train_data.csv",
   "eval_data" : "data/cbad-masks/simple/train/eval_data.csv",
   "classes_file" : "data/cbad-masks/simple/train/classes.txt",

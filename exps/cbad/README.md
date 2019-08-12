@@ -1,4 +1,9 @@
-# cBAD training
+# cBAD experiment
+
+## Dataset
+Dataset from [ICDAR 2017 Competition on Baseline Detection in Archival Documents (cBAD)](https://zenodo.org/record/835441) ([paper](https://arxiv.org/abs/1705.03311))
+
+## Demo
 
 1. Dowload pretrained weights. 
    ``` shell
@@ -21,7 +26,7 @@ If you changed the default directory of `--masks_dir` make sure to update the fi
 4. To use the trained model on new data, run the `demo_processing.py` script :
    ``` shell
    $ cd exps/cbad
-   $ python demo_processing.py ../../data/cbad-masks-baseline/simple/test/images/*.jpg
+   $ python demo_processing.py ../../data/cbad-masks/simple/test/images/*.jpg
                              --model_dir ../../demo/cbad_simple_model/export/<timestamp-model> 
                              --output_dir ../../demo/baseline_extraction_output
                              --draw_extractions 1
