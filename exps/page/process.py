@@ -13,10 +13,11 @@ from dh_segment.post_processing import binarization
 from dh_segment.post_processing.boxes_detection import find_boxes
 
 
-def prediction_fn(model_dir: str, input_dir: str, output_dir: str=None) -> None:
+def prediction_fn(model_dir: str, input_dir: str, output_dir: str=None, tf_config: tf.ConfigProto=None) -> None:
     """
     Given a model directory this function will load the model and apply it to the files (.jpg, .png) found in input_dir.
     The predictions will be saved in output_dir as .npy files (values ranging [0,255])
+
     :param model_dir: Directory containing the saved model
     :param input_dir: input directory where the images to predict are
     :param output_dir: output directory to save the predictions (probability images)
@@ -29,7 +30,7 @@ def prediction_fn(model_dir: str, input_dir: str, output_dir: str=None) -> None:
     os.makedirs(output_dir, exist_ok=True)
     filenames_to_predict = glob(os.path.join(input_dir, '*.jpg')) + glob(os.path.join(input_dir, '*.png'))
     # Load model
-    with tf.Session():
+    with tf.Session(config=tf_config):
         m = LoadedModel(model_dir, predict_mode='filename_original_shape')
         for filename in tqdm(filenames_to_predict, desc='Prediction'):
             pred = m.predict(filename)['probs'][0]
@@ -40,6 +41,7 @@ def page_post_processing_fn(probs: np.ndarray, threshold: float=0.5, output_base
                             kernel_size: int = 5) -> np.ndarray:
     """
     Computes the binary mask of the detected Page from the probabilities outputed by network
+
     :param probs: array in range [0, 1] of shape HxWx2
     :param threshold: threshold between [0 and 1], if negative Otsu's adaptive threshold will be used
     :param output_basename:
@@ -47,7 +49,7 @@ def page_post_processing_fn(probs: np.ndarray, threshold: float=0.5, output_base
     """
 
     mask = binarization.thresholding(probs[:, :, 1], threshold=threshold)
-    result = binarization.cleaning_binary(mask, size=kernel_size)
+    result = binarization.cleaning_binary(mask, kernel_size=kernel_size)
 
     if output_basename is not None:
         imsave('{}.png'.format(output_basename), result*255)
@@ -64,6 +66,7 @@ def format_quad_to_string(quad):
 def extract_page(prediction: np.ndarray, min_area: float=0.2, post_process_params: dict=None) -> list():
     """
     Given an image with probabilities, post-processes it and extracts one box
+
     :param prediction: probability mask [0, 1]
     :param min_area: minimum area to be considered as a valid extraction
     :param post_process_params: params for page prost processing function

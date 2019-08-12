@@ -30,7 +30,7 @@ def eval_fn(input_dir: str, groundtruth_dir: str, post_process_params: dict=PP_P
         prediction = np.load(file)
         label_image = imread(os.path.join(groundtruth_dir, '{}.png'.format(basename)), pilmode='L')
 
-        pred_box = extract_page(prediction / np.max(prediction), **post_process_params)
+        pred_box = extract_page(prediction / np.max(prediction), post_process_params=post_process_params)
         label_box = extract_page(label_image / np.max(label_image), min_area=0.0)
 
         if pred_box is not None and label_box is not None:

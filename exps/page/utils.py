@@ -8,7 +8,7 @@ import cv2
 import os
 import re
 from tqdm import tqdm
-import urllib
+import urllib.request
 from exps.commonutils import _progress_hook, CBAD_TEST_SIMPLE_FOLDER, CBAD_TEST_COMPLEX_FOLDER, \
     CBAD_TRAIN_SIMPLE_FOLDER, CBAD_TRAIN_COMPLEX_FOLDER
 
