@@ -2,7 +2,7 @@
 from setuptools import setup, find_packages
 
 setup(name='dh_segment',
-      version='0.4.0',
+      version='0.5.0',
       license='GPL',
       url='https://github.com/dhlab-epfl/dhSegment',
       description='Generic framework for historical document processing',
@@ -12,25 +12,23 @@ setup(name='dh_segment',
           'Source Code': 'https://github.com/dhlab-epfl/dhSegment'
       },
       install_requires=[
-        'tensorflow-gpu==1.13.1',
-        'numpy==1.16.2',
-        'imageio==2.5.0',
-        'pandas==0.24.2',
-        'scipy==1.2.1',
-        'shapely==1.6.4',
-        'scikit-learn==0.20.3',
-        'scikit-image==0.15.0',
-        'opencv-python==4.0.1.23',
-        'tqdm==4.31.1',
-        'sacred==0.7.4',
-        'requests==2.21.0'
+        'imageio>=2.5',
+        'pandas>=0.24.2',
+        'shapely>=1.6.4',
+        'scikit-learn>=0.20.3',
+        'scikit-image>=0.15.0',
+        'opencv-python>=4.0.1',
+        'tqdm>=4.31.1',
+        'sacred==0.7.4',  # 0.7.5 causes an error
+        'requests>=2.21.0',
+        'click>=7.0'
       ],
       extras_require={
           'doc': [
-              'sphinx==1.8.1',
-              'sphinx-autodoc-typehints==1.3.0',
-              'sphinx-rtd-theme==0.4.1',
-              'sphinxcontrib-bibtex==0.4.0',
+              'sphinx',
+              'sphinx-autodoc-typehints',
+              'sphinx-rtd-theme',
+              'sphinxcontrib-bibtex',
               'sphinxcontrib-websupport'
           ],
       },
