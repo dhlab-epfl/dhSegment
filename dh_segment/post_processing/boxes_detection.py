@@ -25,7 +25,7 @@ def find_boxes(boxes_mask: np.ndarray, mode: str= 'min_rectangle', min_area: flo
     assert len(boxes_mask.shape) == 2, \
         'Input mask must be a 2D array ! Mask is now of shape {}'.format(boxes_mask.shape)
 
-    contours, _ = cv2.findContours(boxes_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    _, contours, _ = cv2.findContours(boxes_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if contours is None:
         print('No contour found')
         return None
