@@ -50,3 +50,7 @@ and "radio" and avoid "text" type in order to ease the parsing of the exported f
     # Create one mask per option per attribute
     via.create_masks(masks_dir, working_items, list_attributes, collection)
 
+.. Using Transkribus
+    ^^^^^^^^^^^^^^^^^
+    It is possible to generate PAGEXML files with `Transkribus <https://transkribus.eu/Transkribus/>`_.
+    However the helpers functions to generate the masks images from XML have not been implemented yet.

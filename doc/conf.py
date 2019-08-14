@@ -172,5 +172,8 @@ autodoc_mock_imports = [
     'skimage',
     'shapely',
     'typing',
-    'cv2'
+    'cv2',
+    'tqdm',
+    'imageio',
+    'PIL'
 ]
