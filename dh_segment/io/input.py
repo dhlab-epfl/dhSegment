@@ -17,9 +17,9 @@ class InputCase(Enum):
     INPUT_CSV = 'INPUT_CSV'
 
 
-def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: str=None,
-             data_augmentation: bool=False, batch_size: int=5, make_patches: bool=False, num_epochs: int=1,
-             num_threads: int=4, image_summaries: bool=False):
+def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: str = None,
+             data_augmentation: bool = False, batch_size: int = 5, make_patches: bool = False, num_epochs: int = 1,
+             num_threads: int = 4, image_summaries: bool = False, progressbar_description: str = 'Dataset'):
     """
     Input_fn for estimator
     
@@ -33,6 +33,7 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
     :param num_epochs: number of epochs to cycle trough data (set it to None for infinite repeat)
     :param num_threads: number of thread to use in parallele when usin tf.data.Dataset.map
     :param image_summaries: boolean, whether to make tf.Summary to watch on tensorboard
+    :param progressbar_description: what will appear in the progressbar showing the number of files read
     :return: fn
     """
     training_params = utils.TrainingParams.from_dict(params['training_params'])
@@ -96,8 +97,9 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
 
     # Data augmentation
     def _augment_data_fn(input_image, label_image): \
-        return data_augmentation_fn(input_image, label_image, training_params.data_augmentation_flip_lr,
-                                    training_params.data_augmentation_flip_ud, training_params.data_augmentation_color)
+            return data_augmentation_fn(input_image, label_image, training_params.data_augmentation_flip_lr,
+                                        training_params.data_augmentation_flip_ud,
+                                        training_params.data_augmentation_color)
 
     # Assign color to class id
     def _assign_color_to_class_id(input_image, label_image):
@@ -112,13 +114,14 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
             output['weight_maps'] = local_entropy(tf.equal(label_image, 1),
                                                   sigma=training_params.local_entropy_sigma)
         return output
+
     # ---
 
     # Finding the list of images to be used
     if isinstance(input_data, list):
         input_case = InputCase.INPUT_LIST
         input_image_filenames = input_data
-        print('Found {} images'.format(len(input_image_filenames)))
+        #print('Found {} images'.format(len(input_image_filenames)))
 
     elif os.path.isdir(input_data):
         input_case = InputCase.INPUT_DIR
@@ -126,13 +129,14 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
                                      recursive=True) + \
                                 glob(os.path.join(input_data, '**', '*.png'),
                                      recursive=True)
-        print('Found {} images'.format(len(input_image_filenames)))
+        #print('Found {} images'.format(len(input_image_filenames)))
 
     elif os.path.isfile(input_data) and \
             input_data.endswith('.csv'):
         input_case = InputCase.INPUT_CSV
     else:
-        raise NotImplementedError('Input data should be a directory, a csv file or a list of filenames but got {}'.format(input_data))
+        raise NotImplementedError(
+            'Input data should be a directory, a csv file or a list of filenames but got {}'.format(input_data))
 
     # Finding the list of labelled images if available
     has_labelled_data = False
@@ -161,23 +165,24 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
         if not os.path.exists(img_filename):
             raise FileNotFoundError(img_filename)
     if has_labelled_data:
-        for img_filename in input_image_filenames:
-            if not os.path.exists(img_filename):
-                raise FileNotFoundError(img_filename)
+        for label_filename in label_image_filenames:
+            if not os.path.exists(label_filename):
+                raise FileNotFoundError(label_filename)
 
     # Tensorflow input_fn
     def fn():
         if not has_labelled_data:
             encoded_filenames = [f.encode() for f in input_image_filenames]
-            dataset = tf.data.Dataset.from_generator(lambda: tqdm(encoded_filenames, desc='Dataset'),
+            dataset = tf.data.Dataset.from_generator(lambda: tqdm(encoded_filenames, desc=progressbar_description),
                                                      tf.string, tf.TensorShape([]))
             dataset = dataset.repeat(count=num_epochs)
             dataset = dataset.map(lambda filename: {'images': load_and_resize_image(filename, 3,
                                                                                     training_params.input_resized_size)})
         else:
             encoded_filenames = [(i.encode(), l.encode()) for i, l in zip(input_image_filenames, label_image_filenames)]
-            dataset = tf.data.Dataset.from_generator(lambda: tqdm(utils.shuffled(encoded_filenames), desc='Dataset'),
-                                                         (tf.string, tf.string), (tf.TensorShape([]), tf.TensorShape([])))
+            dataset = tf.data.Dataset.from_generator(lambda: tqdm(utils.shuffled(encoded_filenames),
+                                                                  desc=progressbar_description),
+                                                     (tf.string, tf.string), (tf.TensorShape([]), tf.TensorShape([])))
 
             dataset = dataset.repeat(count=num_epochs)
             dataset = dataset.map(_load_image_fn, num_threads).flat_map(_scaling_and_patch_fn)
@@ -192,6 +197,8 @@ def input_fn(input_data: Union[str, List[str]], params: dict, input_label_dir: s
             dataset = dataset.shuffle(128)
 
         if make_patches and input_label_dir:
+            base_shape_images = list(training_params.patch_shape)
+        elif make_patches and input_case == InputCase.INPUT_CSV:
             base_shape_images = list(training_params.patch_shape)
         else:
             base_shape_images = [-1, -1]

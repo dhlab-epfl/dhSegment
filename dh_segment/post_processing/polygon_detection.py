@@ -25,6 +25,8 @@ def find_polygonal_regions(image_mask: np.ndarray, min_area: float=0.1, n_max_po
     found_polygons = list()
 
     for c in contours:
+        if len(c) < 3:  # A polygon cannot have less than 3 points
+            continue
         polygon = geometry.Polygon([point[0] for point in c])
         # Check that polygon has area greater than minimal area
         if polygon.area >= min_area*np.prod(image_mask.shape[:2]):

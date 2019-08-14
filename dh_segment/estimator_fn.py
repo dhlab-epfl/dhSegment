@@ -2,7 +2,6 @@ import tensorflow as tf
 from .utils import PredictionType, ModelParams, TrainingParams, \
     class_to_label_image, multiclass_to_label_image
 import numpy as np
-from .network.model import inference_resnet_v1_50, inference_vgg16, inference_u_net
 
 
 def model_fn(mode, features, labels, params):
@@ -18,45 +17,23 @@ def model_fn(mode, features, labels, params):
         input_images = tf.pad(input_images, [[0, 0], [margin, margin], [margin, margin], [0, 0]],
                               mode='SYMMETRIC', name='mirror_padding')
 
-    if model_params.pretrained_model_name == 'vgg16':
-        network_output = inference_vgg16(input_images,
-                                         model_params,
-                                         model_params.n_classes,
-                                         use_batch_norm=model_params.batch_norm,
-                                         weight_decay=model_params.weight_decay,
-                                         is_training=(mode == tf.estimator.ModeKeys.TRAIN)
-                                         )
-        key_restore_model = 'vgg_16'
+    encoder_class = model_params.get_encoder()
+    encoder = encoder_class(**model_params.encoder_network_params)
+    decoder_class = model_params.get_decoder()
+    decoder = decoder_class(**model_params.decoder_network_params)
 
-    elif model_params.pretrained_model_name == 'resnet50':
-        network_output = inference_resnet_v1_50(input_images,
-                                                model_params,
-                                                model_params.n_classes,
-                                                use_batch_norm=model_params.batch_norm,
-                                                weight_decay=model_params.weight_decay,
-                                                is_training=(mode == tf.estimator.ModeKeys.TRAIN)
-                                                )
-        key_restore_model = 'resnet_v1_50'
-    elif model_params.pretrained_model_name == 'unet':
-        network_output = inference_u_net(input_images,
-                                         model_params,
-                                         model_params.n_classes,
-                                         use_batch_norm=model_params.batch_norm,
-                                         weight_decay=model_params.weight_decay,
-                                         is_training=(mode == tf.estimator.ModeKeys.TRAIN)
-                                         )
-        key_restore_model = None
-    else:
-        raise NotImplementedError
+    is_training = (mode == tf.estimator.ModeKeys.TRAIN)
+    feature_maps = encoder(input_images, is_training=is_training)
+    network_output = decoder(feature_maps, num_classes=model_params.n_classes, is_training=is_training)
 
     if mode == tf.estimator.ModeKeys.TRAIN:
-        if key_restore_model is not None:
+        pretrained_file, pretrained_vars = encoder.pretrained_information()
+        if pretrained_file:
             # Pretrained weights as initialization
-            pretrained_restorer = tf.train.Saver(var_list=[v for v in tf.global_variables()
-                                                           if key_restore_model in v.name])
+            pretrained_restorer = tf.train.Saver(var_list=pretrained_vars)
 
             def init_fn(scaffold, session):
-                pretrained_restorer.restore(session, model_params.pretrained_model_file)
+                pretrained_restorer.restore(session, pretrained_file)
         else:
             init_fn = None
     else:
@@ -92,8 +69,10 @@ def model_fn(mode, features, labels, params):
         if prediction_type == PredictionType.CLASSIFICATION:
             onehot_labels = tf.one_hot(indices=labels, depth=model_params.n_classes)
             with tf.name_scope("loss"):
-                per_pixel_loss = tf.nn.softmax_cross_entropy_with_logits(logits=network_output,
-                                                                         labels=onehot_labels, name='per_pixel_loss')
+                #per_pixel_loss = tf.nn.softmax_cross_entropy_with_logits(logits=network_output,
+                #                                                         labels=onehot_labels, name='per_pixel_loss')
+                per_pixel_loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=network_output,
+                                                                            labels=onehot_labels, name='per_pixel_loss')
                 if training_params.focal_loss_gamma > 0.0:
                     # Probability per pixel of getting the correct label
                     probs_correct_label = tf.reduce_max(tf.multiply(prediction_probs, onehot_labels))
@@ -207,14 +186,20 @@ def model_fn(mode, features, labels, params):
     # ----------
     if mode == tf.estimator.ModeKeys.EVAL:
         if prediction_type == PredictionType.CLASSIFICATION:
-            metrics = {'eval/accuracy': tf.metrics.accuracy(labels, predictions=prediction_labels)}
+            metrics = {
+                'eval/accuracy': tf.metrics.accuracy(labels, predictions=prediction_labels),
+                'eval/mIOU': tf.metrics.mean_iou(labels, prediction_labels, num_classes=model_params.n_classes,)
+                                                 # weights=tf.cast(training_params.weights_evaluation_miou, tf.float32))
+            }
         elif prediction_type == PredictionType.REGRESSION:
             metrics = {'eval/accuracy': tf.metrics.mean_squared_error(labels, predictions=prediction_labels)}
         elif prediction_type == PredictionType.MULTILABEL:
             metrics = {'eval/MSE': tf.metrics.mean_squared_error(tf.cast(labels, tf.float32),
                                                                  predictions=prediction_probs),
                        'eval/accuracy': tf.metrics.accuracy(tf.cast(labels, tf.bool),
-                                                            predictions=tf.cast(prediction_labels, tf.bool))
+                                                            predictions=tf.cast(prediction_labels, tf.bool)),
+                       'eval/mIOU': tf.metrics.mean_iou(labels, prediction_labels, num_classes=model_params.n_classes)
+                                                        # weights=training_params.weights_evaluation_miou)
                        }
     else:
         metrics = None

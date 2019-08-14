@@ -8,6 +8,7 @@ import json
 from uuid import uuid4
 from shapely.geometry import Polygon
 from abc import ABC
+import re
 
 # https://docs.python.org/3.5/library/xml.etree.elementtree.html#parsing-xml-with-namespaces
 _ns = {'p': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'}
@@ -17,7 +18,7 @@ _attribs = {'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
 
 
 def _try_to_int(d: Optional[Union[str, int]])-> Optional[int]:
-    if isinstance(d, str):
+    if isinstance(d, (str, np.int32, np.int64)):
         return int(d)
     else:
         return d
@@ -53,6 +54,9 @@ class Point:
         """
         if etree_elem is None:
             # print('warning, trying to construct list of points from None, defaulting to []')
+            return []
+        if etree_elem.attrib['points'] == "":
+            # print('warning, trying to construct list of points from empty string, defaulting to []')
             return []
         t = etree_elem.attrib['points']
         result = []
@@ -100,11 +104,20 @@ class Point:
         return [list(pt) for pt in array]
 
     @classmethod
+    def array_to_point(cls, array: np.ndarray) -> list:
+        """Converts an `np.array` to a list of `Point`
+
+        :param array: an array of coordinates. Must be of shape (N, 2)
+        :return: list of `Point`
+        """
+        return cls.list_to_point(list(array))
+
+    @classmethod
     def list_to_point(cls, list_coords: list) -> List['Point']:
         """Converts a list of coordinates to a list of `Point`
 
         :param list_coords: list of coordinates, shape (N, 2)
-        :return: list of Points
+        :return: list of `Point`
         """
         return [cls(coord[1], coord[0]) for coord in list_coords if list_coords]
 
@@ -160,12 +173,15 @@ class Region(BaseElement):
 
     :ivar id: identifier of the `Region`
     :ivar coords: coordinates of the `Region`
+    :ivar custom_attribute: Any custom attribute that may be linked with the region
+        (usually this is added in PAGEXML files, not in JSON files)
     """
     tag = 'Region'
 
-    def __init__(self, id: str=None, coords: List[Point]=None):
+    def __init__(self, id: str=None, coords: List[Point]=None, custom_attribute: str=None):
         self.coords = coords if coords is not None else []
         self.id = id
+        self.custom_attribute = custom_attribute if custom_attribute is not None else ''
 
     @classmethod
     def from_xml(cls, etree_element: ET.Element) -> dict:
@@ -175,6 +191,7 @@ class Region(BaseElement):
         :return: a dictionary with keys 'id' and 'coords'
         """
         return {'id': etree_element.attrib.get('id'),
+                'custom_attribute': etree_element.attrib.get('custom'),
                 'coords': Point.list_from_xml(etree_element.find('p:Coords', _ns))}
 
     def to_xml(self, name_element: str=None) -> ET.Element:
@@ -185,6 +202,7 @@ class Region(BaseElement):
         """
         et = ET.Element(name_element if name_element is not None else '')
         et.set('id', self.id if self.id is not None else '')
+        et.set('custom', self.custom_attribute if self.custom_attribute is not None else '')
         if not not self.coords:
             coords = ET.SubElement(et, 'Coords')
             coords.set('points', Point.list_point_to_string(self.coords))
@@ -209,6 +227,7 @@ class Region(BaseElement):
         :return: non serialized dictionary
         """
         return {'id': dictionary.get('id'),
+                'custom_attribute': dictionary.get('custom_attribute'),
                 'coords': Point.list_to_point(dictionary.get('coords'))
                 }
 
@@ -222,13 +241,14 @@ class TextLine(Region):
     :ivar text: `Text` class containing the transcription of the `TextLine`
     :ivar line_group_id: identifier of the line group the instance belongs to
     :ivar column_group_id: identifier of the column group the instance belongs to
-
+    :ivar custom_attribute: Any custom attribute that may be linked with the region
+        (usually this is added in PAGEXML files, not in JSON files)
     """
     tag = 'TextLine'
 
     def __init__(self, id: str = None, coords: List[Point] = None, baseline: List[Point] = None, text: Text = None,
-                 line_group_id: str = None, column_group_id: str = None):
-        super().__init__(id=id if id is not None else str(uuid4()), coords=coords)
+                 line_group_id: str = None, column_group_id: str = None, custom_attribute: str=None):
+        super().__init__(id=id if id is not None else str(uuid4()), coords=coords, custom_attribute=custom_attribute)
         self.baseline = baseline if baseline is not None else []
         self.text = text if text is not None else Text()
         self.line_group_id = line_group_id if line_group_id is not None else ''
@@ -321,13 +341,29 @@ class TextRegion(Region):
     :ivar coords: coordinates of the `TextRegion`
     :ivar text_equiv: the resulting text of the `Text` contained in the `TextLines`
     :ivar text_lines: a list of `TextLine` objects
+    :ivar region_type: the type of a TextRegion (can be any string). Example : header, paragraph, page-number...
+    :ivar custom_attribute: Any custom attribute that may be linked with the region
+        (usually this is added in PAGEXML files, not in JSON files)
     """
     tag = 'TextRegion'
 
-    def __init__(self, id: str=None, coords: List[Point]=None, text_lines: List[TextLine]=None, text_equiv: str=''):
-        super().__init__(id=id, coords=coords)
+    def __init__(self, id: str=None, coords: List[Point]=None, text_lines: List[TextLine]=None, text_equiv: str='',
+                 region_type: str=None, custom_attribute: str=None):
+        super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.text_equiv = text_equiv if text_equiv is not None else ''
         self.text_lines = text_lines if text_lines is not None else []
+        self.type = region_type if region_type is not None else ''
+
+    def sort_text_lines(self, top_to_bottom: bool=True) -> None:
+        """
+        Sorts ``TextLine`` from top to bottom according to their mean y coordinate (centroid)
+        
+        :param top_to_bottom: order lines from top to bottom of image, default=True
+        """
+        if top_to_bottom:
+            self.text_lines.sort(key=lambda line: np.mean([c.y for c in line.coords]))
+        else:
+            raise NotImplementedError
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'TextRegion':
@@ -335,11 +371,14 @@ class TextRegion(Region):
         return TextRegion(
             **super().from_xml(e),
             text_lines=[TextLine.from_xml(tl) for tl in e.findall('p:TextLine', _ns)],
-            text_equiv=_get_text_equiv(e)
+            text_equiv=_get_text_equiv(e),
+            region_type=e.attrib.get('type')
         )
 
     def to_xml(self, name_element='TextRegion') -> ET.Element:
         text_et = super().to_xml(name_element=name_element)
+        if self.type is not None and self.type != '':
+            text_et.set('type', self.type)
         for tl in self.text_lines:
             text_et.append(tl.to_xml())
         text_equiv = ET.SubElement(text_et, 'TextEquiv')
@@ -355,7 +394,8 @@ class TextRegion(Region):
     def from_dict(cls, dictionary: dict) -> 'TextRegion':
         return cls(**super().from_dict(dictionary),
                    text_lines=[TextLine.from_dict(tl) for tl in dictionary.get('text_lines', list())],
-                   text_equiv=dictionary.get('text_equiv')
+                   text_equiv=dictionary.get('text_equiv'),
+                   region_type=dictionary.get('region_type')
                    )
 
 
@@ -403,7 +443,7 @@ class TableRegion(Region):
         return cls(**super().from_dict(dictionary),
                    rows=dictionary.get('rows'),
                    columns=dictionary.get('columns'),
-                   embeded_text=dictionary.get('embeded_text'))
+                   embedded_text=dictionary.get('embedded_text'))
 
 
 class SeparatorRegion(Region):
@@ -418,8 +458,8 @@ class SeparatorRegion(Region):
 
     tag = 'SeparatorRegion'
 
-    def __init__(self, id: str, coords: List[Point]=None):
-        super().__init__(id=id, coords=coords)
+    def __init__(self, id: str, coords: List[Point]=None, custom_attribute: str=None):
+        super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'SeparatorRegion':
@@ -547,7 +587,8 @@ class GroupSegment(Region):
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> 'GroupSegment':
-        return cls(**super().from_dict(dictionary))
+        return cls(**super().from_dict(dictionary),
+                   segment_ids=dictionary.get('segment_ids'))
 
 
 class Page(BaseElement):
@@ -573,7 +614,7 @@ class Page(BaseElement):
 
     def __init__(self, **kwargs):
         self.image_filename = kwargs.get('image_filename')
-        self.image_width = _try_to_int(kwargs.get('image_width'))
+        self.image_width = _try_to_int(kwargs.get('image_width'))  # Needs to be int type (not np.int32/64)
         self.image_height = _try_to_int(kwargs.get('image_height'))
         self.text_regions = kwargs.get('text_regions', [])
         self.graphic_regions = kwargs.get('graphic_regions', [])
@@ -635,6 +676,14 @@ class Page(BaseElement):
         #     page_et.append(self.metadata.to_xml())
         return page_et
 
+    def to_json(self) -> dict:
+        self_dict = vars(self)
+
+        serializable_keys = ['image_filename', 'image_height', 'image_width']
+        json_dict = json_serialize(self_dict, [k for k in self_dict.keys() if k not in serializable_keys])
+
+        return json_dict
+
     def write_to_file(self, filename: str, creator_name: str='dhSegment', comments: str='') -> None:
         """
         Export Page object to json or page-xml format. Will assume the format based on the extension of the filename,
@@ -653,17 +702,11 @@ class Page(BaseElement):
             root.append(self.to_xml())
             for k, v in _attribs.items():
                 root.attrib[k] = v
-            ET.ElementTree(element=root).write(filename)
+            ET.ElementTree(element=root).write(filename, encoding='utf-8')
 
         def _write_json():
-            self_dict = vars(self)
-
-            # json_dict = dict()
-            serializable_keys = ['image_filename', 'image_height', 'image_width']
-            json_dict = json_serialize(self_dict, [k for k in self_dict.keys() if k not in serializable_keys])
-
             with open(filename, 'w', encoding='utf8') as file:
-                json.dump(json_dict, file, indent=4, sort_keys=True, allow_nan=False)
+                json.dump(self.to_json(), file, indent=4, sort_keys=True, allow_nan=False)
 
         # Updating metadata
         self.metadata.creator = creator_name
@@ -1005,3 +1048,24 @@ def save_baselines(filename, baselines, ratio=(1, 1), initial_shape=None):
                 image_height=int(initial_shape[0]*ratio[0]) if initial_shape is not None else None,
                 image_width=int(initial_shape[1]*ratio[1]) if initial_shape is not None else None)
     page.write_to_file(filename)
+
+
+def get_unique_tags_from_xml_text_regions(xml_filename: str,
+                                          tag_pattern: str='{type:.*;}'):
+    """
+    Get a list of all the values of labels/tags
+
+    :param xml_filename: filename of the xml file
+    :param tag_pattern: regular expression pattern to look for in `TextRegion.custom_attribute`
+    :return:
+    """
+    tagset = list()
+    page = parse_file(xml_filename)
+    for tr in page.text_regions:
+        custom_attribute = tr.custom_attribute
+        matches = re.findall(tag_pattern, custom_attribute)
+        assert len(matches) <= 1, "Found multiple matches in {}".format(custom_attribute)
+        if matches:
+            tagset.append(matches[0][6:-2])
+
+    return list(np.unique(tagset))

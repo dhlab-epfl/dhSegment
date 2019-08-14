@@ -2,9 +2,9 @@
 __author__ = "solivr"
 __license__ = "GPL"
 
-import os
-import warnings
-from random import shuffle
+from .misc import get_class_from_name
+from ..network.model import Encoder, Decoder
+from typing import Type, Optional
 
 
 class PredictionType:
@@ -19,7 +19,7 @@ class PredictionType:
     MULTILABEL = 'MULTILABEL'
 
     @classmethod
-    def parse(cls, prediction_type):
+    def parse(cls, prediction_type) -> 'PredictionType':
         if prediction_type == 'CLASSIFICATION':
             return PredictionType.CLASSIFICATION
         elif prediction_type == 'REGRESSION':
@@ -48,104 +48,41 @@ class BaseParams:
         pass
 
 
-class VGG16ModelParams:
-    PRETRAINED_MODEL_FILE = 'pretrained_models/vgg_16.ckpt'
-    INTERMEDIATE_CONV = [
-        [(256, 3)]
-    ]
-    UPSCALE_PARAMS = [
-        [(32, 3)],
-        [(64, 3)],
-        [(128, 3)],
-        [(256, 3)],
-        [(512, 3)],
-        [(512, 3)]
-    ]
-    SELECTED_LAYERS_UPSCALING = [
-        True,
-        True,  # Must have same length as vgg_upscale_params
-        True,
-        True,
-        False,
-        False
-    ]
-    CORRECTED_VERSION = None
-
-
-class ResNetModelParams:
-    PRETRAINED_MODEL_FILE = 'pretrained_models/resnet_v1_50.ckpt'
-    INTERMEDIATE_CONV = None
-    UPSCALE_PARAMS = [
-        # (Filter size (depth bottleneck's output), number of bottleneck)
-        (32, 0),
-        (64, 0),
-        (128, 0),
-        (256, 0),
-        (512, 0)
-    ]
-    SELECTED_LAYERS_UPSCALING = [
-        # Must have the same length as resnet_upscale_params
-        True,
-        True,
-        True,
-        True,
-        True
-    ]
-    CORRECT_VERSION = False
-
-
-class UNetModelParams:
-    PRETRAINED_MODEL_FILE = None
-    INTERMEDIATE_CONV = None
-    UPSCALE_PARAMS = None
-    SELECTED_LAYERS_UPSCALING = None
-    CORRECT_VERSION = False
-
-
 class ModelParams(BaseParams):
-    """Parameters related to the model
-
+    """
+    Parameters related to the model
+    :param encoder_name:
+    :param encoder_params:
+    :param decoder_name:
+    :param decoder_params:
+    :param n_classes:
     """
     def __init__(self, **kwargs):
-        self.batch_norm = kwargs.get('batch_norm', True)  # type: bool
-        self.batch_renorm = kwargs.get('batch_renorm', True)  # type: bool
-        self.weight_decay = kwargs.get('weight_decay', 1e-6)  # type: float
+        self.encoder_network = kwargs.get('encoder_network', 'dh_segment.network.pretrained_models.ResnetV1_50')  # type: str
+        self.encoder_network_params = kwargs.get('encoder_network_params', dict())  # type: dict
+        self.decoder_network = kwargs.get('decoder_network', 'dh_segment.network.SimpleDecoder')  # type: str
+        self.decoder_network_params = kwargs.get('decoder_network_params', {
+            'upsampling_dims': [32, 64, 128, 256, 512]
+        })  # type: dict
+        self.full_network = kwargs.get('full_network', None)  # type: Optional[str]
+        self.full_network_params = kwargs.get('full_network_params', dict())  # type: dict
         self.n_classes = kwargs.get('n_classes', None)  # type: int
-        self.pretrained_model_name = kwargs.get('pretrained_model_name', None)  # type: str
-        self.max_depth = kwargs.get('max_depth', 512)  # type: int
 
-        if self.pretrained_model_name == 'vgg16':
-            model_class = VGG16ModelParams
-        elif self.pretrained_model_name == 'resnet50':
-            model_class = ResNetModelParams
-        elif self.pretrained_model_name == 'unet':
-            model_class = UNetModelParams
-        else:
-            raise NotImplementedError
-
-        self.pretrained_model_file = kwargs.get('pretrained_model_file', model_class.PRETRAINED_MODEL_FILE)
-        self.intermediate_conv = kwargs.get('intermediate_conv', model_class.INTERMEDIATE_CONV)
-        self.upscale_params = kwargs.get('upscale_params', model_class.UPSCALE_PARAMS)
-        self.selected_levels_upscaling = kwargs.get('selected_levels_upscaling', model_class.SELECTED_LAYERS_UPSCALING)
-        self.correct_resnet_version = kwargs.get('correct_resnet_version', model_class.CORRECT_VERSION)
         self.check_params()
 
+    def get_encoder(self) -> Type[Encoder]:
+        encoder = get_class_from_name(self.encoder_network)
+        assert issubclass(encoder, Encoder), "{} is not an Encoder".format(encoder)
+        return encoder
+
+    def get_decoder(self) -> Type[Decoder]:
+        decoder = get_class_from_name(self.decoder_network)
+        assert issubclass(decoder, Decoder), "{} is not a Decoder".format(decoder)
+        return decoder
+
     def check_params(self):
-        # Pretrained model name check
-        # assert self.upscale_params is not None and self.selected_levels_upscaling is not None, \
-        #     'Model parameters cannot be None'
-        if self.upscale_params is not None and self.selected_levels_upscaling is not None:
-
-            assert len(self.upscale_params) == len(self.selected_levels_upscaling), \
-                'Upscaling levels and selection levels must have the same lengths (in model_params definition), ' \
-                '{} != {}'.format(len(self.upscale_params),
-                                  len(self.selected_levels_upscaling))
-
-            # assert os.path.isfile(self.pretrained_model_file), \
-            #     'Pretrained weights file {} not found'.format(self.pretrained_model_file)
-            if not os.path.isfile(self.pretrained_model_file):
-                warnings.warn('WARNING - Default pretrained weights file in {} was not found. '
-                              'Have you changed the default pretrained file ?'.format(self.pretrained_model_file))
+        self.get_encoder()
+        self.get_decoder()
 
 
 class TrainingParams(BaseParams):
@@ -208,6 +145,7 @@ class TrainingParams(BaseParams):
         self.patch_shape = kwargs.get('patch_shape', (300, 300))
         self.input_resized_size = int(kwargs.get('input_resized_size', 72e4))  # (600*1200)
         self.weights_labels = kwargs.get('weights_labels')
+        self.weights_evaluation_miou = kwargs.get('weights_evaluation_miou', None)
         self.training_margin = kwargs.get('training_margin', 16)
         self.local_entropy_ratio = kwargs.get('local_entropy_ratio', 0.)
         self.local_entropy_sigma = kwargs.get('local_entropy_sigma', 3)

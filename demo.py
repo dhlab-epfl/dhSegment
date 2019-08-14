@@ -10,7 +10,7 @@ from imageio import imread, imsave
 from tqdm import tqdm
 
 from dh_segment.io import PAGE
-from dh_segment.network import LoadedModel
+from dh_segment.inference import LoadedModel
 from dh_segment.post_processing import boxes_detection, binarization
 
 # To output results in PAGE XML format (http://www.primaresearch.org/schema/PAGE/gts/pagecontent/2013-07-15/)
@@ -89,14 +89,17 @@ if __name__ == '__main__':
                 cv2.polylines(original_img, [pred_page_coords[:, None, :]], True, (0, 0, 255), thickness=5)
                 # Write corners points into a .txt file
                 txt_coordinates += '{},{}\n'.format(filename, format_quad_to_string(pred_page_coords))
+
+                # Create page region and XML file
+                page_border = PAGE.Border(coords=PAGE.Point.cv2_to_point_list(pred_page_coords[:, None, :]))
             else:
                 print('No box found in {}'.format(filename))
+                page_border = PAGE.Border()
+
             basename = os.path.basename(filename).split('.')[0]
             imsave(os.path.join(output_dir, '{}_boxes.jpg'.format(basename)), original_img)
 
-            # Create page region and XML file
-            page_border = PAGE.Border(coords=PAGE.Point.cv2_to_point_list(pred_page_coords[:, None, :]))
-            page_xml = PAGE.Page(filename, image_width=original_shape[1], image_height=original_shape[0],
+            page_xml = PAGE.Page(image_filename=filename, image_width=original_shape[1], image_height=original_shape[0],
                                  page_border=page_border)
             xml_filename = os.path.join(output_pagexml_dir, '{}.xml'.format(basename))
             page_xml.write_to_file(xml_filename, creator_name='PageExtractor')

@@ -14,17 +14,13 @@
       "evaluate_every_epoch" : 10
   },
   "model_params": {
-    "batch_norm": true,
-    "batch_renorm": true,
-    "selected_levels_upscaling": [
-      true,
-      true,
-      true,
-      true,
-      true
-    ]
+    "encoder_network_params": {
+      "weight_decay": 1e-6
+    }
   },
-  "pretrained_model_name" : "resnet50",
   "prediction_type": "CLASSIFICATION",
-  "gpu" : "0"
+  "train_data" : "<your-path>",
+  "eval_data" : "<your-path>",
+  "classes_file" : "<your-path>/classes.txt",
+  "model_output_dir" : "<your-path>"
 }

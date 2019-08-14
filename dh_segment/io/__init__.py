@@ -63,6 +63,40 @@ PAGE XML and JSON import / export
     PAGE.json_serialize
 
 ----
+
+.. _ref_via:
+
+VGG Image Annotator helpers
+---------------------------
+
+
+**VIA objects**
+
+.. autosummary::
+    via.WorkingItem
+    via.VIAttribute
+
+
+**Creating masks with VIA annotations**
+
+.. autosummary::
+    via.load_annotation_data
+    via.export_annotation_dict
+    via.get_annotations_per_file
+    via.parse_via_attributes
+    via.get_via_attributes
+    via.collect_working_items
+    via.create_masks
+
+
+**Formatting in VIA JSON format**
+
+.. autosummary::
+    via.create_via_region_from_coordinates
+    via.create_via_annotation_single_image
+
+----
+
 """
 
 
@@ -103,3 +137,5 @@ __all__ = _INPUT  # + _PAGE_OBJECTS + _PAGE_FN
 from .input import *
 from .input_utils import *
 from . import PAGE
+from . import via
+
