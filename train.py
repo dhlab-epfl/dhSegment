@@ -124,3 +124,9 @@ def run(train_data, eval_data, model_output_dir, gpu, training_params, _config):
 
         exporter.export(estimator, saved_model_dir, checkpoint_path=None, eval_result=eval_result,
                         is_the_final_export=False)
+
+    # If export directory is empty, export a model anyway
+    if not os.listdir(saved_model_dir):
+        final_exporter = tf.estimator.FinalExporter(name='FinalExporter', serving_input_receiver_fn=serving_input_fn)
+        final_exporter.export(estimator, saved_model_dir, checkpoint_path=None, eval_result=eval_result,
+                              is_the_final_export=True)
