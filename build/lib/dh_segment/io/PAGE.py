@@ -18,7 +18,7 @@ _attribs = {'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
                                   "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd"}
 
 
-def _try_to_int(d: Optional[Union[str, int]]) -> Optional[int]:
+def _try_to_int(d: Optional[Union[str, int]])-> Optional[int]:
     if isinstance(d, (str, np.int32, np.int64)):
         return int(d)
     else:
@@ -42,7 +42,6 @@ class Point:
     :ivar x: horizontal coordinate
 
     """
-
     def __init__(self, y: int, x: int):
         self.y = y
         self.x = x
@@ -121,7 +120,7 @@ class Point:
         :param list_coords: list of coordinates, shape (N, 2)
         :return: list of `Point`
         """
-        return [cls(coord[1], coord[0]) for coord in list_coords if len(list_coords) > 0]
+        return [cls(coord[1], coord[0]) for coord in list_coords if list_coords]
 
     @classmethod
     def point_to_list(cls, points: List['Point']) -> list:
@@ -144,8 +143,7 @@ class Text:
     :ivar alternatives: alternative transcriptions
     :ivar score: the confidence of the transcription output by the transcription system
     """
-
-    def __init__(self, text_equiv: str = None, alternatives: List[str] = None, score: float = None):
+    def __init__(self, text_equiv: str=None, alternatives: List[str]=None, score: float=None):
         self.text_equiv = text_equiv  # if text_equiv is not None else ''
         self.alternatives = alternatives  # if alternatives is not None else []
         self.score = score  # if score is not None else ''
@@ -181,7 +179,7 @@ class Region(BaseElement):
     """
     tag = 'Region'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, custom_attribute: str = None):
+    def __init__(self, id: str=None, coords: List[Point]=None, custom_attribute: str=None):
         self.coords = coords if coords is not None else []
         self.id = id
         self.custom_attribute = custom_attribute if custom_attribute is not None else ''
@@ -197,7 +195,7 @@ class Region(BaseElement):
                 'custom_attribute': etree_element.attrib.get('custom'),
                 'coords': Point.list_from_xml(etree_element.find('p:Coords', _ns))}
 
-    def to_xml(self, name_element: str = None) -> ET.Element:
+    def to_xml(self, name_element: str=None) -> ET.Element:
         """Converts a `Region` object to a xml structure
 
         :param name_element: name of the object (optional)
@@ -211,7 +209,7 @@ class Region(BaseElement):
             coords.set('points', Point.list_point_to_string(self.coords))
         return et
 
-    def to_dict(self, non_serializable_keys: List[str] = list()) -> dict:
+    def to_dict(self, non_serializable_keys: List[str]=list()) -> dict:
         """Converts a `Region` object to a dictionary.
 
         :param non_serializable_keys: list of keys that can't be directly serialized and that need some
@@ -250,7 +248,7 @@ class TextLine(Region):
     tag = 'TextLine'
 
     def __init__(self, id: str = None, coords: List[Point] = None, baseline: List[Point] = None, text: Text = None,
-                 line_group_id: str = None, column_group_id: str = None, custom_attribute: str = None):
+                 line_group_id: str = None, column_group_id: str = None, custom_attribute: str=None):
         super().__init__(id=id if id is not None else str(uuid4()), coords=coords, custom_attribute=custom_attribute)
         self.baseline = baseline if baseline is not None else []
         self.text = text if text is not None else Text()
@@ -267,8 +265,8 @@ class TextLine(Region):
         )
 
     @classmethod
-    def from_array(cls, cv2_coords: np.array = None, baseline_coords: np.array = None,  # cv2_coords shape [N, 1, 2]
-                   text_equiv: str = None, id: str = None):
+    def from_array(cls, cv2_coords: np.array=None, baseline_coords: np.array=None,  # cv2_coords shape [N, 1, 2]
+                   text_equiv: str=None, id: str=None):
         return TextLine(
             id=id,
             coords=Point.cv2_to_point_list(cv2_coords) if cv2_coords is not None else [],
@@ -298,7 +296,7 @@ class TextLine(Region):
 
         self.baseline = scaled_points
 
-    def to_dict(self, non_serializable_keys: List[str] = list()):
+    def to_dict(self, non_serializable_keys: List[str]=list()):
         return super().to_dict(non_serializable_keys=['text', 'baseline'])
 
     @classmethod
@@ -319,7 +317,7 @@ class GraphicRegion(Region):
     """
     tag = 'GraphicRegion'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, custom_attribute: str = None):
+    def __init__(self, id: str=None, coords: List[Point]=None, custom_attribute: str=None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
 
     @classmethod
@@ -350,15 +348,14 @@ class TextRegion(Region):
     """
     tag = 'TextRegion'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, text_lines: List[TextLine] = None,
-                 text_equiv: str = '',
-                 region_type: str = None, custom_attribute: str = None):
+    def __init__(self, id: str=None, coords: List[Point]=None, text_lines: List[TextLine]=None, text_equiv: str='',
+                 region_type: str=None, custom_attribute: str=None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.text_equiv = text_equiv if text_equiv is not None else ''
         self.text_lines = text_lines if text_lines is not None else []
         self.type = region_type if region_type is not None else ''
 
-    def sort_text_lines(self, top_to_bottom: bool = True) -> None:
+    def sort_text_lines(self, top_to_bottom: bool=True) -> None:
         """
         Sorts ``TextLine`` from top to bottom according to their mean y coordinate (centroid)
         
@@ -391,7 +388,7 @@ class TextRegion(Region):
             text_unicode.text = self.text_equiv
         return text_et
 
-    def to_dict(self, non_serializable_keys: List[str] = list()):
+    def to_dict(self, non_serializable_keys: List[str]=list()):
         return super().to_dict(non_serializable_keys=['text_lines'])
 
     @classmethod
@@ -418,8 +415,8 @@ class TableRegion(Region):
 
     tag = 'TableRegion'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, rows: int = None, columns: int = None,
-                 embedded_text: bool = None, custom_attribute: str = None):
+    def __init__(self, id: str=None, coords: List[Point]=None, rows: int=None, columns: int=None,
+                 embedded_text: bool=None, custom_attribute: str=None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.rows = rows
         self.columns = columns
@@ -450,30 +447,6 @@ class TableRegion(Region):
                    embedded_text=dictionary.get('embedded_text'))
 
 
-class TableCell(Region):
-    """
-    Tabular data in any form.
-    Tabular data is represented with a table region. Rows and columns may or may not have separator lines;
-    these lines are not separator regions.
-
-    :ivar id: identifier of the `TableRegion`
-    :ivar coords: coordinates of the `TableRegion`
-    :ivar row_span: number of rows in the table
-    :ivar col_span: number of columns in the table
-    :ivar embedded_text: if text is embedded in the table
-    """
-
-    tag = 'TableCell'
-
-    def __init__(self, id: str = None, coords: List[Point] = None, text_region: TextRegion = None, row_span: int = None,
-                 col_span: int = None, embedded_text: bool = None, custom_attribute: str = None):
-        super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
-        self.text_region = text_region
-        self.row_span = row_span
-        self.col_span = col_span
-        self.embedded_text = embedded_text
-
-
 class SeparatorRegion(Region):
     """
     Lines separating columns or paragraphs.
@@ -486,7 +459,7 @@ class SeparatorRegion(Region):
 
     tag = 'SeparatorRegion'
 
-    def __init__(self, id: str, coords: List[Point] = None, custom_attribute: str = None):
+    def __init__(self, id: str, coords: List[Point]=None, custom_attribute: str=None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
 
     @classmethod
@@ -513,7 +486,7 @@ class Border(BaseElement):
 
     tag = 'Border'
 
-    def __init__(self, coords: List[Point] = None, id: str = None):
+    def __init__(self, coords: List[Point]=None, id: str = None):
         self.coords = coords if coords is not None else []
 
     @classmethod
@@ -536,7 +509,7 @@ class Border(BaseElement):
     def from_dict(cls, dictionary: dict) -> 'Border':
         return cls(coords=Point.list_to_point(dictionary.get('coords')))
 
-    def to_dict(self, non_serializable_keys: List[str] = list()) -> dict:
+    def to_dict(self, non_serializable_keys: List[str]=list()) -> dict:
         if 'coords' in vars(self).keys() and 'coords' not in non_serializable_keys:
             non_serializable_keys += ['coords']
         return json_serialize(vars(self), non_serializable_keys=non_serializable_keys)
@@ -552,7 +525,7 @@ class Metadata(BaseElement):
     """
     tag = 'Metadata'
 
-    def __init__(self, creator: str = None, created: str = None, last_change: str = None, comments: str = None):
+    def __init__(self, creator: str=None, created: str=None, last_change: str=None, comments: str=None):
         self.creator = creator
         self.created = created
         self.last_change = last_change
@@ -609,9 +582,8 @@ class GroupSegment(Region):
     :ivar segment_ids: list of the regions ids belonging to the group
 
     """
-
-    def __init__(self, id: str = None, coords: List[Point] = None, segment_ids: List[str] = None,
-                 custom_attribute: str = None):
+    def __init__(self, id: str = None, coords: List[Point] = None, segment_ids: List[str]=None,
+                 custom_attribute: str=None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.segment_ids = segment_ids if segment_ids is not None else []
 
@@ -677,8 +649,7 @@ class Page(BaseElement):
                    metadata=Metadata.from_dict(dictionary.get('metadata')),
                    text_regions=[TextRegion.from_dict(tr) for tr in dictionary.get('text_regions', list())],
                    page_border=Border.from_dict(dictionary.get('page_border', dict())),
-                   separator_regions=[SeparatorRegion.from_dict(sep) for sep in
-                                      dictionary.get('separator_regions', list())],
+                   separator_regions=[SeparatorRegion.from_dict(sep) for sep in dictionary.get('separator_regions', list())],
                    graphic_regions=[GraphicRegion.from_dict(gr) for gr in dictionary.get('graphic_regions', list())],
                    table_regions=[TableRegion.from_dict(tr) for tr in dictionary.get('table_regions', list())],
                    line_groups=[GroupSegment.from_dict(lr) for lr in dictionary.get('line_groups', list())],
@@ -715,7 +686,7 @@ class Page(BaseElement):
 
         return json_dict
 
-    def write_to_file(self, filename: str, creator_name: str = 'dhSegment', comments: str = '') -> None:
+    def write_to_file(self, filename: str, creator_name: str='dhSegment', comments: str='') -> None:
         """
         Export Page object to json or page-xml format. Will assume the format based on the extension of the filename,
         if there is no extension will export as an xml file.
@@ -764,8 +735,8 @@ class Page(BaseElement):
             print('WARN : No extension for export, XML export by default')
             _write_xml()
 
-    def draw_baselines(self, img_canvas: np.ndarray, color: Tuple[int, int, int] = (255, 0, 0), thickness: int = 2,
-                       endpoint_radius: int = 4, autoscale: bool = True):
+    def draw_baselines(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(255, 0, 0), thickness: int=2,
+                       endpoint_radius: int=4, autoscale: bool=True):
         """
         Given an image, draws the TextLines.baselines.
 
@@ -782,11 +753,11 @@ class Page(BaseElement):
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
-            ratio = (img_canvas.shape[0] / self.image_height, img_canvas.shape[1] / self.image_width)
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
         else:
             ratio = (1, 1)
 
-        tl_coords = [(Point.list_to_cv2poly(tl.baseline) * ratio).astype(np.int32) for tl in text_lines
+        tl_coords = [(Point.list_to_cv2poly(tl.baseline)*ratio).astype(np.int32) for tl in text_lines
                      if len(tl.baseline) > 0]
         cv2.polylines(img_canvas, tl_coords, False, color, thickness=thickness)
         for coords in tl_coords:
@@ -795,8 +766,8 @@ class Page(BaseElement):
             cv2.circle(img_canvas, (coords[-1, 0, 0], coords[-1, 0, 1]),
                        radius=endpoint_radius, color=color, thickness=-1)
 
-    def draw_lines(self, img_canvas: np.ndarray, color: Tuple[int, int, int] = (255, 0, 0), thickness: int = 2,
-                   fill: bool = True, autoscale: bool = True):
+    def draw_lines(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(255, 0, 0), thickness: int=2,
+                   fill: bool=True, autoscale: bool=True):
         """
         Given an image, draws the polygons containing text lines, i.e TextLines.coords
 
@@ -813,11 +784,11 @@ class Page(BaseElement):
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
-            ratio = (img_canvas.shape[0] / self.image_height, img_canvas.shape[1] / self.image_width)
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
         else:
             ratio = (1, 1)
 
-        tl_coords = [(Point.list_to_cv2poly(tl.coords) * ratio).astype(np.int32) for tl in text_lines
+        tl_coords = [(Point.list_to_cv2poly(tl.coords)*ratio).astype(np.int32) for tl in text_lines
                      if len(tl.coords) > 0]
 
         if fill:
@@ -827,8 +798,8 @@ class Page(BaseElement):
             for tl in tl_coords:  # For loop to avoid black regions when lines overlap
                 cv2.polylines(img_canvas, [tl], False, color, thickness=thickness)
 
-    def draw_text_regions(self, img_canvas: np.ndarray, color: Tuple[int, int, int] = (255, 0, 0), fill: bool = True,
-                          thickness: int = 3, autoscale: bool = True):
+    def draw_text_regions(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(255, 0, 0), fill: bool=True,
+                          thickness: int=3, autoscale: bool=True):
         """
         Given an image, draws the TextRegions, either fills it (fill=True) or draws the contours (fill=False)
 
@@ -844,19 +815,19 @@ class Page(BaseElement):
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
-            ratio = (img_canvas.shape[0] / self.image_height, img_canvas.shape[1] / self.image_width)
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
         else:
             ratio = (1, 1)
 
-        tr_coords = [(Point.list_to_cv2poly(tr.coords) * ratio).astype(np.int32) for tr in self.text_regions
+        tr_coords = [(Point.list_to_cv2poly(tr.coords)*ratio).astype(np.int32) for tr in self.text_regions
                      if len(tr.coords) > 0]
         if fill:
             cv2.fillPoly(img_canvas, tr_coords, color)
         else:
             cv2.polylines(img_canvas, tr_coords, True, color, thickness=thickness)
 
-    def draw_page_border(self, img_canvas, color: Tuple[int, int, int] = (255, 0, 0), fill: bool = True,
-                         thickness: int = 5, autoscale: bool = True):
+    def draw_page_border(self, img_canvas, color: Tuple[int, int, int]=(255, 0, 0), fill: bool=True,
+                         thickness: int=5, autoscale: bool=True):
         """
         Given an image, draws the page border, either fills it (fill=True) or draws the contours (fill=False)
 
@@ -872,7 +843,7 @@ class Page(BaseElement):
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
-            ratio = (img_canvas.shape[0] / self.image_height, img_canvas.shape[1] / self.image_width)
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
         else:
             ratio = (1, 1)
 
@@ -883,8 +854,8 @@ class Page(BaseElement):
         else:
             cv2.polylines(img_canvas, [border_coords], True, color, thickness=thickness)
 
-    def draw_separator_lines(self, img_canvas: np.ndarray, color: Tuple[int, int, int] = (0, 255, 0),
-                             thickness: int = 3, filter_by_id: str = '', autoscale: bool = True):
+    def draw_separator_lines(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(0, 255, 0),
+                             thickness: int=3, filter_by_id: str='', autoscale: bool=True):
         """
         Given an image, draws the SeparatorRegion.
 
@@ -901,7 +872,7 @@ class Page(BaseElement):
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
-            ratio = (img_canvas.shape[0] / self.image_height, img_canvas.shape[1] / self.image_width)
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
         else:
             ratio = (1, 1)
 
@@ -909,8 +880,8 @@ class Page(BaseElement):
                       if len(sep.coords) > 0 and filter_by_id in sep.id]
         cv2.polylines(img_canvas, sep_coords, True, color, thickness=thickness)
 
-    def draw_graphic_regions(self, img_canvas: np.ndarray, color: Tuple[int, int, int] = (255, 0, 0),
-                             fill: bool = True, thickness: int = 3, autoscale: bool = True):
+    def draw_graphic_regions(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(255, 0, 0),
+                             fill: bool=True, thickness: int=3, autoscale: bool=True):
         """
         Given an image, draws the GraphicRegions, either fills it (fill=True) or draws the contours (fill=False)
 
@@ -926,19 +897,19 @@ class Page(BaseElement):
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
-            ratio = (img_canvas.shape[0] / self.image_height, img_canvas.shape[1] / self.image_width)
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
         else:
             ratio = (1, 1)
 
-        gr_coords = [(Point.list_to_cv2poly(gr.coords) * ratio).astype(np.int32) for gr in self.graphic_regions
+        gr_coords = [(Point.list_to_cv2poly(gr.coords)*ratio).astype(np.int32) for gr in self.graphic_regions
                      if len(gr.coords) > 0]
         if fill:
             cv2.fillPoly(img_canvas, gr_coords, color)
         else:
             cv2.polylines(img_canvas, gr_coords, True, color, thickness=thickness)
 
-    def draw_text(self, img_canvas: np.ndarray, color: Tuple[int, int, int] = (255, 0, 0), thickness: int = 5,
-                  font=cv2.FONT_HERSHEY_SIMPLEX, font_scale: float = 1.0, autoscale: bool = True):
+    def draw_text(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(255, 0, 0), thickness: int=5,
+                  font=cv2.FONT_HERSHEY_SIMPLEX, font_scale: float=1.0, autoscale: bool=True):
         """
         Writes the text of the TextLine on the given image.
 
@@ -955,7 +926,7 @@ class Page(BaseElement):
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
-            ratio = (img_canvas.shape[0] / self.image_height, img_canvas.shape[1] / self.image_width)
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
         else:
             ratio = (1, 1)
 
@@ -970,8 +941,8 @@ class Page(BaseElement):
             cv2.putText(img_canvas, text, (int(xmin), int(ymin)), fontFace=font, fontScale=font_scale, color=color,
                         thickness=thickness)
 
-    def draw_line_groups(self, img_canvas: np.ndarray, color: Tuple[int, int, int] = (0, 255, 0), fill: bool = False,
-                         thickness: int = 5, autoscale: bool = True):
+    def draw_line_groups(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(0, 255, 0), fill: bool=False,
+                         thickness: int=5,  autoscale: bool=True):
         """
         It will draw line groups. This is only valid when parsing JSON files.
 
@@ -988,19 +959,19 @@ class Page(BaseElement):
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
-            ratio = (img_canvas.shape[0] / self.image_height, img_canvas.shape[1] / self.image_width)
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
         else:
             ratio = (1, 1)
 
-        lg_coords = [(Point.list_to_cv2poly(lg.coords) * ratio).astype(np.int32) for lg in self.line_groups
+        lg_coords = [(Point.list_to_cv2poly(lg.coords)*ratio).astype(np.int32) for lg in self.line_groups
                      if len(lg.coords) > 0]
         if fill:
             cv2.fillPoly(img_canvas, lg_coords, color)
         else:
             cv2.polylines(img_canvas, lg_coords, True, color, thickness=thickness)
 
-    def draw_column_groups(self, img_canvas: np.ndarray, color: Tuple[int, int, int] = (0, 255, 0), fill: bool = False,
-                           thickness: int = 5, autoscale: bool = True):
+    def draw_column_groups(self, img_canvas: np.ndarray, color: Tuple[int, int, int]=(0, 255, 0), fill: bool=False,
+                           thickness: int=5,  autoscale: bool=True):
         """
         It will draw column groups (in case of a table). This is only valid when parsing JSON files.
 
@@ -1018,11 +989,11 @@ class Page(BaseElement):
         if autoscale:
             assert self.image_height is not None
             assert self.image_width is not None
-            ratio = (img_canvas.shape[0] / self.image_height, img_canvas.shape[1] / self.image_width)
+            ratio = (img_canvas.shape[0]/self.image_height, img_canvas.shape[1]/self.image_width)
         else:
             ratio = (1, 1)
 
-        cg_coords = [(Point.list_to_cv2poly(cg.coords) * ratio).astype(np.int32) for cg in self.column_groups
+        cg_coords = [(Point.list_to_cv2poly(cg.coords)*ratio).astype(np.int32) for cg in self.column_groups
                      if len(cg.coords) > 0]
         if fill:
             cv2.fillPoly(img_canvas, cg_coords, color)
@@ -1061,7 +1032,7 @@ def parse_file(filename: str) -> Page:
         raise NotImplementedError
 
 
-def json_serialize(dict_to_serialize: dict, non_serializable_keys: List[str] = list()) -> dict:
+def json_serialize(dict_to_serialize: dict, non_serializable_keys: List[str]=list()) -> dict:
     """
     Serialize a dictionary in order to export it.
 
@@ -1084,8 +1055,8 @@ def json_serialize(dict_to_serialize: dict, non_serializable_keys: List[str] = l
 
 def save_baselines(filename: str,
                    baselines,
-                   ratio: Tuple[int, int] = (1, 1),
-                   predictions_shape: Tuple[int, int] = None) -> Page:
+                   ratio: Tuple[int, int]=(1, 1),
+                   predictions_shape: Tuple[int, int]=None) -> Page:
     """
 
     :param filename: filename to save baselines to
@@ -1107,7 +1078,7 @@ def save_baselines(filename: str,
 
 
 def get_unique_tags_from_xml_text_regions(xml_filename: str,
-                                          tag_pattern: str = '{type:.*;}'):
+                                          tag_pattern: str='{type:.*;}'):
     """
     Get a list of all the values of labels/tags
 
