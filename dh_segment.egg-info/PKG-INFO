@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: dh-segment
+Version: 0.5.0
+Summary: Generic framework for historical document processing
+Home-page: https://github.com/dhlab-epfl/dhSegment
+License: GPL
+Project-URL: Paper, https://arxiv.org/abs/1804.10371
+Project-URL: Source Code, https://github.com/dhlab-epfl/dhSegment
+Description: UNKNOWN
+Platform: UNKNOWN
+Provides-Extra: doc
