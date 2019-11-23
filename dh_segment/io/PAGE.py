@@ -410,6 +410,8 @@ class TableCell(Region):
     :ivar id: identifier of the `TableRegion`
     :ivar coords: coordinates of the `TableRegion`
     :ivar text_region: text region that is contained
+    :ivar row: row number
+    :ivar col: column number
     :ivar row_span: number of rows the cell spans
     :ivar col_span: number of columns the cell spans
     :ivar embedded_text: if text is embedded in the table
@@ -417,16 +419,23 @@ class TableCell(Region):
 
     tag = 'TableCell'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, text_region: TextRegion = None, row_span: int = None,
+    def __init__(self, id: str = None, coords: List[Point] = None, text_region: TextRegion = None, row: int = None,
+                 col: int = None, row_span: int = None,
                  col_span: int = None, embedded_text: bool = None, custom_attribute: str = None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.text_region = text_region
+        self.row = row,
+        self.col = col,
         self.row_span = row_span
         self.col_span = col_span
         self.embedded_text = embedded_text
 
     def to_xml(self, name_element='TableCell') -> ET.Element:
         cell_et = super().to_xml(name_element=name_element)
+        if self.row is not None and self.row != '':
+            cell_et.set('row', self.row)
+        if self.col is not None and self.col != '':
+            cell_et.set('col', self.col)
         if self.row_span is not None and self.row_span != '':
             cell_et.set('rowSpan', self.row_span)
         if self.col_span is not None and self.col_span != '':
@@ -440,6 +449,8 @@ class TableCell(Region):
         cls.check_tag(e.tag)
         return TableCell(
             **super().from_xml(e),
+            row=e.attrib.get('row'),
+            col=e.attrib.get('col'),
             row_span=e.attrib.get('rowSpan'),
             col_span=e.attrib.get('colSpan'),
             text_region=TextRegion.from_xml(e.find('p:TextRegion', _ns)),
@@ -452,6 +463,8 @@ class TableCell(Region):
     @classmethod
     def from_dict(cls, dictionary: dict) -> 'TableCell':
         return cls(**super().from_dict(dictionary),
+                   row=dictionary.get('row'),
+                   col=dictionary.get('col'),
                    row_span=dictionary.get('rowSpan'),
                    col_span=dictionary.get('colSpan'),
                    text_region=TextRegion.from_dict(dictionary.get('text_region', None)),
