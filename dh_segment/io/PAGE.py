@@ -216,7 +216,7 @@ class Region(BaseElement):
 
         :param non_serializable_keys: list of keys that can't be directly serialized and that need some
                                       internal serialization
-        :return: a dictionary with the atributes of the object serialized
+        :return: a dictionary with the attributes of the object serialized
         """
         if 'coords' in vars(self).keys() and 'coords' not in non_serializable_keys:
             non_serializable_keys += ['coords']
@@ -403,63 +403,14 @@ class TextRegion(Region):
                    )
 
 
-class TableRegion(Region):
-    """
-    Tabular data in any form.
-    Tabular data is represented with a table region. Rows and columns may or may not have separator lines;
-    these lines are not separator regions.
-
-    :ivar id: identifier of the `TableRegion`
-    :ivar coords: coordinates of the `TableRegion`
-    :ivar rows: number of rows in the table
-    :ivar columns: number of columns in the table
-    :ivar embedded_text: if text is embedded in the table
-    """
-
-    tag = 'TableRegion'
-
-    def __init__(self, id: str = None, coords: List[Point] = None, rows: int = None, columns: int = None,
-                 embedded_text: bool = None, custom_attribute: str = None):
-        super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
-        self.rows = rows
-        self.columns = columns
-        self.embedded_text = embedded_text
-
-    @classmethod
-    def from_xml(cls, e: ET.Element) -> 'TableRegion':
-        cls.check_tag(e.tag)
-        return TableRegion(
-            **super().from_xml(e),
-            rows=e.attrib.get('rows'),
-            columns=e.attrib.get('columns'),
-            embedded_text=e.attrib.get('embText')
-        )
-
-    def to_xml(self, name_element='TableRegion') -> ET.Element:
-        table_et = super().to_xml(name_element)
-        table_et.set('rows', self.rows if self.rows is not None else 0)
-        table_et.set('columns', self.columns if self.columns is not None else 0)
-        table_et.set('embText', self.embedded_text if self.embedded_text is not None else False)
-        return table_et
-
-    @classmethod
-    def from_dict(cls, dictionary: dict) -> 'TableRegion':
-        return cls(**super().from_dict(dictionary),
-                   rows=dictionary.get('rows'),
-                   columns=dictionary.get('columns'),
-                   embedded_text=dictionary.get('embedded_text'))
-
-
 class TableCell(Region):
     """
-    Tabular data in any form.
-    Tabular data is represented with a table region. Rows and columns may or may not have separator lines;
-    these lines are not separator regions.
+    Table cell data.
 
     :ivar id: identifier of the `TableRegion`
     :ivar coords: coordinates of the `TableRegion`
-    :ivar row_span: number of rows in the table
-    :ivar col_span: number of columns in the table
+    :ivar row_span: number of rows the cell spans
+    :ivar col_span: number of columns the cell spans
     :ivar embedded_text: if text is embedded in the table
     """
 
@@ -472,6 +423,95 @@ class TableCell(Region):
         self.row_span = row_span
         self.col_span = col_span
         self.embedded_text = embedded_text
+
+    def to_xml(self, name_element='TableCell') -> ET.Element:
+        cell_et = super().to_xml(name_element=name_element)
+        if self.row_span is not None and self.row_span != '':
+            cell_et.set('rowSpan', self.row_span)
+        if self.col_span is not None and self.col_span != '':
+            cell_et.set('colSpan', self.col_span)
+        cell_et.append(self.text_region.to_xml())
+        cell_et.set('embText', self.embedded_text if self.embedded_text is not None else False)
+        return cell_et
+
+    @classmethod
+    def from_xml(cls, e: ET.Element) -> 'TableCell':
+        cls.check_tag(e.tag)
+        return TableCell(
+            **super().from_xml(e),
+            row_span=e.attrib.get('rowSpan'),
+            col_span=e.attrib.get('colSpan'),
+            text_region=TextRegion.from_xml(e.find('p:TextRegion', _ns)),
+            embedded_text=e.attrib.get('embText')
+        )
+
+    def to_dict(self, non_serializable_keys: List[str] = list()):
+        return super().to_dict(non_serializable_keys=['text_region'])
+
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> 'TableCell':
+        return cls(**super().from_dict(dictionary),
+                   row_span=dictionary.get('rowSpan'),
+                   col_span=dictionary.get('colSpan'),
+                   text_region=TextRegion.from_dict(dictionary.get('text_region', None)),
+                   embedded_text=dictionary.get('embedded_text'))
+
+
+class TableRegion(Region):
+    """
+    Tabular data in any form.
+    Tabular data is represented with a table region. Rows and columns may or may not have separator lines;
+    these lines are not separator regions.
+
+    :ivar id: identifier of the `TableRegion`
+    :ivar coords: coordinates of the `TableRegion`
+    :ivar cells: list of `TableCell`
+    :ivar rows: number of rows in the table
+    :ivar columns: number of columns in the table
+    :ivar embedded_text: if text is embedded in the table
+    """
+
+    tag = 'TableRegion'
+
+    def __init__(self, id: str = None, coords: List[Point] = None, cells: List[TableCell] = None, rows: int = None,
+                 columns: int = None,
+                 embedded_text: bool = None, custom_attribute: str = None):
+        super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
+        self.cells = cells
+        self.rows = rows
+        self.columns = columns
+        self.embedded_text = embedded_text
+
+    @classmethod
+    def from_xml(cls, e: ET.Element) -> 'TableRegion':
+        cls.check_tag(e.tag)
+        return TableRegion(
+            **super().from_xml(e),
+            rows=e.attrib.get('rows'),
+            columns=e.attrib.get('columns'),
+            cells=[TableCell.from_xml(cell) for cell in e.findall('p:TableCell', _ns)],
+            embedded_text=e.attrib.get('embText')
+        )
+
+    def to_xml(self, name_element='TableRegion') -> ET.Element:
+        table_et = super().to_xml(name_element)
+        table_et.set('rows', self.rows if self.rows is not None else 0)
+        table_et.set('columns', self.columns if self.columns is not None else 0)
+        for cell in self.cells:
+            table_et.append(cell.to_xml())
+        table_et.set('embText', self.embedded_text if self.embedded_text is not None else False)
+        return table_et
+
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> 'TableRegion':
+        return cls(**super().from_dict(dictionary),
+                   rows=dictionary.get('rows'),
+                   columns=dictionary.get('columns'),
+                   cells=[TableCell.from_dict(cell) for cell in dictionary.get('cells', list())],
+                   embedded_text=dictionary.get('embedded_text'))
+
+    def to_dict(self, non_serializable_keys: List[str] = list()):
+        return super().to_dict(non_serializable_keys=['cells'])
 
 
 class SeparatorRegion(Region):
@@ -1066,8 +1106,8 @@ def json_serialize(dict_to_serialize: dict, non_serializable_keys: List[str] = l
     Serialize a dictionary in order to export it.
 
     :param dict_to_serialize: dictionary to serialize
-    :param non_serializable_keys: keys that are not directly seriazable sucha as python objects
-    :return: the serialized dictionnary
+    :param non_serializable_keys: keys that are not directly serializable such as python objects
+    :return: the serialized dictionary
     """
 
     new_dict = dict_to_serialize.copy()
