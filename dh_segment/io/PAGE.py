@@ -404,11 +404,12 @@ class TextRegion(Region):
 
 
 class TableCell(Region):
-    """
-    Table cell data.
+    """ Table cell data
+    A table cell can contain a text region and spans one or more rows and columns.
 
     :ivar id: identifier of the `TableRegion`
     :ivar coords: coordinates of the `TableRegion`
+    :ivar text_region: text region that is contained
     :ivar row_span: number of rows the cell spans
     :ivar col_span: number of columns the cell spans
     :ivar embedded_text: if text is embedded in the table
