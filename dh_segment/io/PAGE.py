@@ -35,6 +35,17 @@ def _get_text_equiv(e: ET.Element) -> str:
     return tmp.text
 
 
+def _encode_bool(value):
+    if value:
+        return 'true'
+    return 'false'
+
+def _decode_bool(value):
+    if value.lower() == 'true':
+        return True
+    return False
+
+
 class Point:
     """Point (x,y) class.
 
@@ -409,7 +420,7 @@ class TableCell(Region):
 
     :ivar id: identifier of the `TableRegion`
     :ivar coords: coordinates of the `TableRegion`
-    :ivar text_region: text region that is contained
+    :ivar text_lines: text lines that are contained
     :ivar row: row number
     :ivar col: column number
     :ivar row_span: number of rows the cell spans
@@ -419,29 +430,30 @@ class TableCell(Region):
 
     tag = 'TableCell'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, text_region: TextRegion = None, row: int = None,
+    def __init__(self, id: str = None, coords: List[Point] = None, text_lines: List[TextLine] = None, row: int = None,
                  col: int = None, row_span: int = None,
                  col_span: int = None, embedded_text: bool = None, custom_attribute: str = None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
-        self.text_region = text_region
-        self.row = row,
-        self.col = col,
+        self.text_lines = text_lines if text_lines is not None else []
+        self.row = row
+        self.col = col
         self.row_span = row_span
         self.col_span = col_span
-        self.embedded_text = embedded_text
+        self.embedded_text = embedded_text if embedded_text is not None else False
 
     def to_xml(self, name_element='TableCell') -> ET.Element:
         cell_et = super().to_xml(name_element=name_element)
-        if self.row is not None and self.row != '':
-            cell_et.set('row', self.row)
-        if self.col is not None and self.col != '':
-            cell_et.set('col', self.col)
-        if self.row_span is not None and self.row_span != '':
-            cell_et.set('rowSpan', self.row_span)
-        if self.col_span is not None and self.col_span != '':
-            cell_et.set('colSpan', self.col_span)
-        cell_et.append(self.text_region.to_xml())
-        cell_et.set('embText', self.embedded_text if self.embedded_text is not None else False)
+        if self.row is not None:
+            cell_et.set('row', f"{self.row}")
+        if self.col is not None:
+            cell_et.set('col', f"{self.col}")
+        if self.row_span is not None:
+            cell_et.set('rowSpan', f"{self.row_span}")
+        if self.col_span is not None:
+            cell_et.set('colSpan', f"{self.col_span}")
+        for tl in self.text_lines:
+            cell_et.append(tl.to_xml())
+        cell_et.set('embText', _encode_bool(self.embedded_text))
         return cell_et
 
     @classmethod
@@ -449,26 +461,26 @@ class TableCell(Region):
         cls.check_tag(e.tag)
         return TableCell(
             **super().from_xml(e),
-            row=e.attrib.get('row'),
-            col=e.attrib.get('col'),
-            row_span=e.attrib.get('rowSpan'),
-            col_span=e.attrib.get('colSpan'),
-            text_region=TextRegion.from_xml(e.find('p:TextRegion', _ns)),
-            embedded_text=e.attrib.get('embText')
+            row=int(e.attrib.get('row')),
+            col=int(e.attrib.get('col')),
+            row_span=int(e.attrib.get('rowSpan')),
+            col_span=int(e.attrib.get('colSpan')),
+            text_lines=[TextLine.from_xml(tl) for tl in e.findall('p:TextLine', _ns)],
+            embedded_text=_decode_bool(e.attrib.get('embText'))
         )
 
     def to_dict(self, non_serializable_keys: List[str] = list()):
-        return super().to_dict(non_serializable_keys=['text_region'])
+        return super().to_dict(non_serializable_keys=['text_lines'])
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> 'TableCell':
         return cls(**super().from_dict(dictionary),
-                   row=dictionary.get('row'),
-                   col=dictionary.get('col'),
-                   row_span=dictionary.get('rowSpan'),
-                   col_span=dictionary.get('colSpan'),
-                   text_region=TextRegion.from_dict(dictionary.get('text_region', None)),
-                   embedded_text=dictionary.get('embedded_text'))
+                   row=int(dictionary.get('row')),
+                   col=int(dictionary.get('col')),
+                   row_span=int(dictionary.get('rowSpan')),
+                   col_span=int(dictionary.get('colSpan')),
+                   text_lines=[TextLine.from_dict(tl) for tl in dictionary.get('text_lines', list())],
+                   embedded_text=_decode_bool(dictionary.get('embedded_text')))
 
 
 class TableRegion(Region):
@@ -482,47 +494,44 @@ class TableRegion(Region):
     :ivar cells: list of `TableCell`
     :ivar rows: number of rows in the table
     :ivar columns: number of columns in the table
-    :ivar embedded_text: if text is embedded in the table
     """
 
     tag = 'TableRegion'
 
     def __init__(self, id: str = None, coords: List[Point] = None, cells: List[TableCell] = None, rows: int = None,
                  columns: int = None,
-                 embedded_text: bool = None, custom_attribute: str = None):
+                 custom_attribute: str = None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
-        self.cells = cells
+        self.cells = cells if cells is not None else []
         self.rows = rows
         self.columns = columns
-        self.embedded_text = embedded_text
 
     @classmethod
     def from_xml(cls, e: ET.Element) -> 'TableRegion':
         cls.check_tag(e.tag)
         return TableRegion(
             **super().from_xml(e),
-            rows=e.attrib.get('rows'),
-            columns=e.attrib.get('columns'),
-            cells=[TableCell.from_xml(cell) for cell in e.findall('p:TableCell', _ns)],
-            embedded_text=e.attrib.get('embText')
+            rows=int(e.attrib.get('rows')),
+            columns=int(e.attrib.get('columns')),
+            cells=[TableCell.from_xml(cell) for cell in e.findall('p:TableCell', _ns)]
         )
 
     def to_xml(self, name_element='TableRegion') -> ET.Element:
         table_et = super().to_xml(name_element)
-        table_et.set('rows', self.rows if self.rows is not None else 0)
-        table_et.set('columns', self.columns if self.columns is not None else 0)
+        if self.rows is not None:
+            table_et.set('rows', f"{self.rows}")
+        if self.columns is not None:
+            table_et.set('columns', f"{self.columns}")
         for cell in self.cells:
             table_et.append(cell.to_xml())
-        table_et.set('embText', self.embedded_text if self.embedded_text is not None else False)
         return table_et
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> 'TableRegion':
         return cls(**super().from_dict(dictionary),
-                   rows=dictionary.get('rows'),
-                   columns=dictionary.get('columns'),
-                   cells=[TableCell.from_dict(cell) for cell in dictionary.get('cells', list())],
-                   embedded_text=dictionary.get('embedded_text'))
+                   rows=int(dictionary.get('rows')),
+                   columns=int(dictionary.get('columns')),
+                   cells=[TableCell.from_dict(cell) for cell in dictionary.get('cells', list())])
 
     def to_dict(self, non_serializable_keys: List[str] = list()):
         return super().to_dict(non_serializable_keys=['cells'])
