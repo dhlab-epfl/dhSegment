@@ -35,6 +35,17 @@ def _get_text_equiv(e: ET.Element) -> str:
     return tmp.text
 
 
+def _encode_bool(value):
+    if value:
+        return 'true'
+    return 'false'
+
+def _decode_bool(value):
+    if value.lower() == 'true':
+        return True
+    return False
+
+
 class Point:
     """Point (x,y) class.
 
@@ -423,7 +434,7 @@ class TableCell(Region):
                  col: int = None, row_span: int = None,
                  col_span: int = None, embedded_text: bool = None, custom_attribute: str = None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
-        self.text_lines = text_lines
+        self.text_lines = text_lines if text_lines is not None else []
         self.row = row
         self.col = col
         self.row_span = row_span
@@ -442,7 +453,7 @@ class TableCell(Region):
             cell_et.set('colSpan', f"{self.col_span}")
         for tl in self.text_lines:
             cell_et.append(tl.to_xml())
-        cell_et.set('embText', encode_bool(self.embedded_text))
+        cell_et.set('embText', _encode_bool(self.embedded_text))
         return cell_et
 
     @classmethod
@@ -455,7 +466,7 @@ class TableCell(Region):
             row_span=int(e.attrib.get('rowSpan')),
             col_span=int(e.attrib.get('colSpan')),
             text_lines=[TextLine.from_xml(tl) for tl in e.findall('p:TextLine', _ns)],
-            embedded_text=decode_bool(e.attrib.get('embText'))
+            embedded_text=_decode_bool(e.attrib.get('embText'))
         )
 
     def to_dict(self, non_serializable_keys: List[str] = list()):
@@ -469,7 +480,7 @@ class TableCell(Region):
                    row_span=int(dictionary.get('rowSpan')),
                    col_span=int(dictionary.get('colSpan')),
                    text_lines=[TextLine.from_dict(tl) for tl in dictionary.get('text_lines', list())],
-                   embedded_text=decode_bool(dictionary.get('embedded_text')))
+                   embedded_text=_decode_bool(dictionary.get('embedded_text')))
 
 
 class TableRegion(Region):
@@ -1081,16 +1092,6 @@ class Page(BaseElement):
         else:
             cv2.polylines(img_canvas, cg_coords, True, color, thickness=thickness)
 
-
-def encode_bool(value):
-    if value:
-        return 'true'
-    return 'false'
-
-def decode_bool(value):
-    if value.lower() == 'true':
-        return True
-    return False
 
 def parse_file(filename: str) -> Page:
     """
