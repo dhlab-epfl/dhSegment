@@ -1,2 +1,7 @@
+Pipfile
+Pipfile.lock
+
 .idea/
 **/__pycache__/**
+.venv/
+dh_segment.egg-info/
