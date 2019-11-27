@@ -54,7 +54,9 @@ class Point:
 
     """
 
-    def __init__(self, y: int, x: int):
+    def __init__(self,
+                 y: int,
+                 x: int):
         self.y = y
         self.x = x
 
@@ -156,7 +158,10 @@ class Text:
     :ivar score: the confidence of the transcription output by the transcription system
     """
 
-    def __init__(self, text_equiv: str = None, alternatives: List[str] = None, score: float = None):
+    def __init__(self,
+                 text_equiv: str = None,
+                 alternatives: List[str] = None,
+                 score: float = None):
         self.text_equiv = text_equiv  # if text_equiv is not None else ''
         self.alternatives = alternatives  # if alternatives is not None else []
         self.score = score  # if score is not None else ''
@@ -192,7 +197,10 @@ class Region(BaseElement):
     """
     tag = 'Region'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, custom_attribute: str = None):
+    def __init__(self,
+                 id: str = None,
+                 coords: List[Point] = None,
+                 custom_attribute: str = None):
         self.coords = coords if coords is not None else []
         self.id = id
         self.custom_attribute = custom_attribute if custom_attribute is not None else ''
@@ -260,8 +268,14 @@ class TextLine(Region):
     """
     tag = 'TextLine'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, baseline: List[Point] = None, text: Text = None,
-                 line_group_id: str = None, column_group_id: str = None, custom_attribute: str = None):
+    def __init__(self,
+                 id: str = None,
+                 coords: List[Point] = None,
+                 baseline: List[Point] = None,
+                 text: Text = None,
+                 line_group_id: str = None,
+                 column_group_id: str = None,
+                 custom_attribute: str = None):
         super().__init__(id=id if id is not None else str(uuid4()), coords=coords, custom_attribute=custom_attribute)
         self.baseline = baseline if baseline is not None else []
         self.text = text if text is not None else Text()
@@ -330,7 +344,10 @@ class GraphicRegion(Region):
     """
     tag = 'GraphicRegion'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, custom_attribute: str = None):
+    def __init__(self,
+                 id: str = None,
+                 coords: List[Point] = None,
+                 custom_attribute: str = None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
 
     @classmethod
@@ -361,9 +378,13 @@ class TextRegion(Region):
     """
     tag = 'TextRegion'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, text_lines: List[TextLine] = None,
+    def __init__(self,
+                 id: str = None,
+                 coords: List[Point] = None,
+                 text_lines: List[TextLine] = None,
                  text_equiv: str = '',
-                 region_type: str = None, custom_attribute: str = None):
+                 region_type: str = None,
+                 custom_attribute: str = None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.text_equiv = text_equiv if text_equiv is not None else ''
         self.text_lines = text_lines if text_lines is not None else []
@@ -430,9 +451,16 @@ class TableCell(Region):
 
     tag = 'TableCell'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, text_lines: List[TextLine] = None, row: int = None,
-                 col: int = None, row_span: int = None,
-                 col_span: int = None, embedded_text: bool = None, custom_attribute: str = None):
+    def __init__(self,
+                 id: str = None,
+                 coords: List[Point] = None,
+                 text_lines: List[TextLine] = None,
+                 row: int = None,
+                 col: int = None,
+                 row_span: int = None,
+                 col_span: int = None,
+                 embedded_text: bool = None,
+                 custom_attribute: str = None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.text_lines = text_lines if text_lines is not None else []
         self.row = row
@@ -444,13 +472,13 @@ class TableCell(Region):
     def to_xml(self, name_element='TableCell') -> ET.Element:
         cell_et = super().to_xml(name_element=name_element)
         if self.row is not None:
-            cell_et.set('row', f"{self.row}")
+            cell_et.set('row', '{}'.format(self.row))
         if self.col is not None:
-            cell_et.set('col', f"{self.col}")
+            cell_et.set('col', '{}'.format(self.col))
         if self.row_span is not None:
-            cell_et.set('rowSpan', f"{self.row_span}")
+            cell_et.set('rowSpan', '{}'.format(self.row_span))
         if self.col_span is not None:
-            cell_et.set('colSpan', f"{self.col_span}")
+            cell_et.set('colSpan','{}'.format(self.col_span))
         for tl in self.text_lines:
             cell_et.append(tl.to_xml())
         cell_et.set('embText', _encode_bool(self.embedded_text))
@@ -498,7 +526,11 @@ class TableRegion(Region):
 
     tag = 'TableRegion'
 
-    def __init__(self, id: str = None, coords: List[Point] = None, cells: List[TableCell] = None, rows: int = None,
+    def __init__(self,
+                 id: str = None,
+                 coords: List[Point] = None,
+                 cells: List[TableCell] = None,
+                 rows: int = None,
                  columns: int = None,
                  custom_attribute: str = None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
@@ -549,7 +581,10 @@ class SeparatorRegion(Region):
 
     tag = 'SeparatorRegion'
 
-    def __init__(self, id: str, coords: List[Point] = None, custom_attribute: str = None):
+    def __init__(self,
+                 id: str,
+                 coords: List[Point] = None,
+                 custom_attribute: str = None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
 
     @classmethod
@@ -576,7 +611,9 @@ class Border(BaseElement):
 
     tag = 'Border'
 
-    def __init__(self, coords: List[Point] = None, id: str = None):
+    def __init__(self,
+                 coords: List[Point] = None,
+                 id: str = None):
         self.coords = coords if coords is not None else []
 
     @classmethod
@@ -615,7 +652,11 @@ class Metadata(BaseElement):
     """
     tag = 'Metadata'
 
-    def __init__(self, creator: str = None, created: str = None, last_change: str = None, comments: str = None):
+    def __init__(self,
+                 creator: str = None,
+                 created: str = None,
+                 last_change: str = None,
+                 comments: str = None):
         self.creator = creator
         self.created = created
         self.last_change = last_change
@@ -673,7 +714,10 @@ class GroupSegment(Region):
 
     """
 
-    def __init__(self, id: str = None, coords: List[Point] = None, segment_ids: List[str] = None,
+    def __init__(self,
+                 id: str = None,
+                 coords: List[Point] = None,
+                 segment_ids: List[str] = None,
                  custom_attribute: str = None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.segment_ids = segment_ids if segment_ids is not None else []
@@ -1124,7 +1168,8 @@ def parse_file(filename: str) -> Page:
         raise NotImplementedError
 
 
-def json_serialize(dict_to_serialize: dict, non_serializable_keys: List[str] = list()) -> dict:
+def json_serialize(dict_to_serialize: dict,
+                   non_serializable_keys: List[str] = list()) -> dict:
     """
     Serialize a dictionary in order to export it.
 
