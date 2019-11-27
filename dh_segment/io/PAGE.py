@@ -439,8 +439,8 @@ class TableCell(Region):
     """ Table cell data
     A table cell can contain a text region and spans one or more rows and columns.
 
-    :ivar id: identifier of the `TableRegion`
-    :ivar coords: coordinates of the `TableRegion`
+    :ivar id: identifier of the `TableCell`
+    :ivar coords: coordinates of the `TableCell`
     :ivar text_lines: text lines that are contained
     :ivar row: row number
     :ivar col: column number
