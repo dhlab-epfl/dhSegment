@@ -437,15 +437,16 @@ class TextRegion(Region):
 
 class TableCell(Region):
     """ Table cell data
-    A table cell can contain a text region and spans one or more rows and columns.
+    A table cell can contain text lines and spans one or more rows and columns.
 
     :ivar id: identifier of the `TableCell`
     :ivar coords: coordinates of the `TableCell`
     :ivar text_lines: text lines that are contained
-    :ivar row: row number
-    :ivar col: column number
+    :ivar row_index: row number starting with row 0
+    :ivar col_index: column number starting with column 0
     :ivar row_span: number of rows the cell spans
     :ivar col_span: number of columns the cell spans
+    :ivar header: if the cell is a column or row header
     :ivar embedded_text: if text is embedded in the table
     """
 
@@ -455,32 +456,35 @@ class TableCell(Region):
                  id: str = None,
                  coords: List[Point] = None,
                  text_lines: List[TextLine] = None,
-                 row: int = None,
-                 col: int = None,
+                 row_index: int = None,
+                 col_index: int = None,
                  row_span: int = None,
                  col_span: int = None,
+                 header: bool = None,
                  embedded_text: bool = None,
                  custom_attribute: str = None):
         super().__init__(id=id, coords=coords, custom_attribute=custom_attribute)
         self.text_lines = text_lines if text_lines is not None else []
-        self.row = row
-        self.col = col
+        self.row_index = row_index
+        self.col_index = col_index
         self.row_span = row_span
         self.col_span = col_span
+        self.header = header if header is not None else False
         self.embedded_text = embedded_text if embedded_text is not None else False
 
     def to_xml(self, name_element='TableCell') -> ET.Element:
         cell_et = super().to_xml(name_element=name_element)
-        if self.row is not None:
-            cell_et.set('row', '{}'.format(self.row))
-        if self.col is not None:
-            cell_et.set('col', '{}'.format(self.col))
+        if self.row_index is not None:
+            cell_et.set('rowIndex', '{}'.format(self.row_index))
+        if self.col_index is not None:
+            cell_et.set('columnIndex', '{}'.format(self.col_index))
         if self.row_span is not None:
             cell_et.set('rowSpan', '{}'.format(self.row_span))
         if self.col_span is not None:
-            cell_et.set('colSpan','{}'.format(self.col_span))
+            cell_et.set('colSpan', '{}'.format(self.col_span))
         for tl in self.text_lines:
             cell_et.append(tl.to_xml())
+        cell_et.set('header', _encode_bool(self.header))
         cell_et.set('embText', _encode_bool(self.embedded_text))
         return cell_et
 
@@ -489,11 +493,12 @@ class TableCell(Region):
         cls.check_tag(e.tag)
         return TableCell(
             **super().from_xml(e),
-            row=int(e.attrib.get('row')),
-            col=int(e.attrib.get('col')),
+            row_index=int(e.attrib.get('rowIndex')),
+            col_index=int(e.attrib.get('columnIndex')),
             row_span=int(e.attrib.get('rowSpan')),
             col_span=int(e.attrib.get('colSpan')),
             text_lines=[TextLine.from_xml(tl) for tl in e.findall('p:TextLine', _ns)],
+            header=_decode_bool(e.attrib.get('header')),
             embedded_text=_decode_bool(e.attrib.get('embText'))
         )
 
@@ -503,11 +508,12 @@ class TableCell(Region):
     @classmethod
     def from_dict(cls, dictionary: dict) -> 'TableCell':
         return cls(**super().from_dict(dictionary),
-                   row=int(dictionary.get('row')),
-                   col=int(dictionary.get('col')),
+                   row_index=int(dictionary.get('rowIndex')),
+                   col_index=int(dictionary.get('columnIndex')),
                    row_span=int(dictionary.get('rowSpan')),
                    col_span=int(dictionary.get('colSpan')),
                    text_lines=[TextLine.from_dict(tl) for tl in dictionary.get('text_lines', list())],
+                   header=_decode_bool(dictionary.get('header')),
                    embedded_text=_decode_bool(dictionary.get('embedded_text')))
 
 
