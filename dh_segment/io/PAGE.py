@@ -556,10 +556,8 @@ class TableRegion(Region):
 
     def to_xml(self, name_element='TableRegion') -> ET.Element:
         table_et = super().to_xml(name_element)
-        if self.rows is not None:
-            table_et.set('rows', f"{self.rows}")
-        if self.columns is not None:
-            table_et.set('columns', f"{self.columns}")
+        table_et.set('rows', '{}'.format(self.rows) if self.rows is not None else '0')
+        table_et.set('columns', '{}'.format(self.columns) if self.columns is not None else '0')
         for cell in self.cells:
             table_et.append(cell.to_xml())
         return table_et
