@@ -94,7 +94,8 @@ def parse_via_attributes(via_attributes: dict) -> List[VIAttribute]:
     return list_attributes
 
 
-def get_annotations_per_file(via_dict: dict, name_file: str) -> dict:
+def get_annotations_per_file(via_dict: dict,
+                             name_file: str) -> dict:
     """
     From VIA json content, get annotations relative to the given `name_file`.
 
@@ -127,7 +128,9 @@ def get_annotations_per_file(via_dict: dict, name_file: str) -> dict:
             return None
 
 
-def _compute_reduced_dimensions(x: int, y: int, target_h: int=2000) -> Tuple[int, int]:
+def _compute_reduced_dimensions(x: int,
+                                y: int,
+                                target_h: int = 2000) -> Tuple[int, int]:
     """
     Compute new dimensions with height set to `target_h`.
 
@@ -141,8 +144,9 @@ def _compute_reduced_dimensions(x: int, y: int, target_h: int=2000) -> Tuple[int
     return target_h, target_w
 
 
-def _collect_working_items_from_local_images(via_annotations: dict, images_dir: str, collection_name: str) \
-        -> List[WorkingItem]:
+def _collect_working_items_from_local_images(via_annotations: dict,
+                                             images_dir: str,
+                                             collection_name: str) -> List[WorkingItem]:
     """
     Given VIA annotation input, collect all info on `WorkingItem` object, when images come from local files
 
@@ -154,6 +158,7 @@ def _collect_working_items_from_local_images(via_annotations: dict, images_dir: 
 
     def _formatting(name_id: str) -> str:
         name_id = re.sub('.jpg\d*', '.jpg', name_id)
+        name_id = re.sub('.JPG\d*', '.JPG', name_id)
         name_id = re.sub('.png\d*', '.png', name_id)
         return name_id
 
@@ -188,7 +193,9 @@ def _collect_working_items_from_local_images(via_annotations: dict, images_dir: 
     return working_items
 
 
-def _collect_working_items_from_iiif(via_annotations: dict, collection_name: str, iiif_user='my-team') -> dict:
+def _collect_working_items_from_iiif(via_annotations: dict,
+                                     collection_name: str,
+                                     iiif_user = 'my-team') -> dict:
     """
     Given VIA annotation input, collect all info on `WorkingItem` object, when the images come from IIIF urls
 
@@ -235,8 +242,10 @@ def _collect_working_items_from_iiif(via_annotations: dict, collection_name: str
     return working_items
 
 
-def collect_working_items(via_annotations: dict, collection_name: str, images_dir: str=None,
-                          via_version: int=2) -> List[WorkingItem]:
+def collect_working_items(via_annotations: dict,
+                          collection_name: str,
+                          images_dir: str = None,
+                          via_version: int = 2) -> List[WorkingItem]:
     """
     Given VIA annotation input, collect all info on `WorkingItem` object.
     This function will take care of separating images from local files and images from IIIF urls.
@@ -269,7 +278,8 @@ def collect_working_items(via_annotations: dict, collection_name: str, images_di
     return working_items
 
 
-def _scale_down_original(working_item, img_out_dir: str) -> None:
+def _scale_down_original(working_item,
+                         img_out_dir: str) -> None:
     """
     Copy and reduce original image files.
 
@@ -303,7 +313,9 @@ def _scale_down_original(working_item, img_out_dir: str) -> None:
         imsave(outfile, img_resized.astype(np.uint8))
 
 
-def load_annotation_data(via_data_filename: str, only_img_annotations: bool=False, via_version: int=2) -> dict:
+def load_annotation_data(via_data_filename: str,
+                         only_img_annotations: bool = False,
+                         via_version: int = 2) -> dict:
     """
     Load the content of via annotation files.
 
@@ -326,7 +338,8 @@ def load_annotation_data(via_data_filename: str, only_img_annotations: bool=Fals
         return content
 
 
-def export_annotation_dict(annotation_dict: dict, filename: str) -> None:
+def export_annotation_dict(annotation_dict: dict,
+                           filename: str) -> None:
     """
     Export the annotations to json file.
 
@@ -338,7 +351,8 @@ def export_annotation_dict(annotation_dict: dict, filename: str) -> None:
         json.dump(annotation_dict, f)
 
 
-def get_via_attributes(annotation_dict: dict, via_version: int=2) -> List[VIAttribute]:
+def get_via_attributes(annotation_dict: dict,
+                       via_version: int = 2) -> List[VIAttribute]:
     """
     Gets the attributes of the annotated data and returns a list of `VIAttribute`.
 
@@ -406,7 +420,9 @@ def get_via_attributes(annotation_dict: dict, via_version: int=2) -> List[VIAttr
     return viattribute_list
 
 
-def _draw_mask(via_region: dict, mask: np.array, contours_only: bool=False) -> np.array:
+def _draw_mask(via_region: dict,
+               mask: np.array,
+               contours_only: bool = False) -> np.array:
     """
 
     :param via_region: region to draw (in VIA format)
@@ -460,7 +476,11 @@ def _draw_mask(via_region: dict, mask: np.array, contours_only: bool=False) -> n
     return mask
 
 
-def _write_mask(mask: np.ndarray, masks_dir: str, collection: str, image_name: str, label: str) -> None:
+def _write_mask(mask: np.ndarray,
+                masks_dir: str,
+                collection: str,
+                image_name: str,
+                label: str) -> None:
     """
     Save a mask with filename containing 'label'.
 
@@ -480,8 +500,11 @@ def _write_mask(mask: np.ndarray, masks_dir: str, collection: str, image_name: s
     imsave(outfile, mask.astype(np.uint8))
 
 
-def create_masks(masks_dir: str, working_items: List[WorkingItem], via_attributes: List[VIAttribute],
-                 collection: str, contours_only: bool=False) -> dict:
+def create_masks(masks_dir: str,
+                 working_items: List[WorkingItem],
+                 via_attributes: List[VIAttribute],
+                 collection: str,
+                 contours_only: bool = False) -> dict:
     """
     For each annotation, create a corresponding binary mask and resize it (h = 2000). Only valid for VIA 2.0.
     Several annotations of the same class on the same image produce one image with several masks.
@@ -626,7 +649,9 @@ def _get_xywh_from_coordinates(coordinates: np.array) -> Tuple[int, int, int, in
     return x, y, w, h
 
 
-def create_via_region_from_coordinates(coordinates: np.array, region_attributes: dict, type_region: str) -> dict:
+def create_via_region_from_coordinates(coordinates: np.array,
+                                       region_attributes: dict,
+                                       type_region: str) -> dict:
     """
     Formats coordinates to a VIA region (dict).
 
@@ -662,8 +687,9 @@ def create_via_region_from_coordinates(coordinates: np.array, region_attributes:
             'shape_attributes': shape_atributes}
 
 
-def create_via_annotation_single_image(img_filename: str, via_regions: List[dict],
-                                       file_attributes: dict=None) -> Dict[str, dict]:
+def create_via_annotation_single_image(img_filename: str,
+                                       via_regions: List[dict],
+                                       file_attributes: dict = None) -> Dict[str, dict]:
     """
     Returns a dictionary item {key: annotation} in VIA format to further export to .json file
 
@@ -694,7 +720,8 @@ def create_via_annotation_single_image(img_filename: str, via_regions: List[dict
 # PAGE CONVERSION
 # ---------------
 
-def convert_via_region_page_text_region(working_item: WorkingItem, structure_label: str) -> PAGE.Page:
+def convert_via_region_page_text_region(working_item: WorkingItem,
+                                        structure_label: str) -> PAGE.Page:
     """
 
     :param working_item:
