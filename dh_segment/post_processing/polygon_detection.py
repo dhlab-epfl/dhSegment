@@ -6,7 +6,9 @@ import math
 from shapely import geometry
 
 
-def find_polygonal_regions(image_mask: np.ndarray, min_area: float=0.1, n_max_polygons: int=math.inf) -> list:
+def find_polygonal_regions(image_mask: np.ndarray,
+                           min_area: float=0.1,
+                           n_max_polygons: int=math.inf) -> list:
     """
     Finds the shapes in a binary mask and returns their coordinates as polygons.
 
@@ -18,7 +20,7 @@ def find_polygonal_regions(image_mask: np.ndarray, min_area: float=0.1, n_max_po
     :return: list of length n_max_polygons containing polygon's n coordinates [[x1, y1], ... [xn, yn]]
     """
 
-    _, contours, _ = cv2.findContours(image_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(image_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if contours is None:
         print('No contour found')
         return None
