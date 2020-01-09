@@ -2,7 +2,7 @@
 from setuptools import setup, find_packages
 
 setup(name='dh_segment',
-      version='0.5.0',
+      version='0.6.0',
       license='GPL',
       url='https://github.com/dhlab-epfl/dhSegment',
       description='Generic framework for historical document processing',

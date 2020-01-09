@@ -5,6 +5,25 @@ Changelog
 .. Unreleased
     ----------
 
+0.6.0 - 2020-01-09
+------------------
+
+Added
+^^^^^
+
+* Added ``TableCell`` object in PAGEXML. (@CrazyCrud)
+
+Changed
+^^^^^^^
+
+* Changed default value of ``min_area`` value to 0 in ``find_boxes`` and ``find_polygons``.
+
+Fixed
+^^^^^
+
+* If export directory is empty at the end of training, export a model anyway.
+* In ``post_processing/polygon_detection`` corrected the output of ``cv2.findContours`` to be compatible with OpenCV >= 4.0.
+
 
 0.5.0 - 2019-08-14
 ------------------
