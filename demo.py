@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
             # Find quadrilateral enclosing the page
             pred_page_coords = boxes_detection.find_boxes(bin_upscaled.astype(np.uint8, copy=False),
-                                                          mode='min_rectangle', n_max_boxes=1)
+                                                          mode='min_rectangle', min_area=0.2, n_max_boxes=1)
 
             # Draw page box on original image and export it. Add also box coordinates to the txt file
             original_img = imread(filename, pilmode='RGB')

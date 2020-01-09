@@ -7,7 +7,7 @@ from shapely import geometry
 
 
 def find_polygonal_regions(image_mask: np.ndarray,
-                           min_area: float=0.1,
+                           min_area: float=0.,
                            n_max_polygons: int=math.inf) -> list:
     """
     Finds the shapes in a binary mask and returns their coordinates as polygons.

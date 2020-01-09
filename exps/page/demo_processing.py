@@ -50,7 +50,7 @@ def page_extraction(model_dir: str,
 
             # Find quadrilateral enclosing the page
             pred_page_coords = find_boxes(bin_upscaled.astype(np.uint8, copy=False),
-                                          mode='min_rectangle', n_max_boxes=1)
+                                          mode='min_rectangle', min_area=0.2, n_max_boxes=1)
 
             if pred_page_coords is not None:
                 # Write corners points into a .txt file
