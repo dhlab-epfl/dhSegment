@@ -105,4 +105,4 @@ def find_boxes(boxes_mask: np.ndarray,
         else:
             return None
     else:
-        return [fb[0] for i, fb in enumerate(found_boxes) if i <= n_max_boxes]
+        return [fb[0] for i, fb in enumerate(found_boxes) if i < n_max_boxes]
