@@ -1,5 +1,6 @@
 import tensorflow as tf
-from tensorflow.contrib.image import rotate as tf_rotate
+# from tensorflow.contrib.image import rotate as tf_rotate
+from tensorflow_addons.image import rotate as tf_rotate
 from scipy import ndimage
 import numpy as np
 from typing import Tuple

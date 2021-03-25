@@ -47,8 +47,8 @@ class LoadedModel:
             raise NotImplementedError
         self.predict_mode = predict_mode
 
-        self.sess = tf.get_default_session()
-        loaded_model = tf.saved_model.loader.load(self.sess, ['serve'], model_dir)
+        self.sess = tf.compat.v1.get_default_session()
+        loaded_model = tf.compat.v1.saved_model.loader.load(self.sess, ['serve'], model_dir)
         assert 'serving_default' in list(loaded_model.signature_def)
 
         input_dict, output_dict = _signature_def_to_tensors(loaded_model.signature_def[signature_def_key])
@@ -170,6 +170,6 @@ class LoadedModel:
 
 
 def _signature_def_to_tensors(signature_def):
-    g = tf.get_default_graph()
+    g = tf.compat.v1.get_default_graph()
     return {k: g.get_tensor_by_name(v.name) for k, v in signature_def.inputs.items()}, \
            {k: g.get_tensor_by_name(v.name) for k, v in signature_def.outputs.items()}

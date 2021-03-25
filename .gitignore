@@ -1,0 +1,9 @@
+venv/
+*.zip
+*.tar.gz
+*.ckpt
+demo/model/
+demo/pages/
+.DS_Store
+*.pyc
+processed_images/

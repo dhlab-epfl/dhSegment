@@ -60,7 +60,7 @@ if __name__ == '__main__':
     # Store coordinates of page in a .txt file
     txt_coordinates = ''
 
-    with tf.Session():  # Start a tensorflow session
+    with tf.compat.v1.Session():  # Start a tensorflow session
         # Load the model
         m = LoadedModel(model_dir, predict_mode='filename')
 
